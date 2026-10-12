@@ -1451,7 +1451,11 @@ class JardinesApp {
       this.adminData.registrationRequests.unshift(newRequest);
 
       // 2. Registrar usuario en padrón con estado "pending" y su contraseña segura
-      const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
+      const now = new Date();
+      const currentMonthYear = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+      const capitalizedMonth = currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1);
+      const todayShort = now.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+
       const newUser = {
         id: `usr-${unit.toLowerCase()}-${Date.now()}`,
         name: name,
@@ -1472,6 +1476,32 @@ class JardinesApp {
           subscribedAt: null,
           renewalDate: null,
           statusLabel: 'Inactiva (Requiere Suscripción)'
+        },
+        accountData: {
+          unit: unit,
+          type: `Apartamento · Unidad ${unit}`,
+          resident: role === 'owner' ? 'Propietario Titular' : 'Inquilino Arrendatario',
+          sqm: 120,
+          bedrooms: 3,
+          bathrooms: 2,
+          status: 'Al día',
+          statusNote: role === 'owner' ? `Propietario Titular · Unidad ${unit}` : `Inquilino Arrendatario · Unidad ${unit}`,
+          nextFee: `15 ${todayShort}`,
+          nextFeeNote: 'Cuota de mantenimiento mensual',
+          activeRequests: 0,
+          activities: (this.ownerData && this.ownerData.activities) ? JSON.parse(JSON.stringify(this.ownerData.activities)) : [],
+          cuotas: [
+            {
+              period: capitalizedMonth,
+              due: `15 ${todayShort}`,
+              amount: 'RD$ 6,500.00',
+              status: 'Pendiente',
+              badge: 'badge-warning'
+            }
+          ],
+          pagos: [], // Totalmente limpio: CERO pagos previos para nuevos residentes
+          tickets: [], // Totalmente limpio: CERO solicitudes previas
+          documentos: (this.ownerData && this.ownerData.documentos) ? JSON.parse(JSON.stringify(this.ownerData.documentos)) : []
         }
       };
 
@@ -1613,12 +1643,65 @@ class JardinesApp {
     this.renderOwnerTabContent();
   }
 
+  /* =========================================================================
+     Gestión de Datos Aislados por Residente (Cuotas, Pagos & Solicitudes)
+     ========================================================================= */
+  getResidentAccountData(user) {
+    if (!user) {
+      return this.ownerData;
+    }
+
+    // Cuenta de demostración histórica exclusiva de Ramona Ramos (Unidad 301)
+    if (user.email === 'ramona.ramos@gmail.com' || user.id === 'usr-301') {
+      return this.ownerData;
+    }
+
+    const now = new Date();
+    const currentMonthYear = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    const capitalizedMonth = currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1);
+    const todayShort = now.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+
+    // Si el usuario no tiene datos de cuenta o tenía datos de prueba de Ramona heredados
+    if (!user.accountData || (user.accountData.pagos && user.accountData.pagos.some(p => p.id === 'PAG-2025-089'))) {
+      user.accountData = {
+        unit: user.unit,
+        type: `Apartamento · Unidad ${user.unit}`,
+        resident: user.roleLabel || (user.role === 'owner' ? 'Propietario Residente' : 'Inquilino Arrendatario'),
+        sqm: 120,
+        bedrooms: 3,
+        bathrooms: 2,
+        status: "Al día",
+        statusNote: user.role === 'owner' ? `Propietario Titular · Unidad ${user.unit}` : `Inquilino Arrendatario · Unidad ${user.unit}`,
+        nextFee: `15 ${todayShort}`,
+        nextFeeNote: "Cuota de mantenimiento mensual",
+        activeRequests: 0,
+        activities: (this.ownerData && this.ownerData.activities) ? JSON.parse(JSON.stringify(this.ownerData.activities)) : [],
+        cuotas: [
+          {
+            period: capitalizedMonth,
+            due: `15 ${todayShort}`,
+            amount: "RD$ 6,500.00",
+            status: "Pendiente",
+            badge: "badge-warning"
+          }
+        ],
+        pagos: [], // Totalmente limpio: CERO pagos previos para nuevos residentes
+        tickets: [], // Totalmente limpio: CERO tickets previos
+        documentos: (this.ownerData && this.ownerData.documentos) ? JSON.parse(JSON.stringify(this.ownerData.documentos)) : []
+      };
+
+      this.saveAllState();
+    }
+
+    return user.accountData;
+  }
+
   renderOwnerTabContent() {
     const panel = document.getElementById('owner-content-panel');
     if (!panel) return;
 
     const user = this.currentUser || this.registeredUsers[0];
-    const data = this.ownerData;
+    const data = this.getResidentAccountData(user);
     const isOwner = user.role === 'owner';
 
     if (this.activeOwnerTab === 'overview') {
@@ -1662,7 +1745,7 @@ class JardinesApp {
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Solicitudes Activas</div>
-            <div class="kpi-val">${data.tickets.length}</div>
+            <div class="kpi-val">${(data.tickets || []).length}</div>
             <div style="font-size: 11px; color: var(--dust); margin-top: 4px;">Mantenimiento y servicios</div>
           </div>
         </div>
@@ -1670,7 +1753,7 @@ class JardinesApp {
         <div class="table-card" style="padding: 24px;">
           <h3 style="font-family: var(--font-display); font-size: 16px; font-weight: 700; margin-bottom: 16px;">Próximas Actividades del Condominio</h3>
           <div style="display: flex; flex-direction: column; gap: 12px;">
-            ${data.activities.map(a => `
+            ${(data.activities || []).map(a => `
               <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--linen);">
                 <div style="display: flex; align-items: center; gap: 12px;">
                   <span style="padding: 4px 10px; background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-sm); font-size: 11px; font-weight: 700; color: var(--primary);">${a.date}</span>
@@ -1687,7 +1770,7 @@ class JardinesApp {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
           <div>
             <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Cuotas de Mantenimiento</h2>
-            <p style="font-size: 13px; color: var(--dust);">Historial y pagos correspondientes a la Unidad ${user.unit}</p>
+            <p style="font-size: 13px; color: var(--dust);">Historial y cuotas correspondientes a la Unidad ${user.unit}</p>
           </div>
         </div>
 
@@ -1703,11 +1786,11 @@ class JardinesApp {
               </tr>
             </thead>
             <tbody>
-              ${data.cuotas.map(c => `
+              ${data.cuotas && data.cuotas.length > 0 ? data.cuotas.map(c => `
                 <tr>
                   <td><strong>${c.period}</strong></td>
                   <td>${c.due}</td>
-                  <td>RD$ 6,500.00</td>
+                  <td>${c.amount || 'RD$ 6,500.00'}</td>
                   <td><span class="badge ${c.badge}">${c.status}</span></td>
                   <td>
                     ${c.status === 'Pendiente' ? `
@@ -1719,7 +1802,13 @@ class JardinesApp {
                     `}
                   </td>
                 </tr>
-              `).join('')}
+              `).join('') : `
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 36px 20px; color: var(--dust);">
+                    No hay cuotas programadas para este período.
+                  </td>
+                </tr>
+              `}
             </tbody>
           </table>
         </div>
@@ -1729,7 +1818,7 @@ class JardinesApp {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
           <div>
             <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Historial de Pagos y Recibos</h2>
-            <p style="font-size: 13px; color: var(--dust);">Comprobantes electrónicos con validez fiscal (NCF ante DGII)</p>
+            <p style="font-size: 13px; color: var(--dust);">Comprobantes electrónicos con validez fiscal (NCF ante DGII) para Unidad ${user.unit}</p>
           </div>
         </div>
 
@@ -1747,7 +1836,7 @@ class JardinesApp {
               </tr>
             </thead>
             <tbody>
-              ${data.pagos.map(p => `
+              ${data.pagos && data.pagos.length > 0 ? data.pagos.map(p => `
                 <tr>
                   <td><code>${p.id}</code></td>
                   <td>${p.date}</td>
@@ -1761,7 +1850,19 @@ class JardinesApp {
                     </button>
                   </td>
                 </tr>
-              `).join('')}
+              `).join('') : `
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 48px 24px; color: var(--dust);">
+                    <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto;">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--dust)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </div>
+                    <h4 style="font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 6px;">Sin historial de pagos registrados</h4>
+                    <p style="font-size: 13px; max-width: 440px; margin: 0 auto; line-height: 1.5; color: var(--dust);">
+                      Aún no se registran comprobantes de pago o recibos fiscales con NCF para la <strong>Unidad ${user.unit}</strong>. Al realizar tus pagos de cuotas mediante tarjeta, PayPal o transferencia, tus recibos oficiales aparecerán aquí automáticamente.
+                    </p>
+                  </td>
+                </tr>
+              `}
             </tbody>
           </table>
         </div>
@@ -1774,7 +1875,7 @@ class JardinesApp {
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-          ${data.documentos.map(doc => `
+          ${(data.documentos || []).map(doc => `
             <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
               <div style="display: flex; gap: 14px; margin-bottom: 14px;">
                 <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0;">
@@ -1817,7 +1918,7 @@ class JardinesApp {
               </tr>
             </thead>
             <tbody>
-              ${data.tickets.map(t => `
+              ${data.tickets && data.tickets.length > 0 ? data.tickets.map(t => `
                 <tr>
                   <td><code>${t.id}</code></td>
                   <td>${t.date}</td>
@@ -1826,7 +1927,15 @@ class JardinesApp {
                   <td><span class="badge ${t.priority === 'Alta' ? 'badge-warning' : 'badge-neutral'}">${t.priority}</span></td>
                   <td><span class="badge ${t.status === 'Resuelto' ? 'badge-success' : 'badge-warning'}">${t.status}</span></td>
                 </tr>
-              `).join('')}
+              `).join('') : `
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 40px 20px; color: var(--dust);">
+                    <div style="font-size: 24px; margin-bottom: 8px;">🔧</div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">No tienes solicitudes de mantenimiento registradas</div>
+                    <div style="font-size: 12.5px;">Haz clic en el botón "+ Nueva Solicitud" para reportar cualquier requerimiento técnico en tu unidad.</div>
+                  </td>
+                </tr>
+              `}
             </tbody>
           </table>
         </div>
@@ -2170,46 +2279,75 @@ class JardinesApp {
   }
 
   payMaintenanceFee(period) {
-    const fee = this.ownerData.cuotas.find(c => c.period === period);
+    const user = this.currentUser || this.registeredUsers[0];
+    const data = this.getResidentAccountData(user);
+    const fee = (data.cuotas || []).find(c => c.period === period);
     if (fee) {
       fee.status = 'Pagado';
       fee.badge = 'badge-success';
-      this.ownerData.pagos.unshift({
-        id: `PAG-2025-${Math.floor(100 + Math.random() * 900)}`,
-        date: 'Hoy',
+
+      const now = new Date();
+      const today = now.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+      const ncfCode = `B02${Math.floor(100000000 + Math.random() * 900000000)}`;
+      const newPayId = `PAG-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+
+      if (!data.pagos) data.pagos = [];
+      data.pagos.unshift({
+        id: newPayId,
+        date: today,
         concept: `Cuota de Mantenimiento ${period}`,
-        ncf: 'B0200000155',
-        amount: 'RD$ 6,500.00',
+        ncf: ncfCode,
+        amount: fee.amount || 'RD$ 6,500.00',
         method: 'Tarjeta en Línea / PayPal',
         status: 'Aprobado'
       });
-      this.showToast(`¡Pago de ${period} procesado con éxito! Recibo fiscal generado.`);
+
+      data.status = 'Al día';
+      data.statusNote = 'Sin saldo pendiente';
+
+      if (window.apiClient && window.apiClient.isBackendOnline) {
+        window.apiClient.processPayment({
+          unit: user.unit,
+          period: period,
+          concept: `Cuota de Mantenimiento ${period}`,
+          amount: fee.amount || 'RD$ 6,500.00',
+          method: 'Tarjeta en Línea / PayPal'
+        }).catch(() => {});
+      }
+
+      this.saveAllState();
+      this.showToast(`¡Pago de ${period} procesado con éxito! Recibo fiscal ${ncfCode} emitido.`);
       this.renderOwnerTabContent();
     }
   }
 
   showNewTicketForm() {
     const user = this.currentUser || this.registeredUsers[0];
+    const data = this.getResidentAccountData(user);
     const desc = prompt(`Describe el requerimiento de mantenimiento para la Unidad ${user.unit}:`);
     if (desc && desc.trim()) {
+      const now = new Date();
+      const today = now.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
       const newTck = {
         id: `TCK-${Math.floor(105 + Math.random() * 50)}`,
-        date: 'Hoy',
+        date: today,
         category: 'General',
         subject: desc.trim(),
         status: 'En proceso',
         priority: 'Media'
       };
-      this.ownerData.tickets.unshift(newTck);
+      if (!data.tickets) data.tickets = [];
+      data.tickets.unshift(newTck);
       this.adminData.maintenance.unshift({
         id: `MNT-${Math.floor(504 + Math.random() * 50)}`,
         unit: `Unidad ${user.unit}`,
         category: 'General',
         desc: desc.trim(),
-        date: 'Hoy',
+        date: today,
         tech: 'Por asignar',
         status: 'En proceso'
       });
+      this.saveAllState();
       this.showToast("Solicitud de mantenimiento registrada con éxito.");
       this.renderOwnerTabContent();
     }
