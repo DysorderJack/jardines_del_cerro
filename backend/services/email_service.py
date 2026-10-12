@@ -3,9 +3,26 @@ import smtplib
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, FRONTEND_URL
+from config import FRONTEND_URL, get_clean_env
 
 logger = logging.getLogger("EmailService")
+
+def resolve_smtp_config():
+    """
+    Obtiene la configuración SMTP en tiempo real desde las variables de entorno de Render,
+    garantizando tolerancia ante espacios accidentales, comillas o claves con variaciones.
+    """
+    host = get_clean_env("SMTP_HOST", "smtp.gmail.com")
+    try:
+        port = int(get_clean_env("SMTP_PORT", "587"))
+    except Exception:
+        port = 587
+    user = get_clean_env("SMTP_USER", "")
+    raw_pass = get_clean_env("SMTP_PASS", "")
+    # Para Gmail o contraseñas de aplicación (16 caracteres 'xxxx xxxx xxxx xxxx'), eliminar todos los espacios y guiones
+    password = raw_pass.replace(" ", "").replace("-", "").strip()
+    from_email = get_clean_env("SMTP_FROM", "") or user or "notificaciones@jardinesdelcerro.com"
+    return host, port, user, password, from_email
 
 def send_registration_decision_email(
     applicant_name: str,
@@ -134,17 +151,20 @@ def send_registration_decision_email(
     Administración Condominal Jardines del Cerro IV
     """
 
-    # Intento de envío real vía SMTP si está configurado
+    # Intento de envío real vía SMTP si está configurado en el servidor
     sent_real = False
     error_msg = None
 
-    if SMTP_HOST and SMTP_USER and SMTP_PASS:
+    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = resolve_smtp_config()
+    smtp_keys_in_env = [k for k in os.environ.keys() if "SMTP" in k.upper()]
+
+    if smtp_host and smtp_user and smtp_pass:
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
             
             # Para Gmail y proveedores SMTP, el envelope sender debe coincidir con la cuenta autenticada
-            sender_email = SMTP_USER if ("@gmail.com" in SMTP_USER.lower()) else (SMTP_FROM or SMTP_USER)
+            sender_email = smtp_user if ("@gmail.com" in smtp_user.lower()) else (smtp_from or smtp_user)
             msg["From"] = f"Torre Residencial Jardines del Cerro IV <{sender_email}>"
             msg["To"] = recipient_email
 
@@ -153,25 +173,25 @@ def send_registration_decision_email(
             msg.attach(part1)
             msg.attach(part2)
 
-            print(f"[EmailService] Intentando conectar a {SMTP_HOST}:{SMTP_PORT} con usuario {SMTP_USER}...")
+            print(f"[EmailService] Intentando conectar a {smtp_host}:{smtp_port} con usuario {smtp_user}...")
 
-            if SMTP_PORT == 465:
-                with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-                    server.login(SMTP_USER, SMTP_PASS)
+            if smtp_port == 465:
+                with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15) as server:
+                    server.login(smtp_user, smtp_pass)
                     server.sendmail(sender_email, [recipient_email], msg.as_string())
             else:
-                with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
                     server.ehlo()
                     server.starttls()
                     server.ehlo()
-                    server.login(SMTP_USER, SMTP_PASS)
+                    server.login(smtp_user, smtp_pass)
                     server.sendmail(sender_email, [recipient_email], msg.as_string())
             
             sent_real = True
             print(f"[EmailService] ✓ Correo enviado exitosamente a {recipient_email} vía SMTP.")
             logger.info(f"✓ Correo enviado exitosamente a {recipient_email} vía SMTP.")
         except smtplib.SMTPAuthenticationError as auth_err:
-            error_msg = f"Error de autenticación SMTP (Código {auth_err.smtp_code}): Las credenciales de Gmail/SMTP fueron rechazadas. Revisa que tu clave de aplicación sea correcta y no tenga espacios."
+            error_msg = f"Error de autenticación SMTP (Código {auth_err.smtp_code}): Las credenciales de Gmail/SMTP fueron rechazadas. Revisa que tu clave de aplicación sea una Contraseña de Aplicación de 16 letras de Google y no tu contraseña personal."
             print(f"[EmailService] ✕ {error_msg}")
             logger.warning(error_msg)
         except Exception as e:
@@ -180,12 +200,17 @@ def send_registration_decision_email(
             logger.warning(f"Error al enviar correo vía SMTP ({error_msg}).")
     else:
         missing = []
-        if not SMTP_HOST: missing.append("SMTP_HOST")
-        if not SMTP_USER: missing.append("SMTP_USER")
-        if not SMTP_PASS: missing.append("SMTP_PASS")
-        error_msg = f"Variables SMTP faltantes en el servidor: {', '.join(missing)}"
-        print(f"[EmailService] ℹ {error_msg}. Notificación registrada para {recipient_email}.")
-        logger.info(f"ℹ {error_msg}. Notificación registrada para {recipient_email}.")
+        if not smtp_host: missing.append("SMTP_HOST")
+        if not smtp_user: missing.append("SMTP_USER")
+        if not smtp_pass: missing.append("SMTP_PASS")
+        keys_summary = ", ".join(smtp_keys_in_env) if smtp_keys_in_env else "Ninguna detectada en el contenedor"
+        error_msg = (
+            f"Variables SMTP faltantes en el servidor: {', '.join(missing)}.\n"
+            f"Claves encontradas en Render: [{keys_summary}].\n"
+            f"Nota: Si acabas de guardar las variables en Render, haz clic en 'Manual Deploy' > 'Clear build cache & deploy' en el panel de Render para que el contenedor se reinicie con las nuevas variables."
+        )
+        print(f"[EmailService] ℹ {error_msg}. Notificación simulada para {recipient_email}.")
+        logger.info(f"ℹ {error_msg}. Notificación simulada para {recipient_email}.")
 
     return {
         "success": True,
@@ -196,5 +221,11 @@ def send_registration_decision_email(
         "action": action,
         "unit": unit,
         "error": error_msg,
+        "smtp_debug": {
+            "host_configured": bool(smtp_host),
+            "user_configured": bool(smtp_user),
+            "pass_configured": bool(smtp_pass),
+            "keys_in_env": smtp_keys_in_env
+        },
         "preview": plain_text[:200].strip()
     }

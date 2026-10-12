@@ -3340,7 +3340,7 @@ class JardinesApp {
         alert(`¡Éxito! 🎉\n\nEl correo de prueba ha sido entregado exitosamente a:\n${targetEmail}\n\nRevisa tu bandeja de entrada.`);
       } else {
         const errorMsg = (res && res.error) ? res.error : 'No se pudo conectar al servidor de Render o las credenciales no son válidas.';
-        alert(`Aviso de diagnóstico SMTP:\n\n${errorMsg}\n\nRevisa en Render que las variables SMTP_USER y SMTP_PASS estén configuradas correctamente.`);
+        alert(`Diagnóstico de Conexión SMTP:\n\n${errorMsg}`);
       }
     } else {
       alert("El cliente API del backend no está disponible.");
