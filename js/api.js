@@ -79,6 +79,22 @@ class ApiClient {
     }
   }
 
+  // Crear Administrador
+  async createAdmin(payload) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/create-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Fallo en createAdmin API:', e);
+      return null;
+    }
+  }
+
   // Solicitudes de Registro (Auditoría Admin)
   async getAdminRequests() {
     if (!this.isBackendOnline) return null;

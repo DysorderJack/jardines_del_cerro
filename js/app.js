@@ -1117,7 +1117,9 @@ class JardinesApp {
     const inReqs = ((this.adminData && this.adminData.registrationRequests) || []).some(
       r => this.normalizeDoc(r.documentId) === norm && r.status !== 'rejected'
     );
-    return inUsers || inReqs;
+    const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
+    const inAdmins = customAdmins.some(a => this.normalizeDoc(a.documentId) === norm);
+    return inUsers || inReqs || inAdmins;
   }
 
   isEmailTaken(email) {
@@ -1127,7 +1129,9 @@ class JardinesApp {
     const inReqs = ((this.adminData && this.adminData.registrationRequests) || []).some(
       r => (r.email || '').toLowerCase() === clean && r.status !== 'rejected'
     );
-    return inUsers || inReqs;
+    const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
+    const inAdmins = customAdmins.some(a => (a.email || '').toLowerCase() === clean);
+    return inUsers || inReqs || inAdmins;
   }
 
   handleDocInput(input) {
@@ -2582,16 +2586,111 @@ class JardinesApp {
   /* =========================================================================
      Panel Administrativo del Condominio
      ========================================================================= */
-  loginAdmin(e) {
+  async loginAdmin(e) {
     if (e) e.preventDefault();
-    this.isAdminLoggedIn = true;
-    this.renderAdminState();
-    this.showToast("Acceso concedido al Panel Administrativo");
+    const userInput = document.getElementById('admin-login-user');
+    const passInput = document.getElementById('admin-login-pass');
+    const errorBox = document.getElementById('admin-login-error');
+
+    if (errorBox) {
+      errorBox.style.display = 'none';
+      errorBox.innerHTML = '';
+    }
+
+    const userVal = userInput ? userInput.value.trim() : '';
+    const passVal = passInput ? passInput.value.trim() : '';
+
+    if (!userVal || !passVal) {
+      if (errorBox) {
+        errorBox.innerHTML = '⚠️ Por favor ingresa el usuario y la contraseña de administrador.';
+        errorBox.style.display = 'block';
+      } else {
+        this.showToast('Por favor completa las credenciales de administrador.', 'error');
+      }
+      return;
+    }
+
+    let authenticated = false;
+    let adminName = 'Administración Condominal';
+
+    // 1. Intento de autenticación en backend en vivo si está online
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        const res = await window.apiClient.login(userVal, passVal);
+        if (res && res.success && res.user && res.user.role === 'admin') {
+          authenticated = true;
+          adminName = res.user.name || 'Administración Jardines del Cerro IV';
+          this.currentUser = res.user;
+        } else if (res && res.user && res.user.role !== 'admin') {
+          if (errorBox) {
+            errorBox.innerHTML = '⛔ Este usuario no cuenta con privilegios de Administrador.';
+            errorBox.style.display = 'block';
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('Fallo en autenticación con backend:', err);
+      }
+    }
+
+    // 2. Validación de credenciales locales maestras o administradores creados
+    if (!authenticated) {
+      const isMasterAdmin = (
+        (userVal.toLowerCase() === 'admin' ||
+         userVal.toLowerCase() === 'admin@jardinesdelcerro.do' ||
+         userVal === '034-0000001-0') &&
+        (passVal === 'admin123' || passVal === '1234')
+      );
+
+      // Revisar administradores personalizados creados localmente
+      const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
+      const customMatch = customAdmins.find(a =>
+        (a.email.toLowerCase() === userVal.toLowerCase() ||
+         a.documentId === userVal ||
+         (a.username && a.username.toLowerCase() === userVal.toLowerCase())) &&
+        a.password === passVal
+      );
+
+      if (isMasterAdmin) {
+        authenticated = true;
+        adminName = 'Administración Jardines del Cerro IV';
+      } else if (customMatch) {
+        authenticated = true;
+        adminName = customMatch.name;
+        this.currentUser = {
+          name: customMatch.name,
+          email: customMatch.email,
+          document_id: customMatch.documentId,
+          role: 'admin',
+          role_label: 'Administrador Condominal'
+        };
+      }
+    }
+
+    if (authenticated) {
+      this.isAdminLoggedIn = true;
+      this.renderAdminState();
+      this.showToast(`Acceso concedido: ${adminName}`);
+      if (passInput) passInput.value = '';
+      if (errorBox) errorBox.style.display = 'none';
+    } else {
+      if (errorBox) {
+        errorBox.innerHTML = '❌ Credenciales incorrectas. Verifica tu usuario y contraseña de administrador.';
+        errorBox.style.display = 'block';
+      } else {
+        this.showToast('Credenciales de administrador incorrectas.', 'error');
+      }
+    }
   }
 
   logoutAdmin() {
     this.isAdminLoggedIn = false;
+    const passInput = document.getElementById('admin-login-pass');
+    if (passInput) passInput.value = '';
+    const errorBox = document.getElementById('admin-login-error');
+    if (errorBox) errorBox.style.display = 'none';
     this.renderAdminState();
+    this.showToast('Sesión de administrador cerrada.');
   }
 
   renderAdminState() {
@@ -2881,9 +2980,15 @@ class JardinesApp {
       `;
     } else if (this.activeAdminTab === 'residentes') {
       panel.innerHTML = `
-        <div style="margin-bottom: 24px;">
-          <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Directorio de Residentes y Alícuotas</h2>
-          <p style="font-size: 13px; color: var(--dust);">Copropietarios con cuota de participación según Régimen de Condominio</p>
+        <div style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Directorio de Residentes y Alícuotas</h2>
+            <p style="font-size: 13px; color: var(--dust);">Copropietarios con cuota de participación según Régimen de Condominio</p>
+          </div>
+          <button class="btn-primary" onclick="window.app.openCreateAdminModal();" style="padding: 9px 16px; font-size: 13px; display: inline-flex; align-items: center; gap: 8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            <span>+ Nuevo Administrador</span>
+          </button>
         </div>
 
         <div class="table-card">
@@ -3856,6 +3961,125 @@ class JardinesApp {
   closeEmailNotificationModal() {
     const modal = document.getElementById('email-notification-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  /* =========================================================================
+     Gestión y Creación de Administradores
+     ========================================================================= */
+  openCreateAdminModal() {
+    const modal = document.getElementById('create-admin-modal');
+    const err = document.getElementById('create-admin-error');
+    if (err) {
+      err.style.display = 'none';
+      err.innerHTML = '';
+    }
+    if (modal) modal.style.display = 'flex';
+  }
+
+  closeCreateAdminModal() {
+    const modal = document.getElementById('create-admin-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async handleCreateAdminSubmit(e) {
+    if (e) e.preventDefault();
+    const nameInput = document.getElementById('new-admin-name');
+    const docInput = document.getElementById('new-admin-doc');
+    const emailInput = document.getElementById('new-admin-email');
+    const phoneInput = document.getElementById('new-admin-phone');
+    const passInput = document.getElementById('new-admin-pass');
+    const errorBox = document.getElementById('create-admin-error');
+
+    if (errorBox) {
+      errorBox.style.display = 'none';
+      errorBox.innerHTML = '';
+    }
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const doc = docInput ? docInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const pass = passInput ? passInput.value : '';
+
+    if (!name || !doc || !email || !pass) {
+      if (errorBox) {
+        errorBox.innerHTML = '⚠️ Por favor completa todos los campos requeridos (*).';
+        errorBox.style.display = 'block';
+      }
+      return;
+    }
+
+    // Validar complejidad de contraseña (mínimo 8 caracteres)
+    if (pass.length < 8) {
+      if (errorBox) {
+        errorBox.innerHTML = '⚠️ La contraseña de administrador debe tener como mínimo 8 caracteres.';
+        errorBox.style.display = 'block';
+      }
+      return;
+    }
+
+    // Verificar si la cédula o correo ya existen
+    if (this.isDocumentIdTaken(doc)) {
+      if (errorBox) {
+        errorBox.innerHTML = `⚠️ El documento / cédula <strong>${doc}</strong> ya se encuentra registrado.`;
+        errorBox.style.display = 'block';
+      }
+      return;
+    }
+
+    if (this.isEmailTaken(email)) {
+      if (errorBox) {
+        errorBox.innerHTML = `⚠️ El correo electrónico <strong>${email}</strong> ya se encuentra registrado.`;
+        errorBox.style.display = 'block';
+      }
+      return;
+    }
+
+    // Guardar en backend si está online
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        const apiRes = await window.apiClient.createAdmin({
+          name,
+          document_id: doc,
+          email,
+          phone: phone || '(809) 555-0100',
+          password: pass
+        });
+        if (apiRes && apiRes.detail) {
+          if (errorBox) {
+            errorBox.innerHTML = `⚠️ ${apiRes.detail}`;
+            errorBox.style.display = 'block';
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('Error al guardar admin en backend:', err);
+      }
+    }
+
+    // Guardar en administradores locales permanentes (localStorage)
+    const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
+    customAdmins.push({
+      id: `usr-admin-${Date.now()}`,
+      name,
+      documentId: doc,
+      email,
+      phone: phone || '(809) 555-0100',
+      password: pass,
+      role: 'admin',
+      roleLabel: 'Administrador Condominal'
+    });
+    localStorage.setItem('custom_admins', JSON.stringify(customAdmins));
+
+    // Resetear formulario y cerrar modal
+    if (nameInput) nameInput.value = '';
+    if (docInput) docInput.value = '';
+    if (emailInput) emailInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+    if (passInput) passInput.value = '';
+    this.closeCreateAdminModal();
+
+    this.showToast(`🛡️ Administrador "${name}" creado exitosamente.`);
   }
 
   async promptTestEmail() {

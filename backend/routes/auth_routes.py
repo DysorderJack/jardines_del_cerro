@@ -19,24 +19,29 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     """
     doc = payload.document_id.strip()
     
-    # Manejo especial para admin con credenciales por defecto
+    # Manejo especial para admin con credenciales maestras
     if doc.lower() in ["admin", "admin@jardinesdelcerro.do", "034-0000001-0"]:
         admin_user = db.query(User).filter(User.role == "admin").first()
-        if admin_user and (payload.password == admin_user.password_hash or payload.password in ["admin123", "1234"]):
+        valid_passwords = ["admin123", "1234"]
+        if admin_user and admin_user.password_hash:
+            valid_passwords.append(admin_user.password_hash)
+        if payload.password in valid_passwords:
             return {
                 "success": True,
                 "token": "token-admin-session-live",
                 "user": {
-                    "id": admin_user.id,
-                    "name": admin_user.name,
-                    "document_id": admin_user.document_id,
-                    "email": admin_user.email,
+                    "id": admin_user.id if admin_user else "usr-admin",
+                    "name": admin_user.name if admin_user else "Administración Jardines del Cerro IV",
+                    "document_id": admin_user.document_id if admin_user else "034-0000001-0",
+                    "email": admin_user.email if admin_user else "admin@jardinesdelcerro.do",
                     "role": "admin",
                     "role_label": "Administrador Condominal",
                     "unit": "Admin",
                     "status": "approved"
                 }
             }
+        else:
+            raise HTTPException(status_code=401, detail="Contraseña incorrecta de administrador.")
 
     # Búsqueda de residente en base de datos
     user = db.query(User).filter(

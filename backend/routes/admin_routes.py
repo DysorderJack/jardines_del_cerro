@@ -1,10 +1,11 @@
 import os
+import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User, Unit, RegistrationRequest, Payment, ActivityLog
-from schemas import RegistrationDecision, UnitCreate, UnitUpdateStatus
+from schemas import RegistrationDecision, UnitCreate, UnitUpdateStatus, AdminCreate
 from config import UPLOAD_DIR
 from services.email_service import send_registration_decision_email
 
@@ -315,5 +316,60 @@ def delete_resident(identifier: str, db: Session = Depends(get_db)):
         "success": True,
         "message": f"Residente {user_name} desvinculado con éxito. La Unidad {unit_number} ahora está Disponible.",
         "unit": unit_number
+    }
+
+@router.post("/create-admin")
+def create_admin(payload: AdminCreate, db: Session = Depends(get_db)):
+    """
+    Registra un nuevo usuario con rol de Administrador.
+    Permite a la administración crear nuevos administradores de forma segura.
+    """
+    clean_doc = payload.document_id.strip()
+    clean_email = payload.email.strip().lower()
+
+    # Validar duplicados
+    existing = db.query(User).filter(
+        (User.document_id == clean_doc) | (User.email.ilike(clean_email))
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya existe un usuario o administrador con este documento ({clean_doc}) o correo ({clean_email})."
+        )
+
+    admin_id = f"usr-admin-{int(datetime.datetime.utcnow().timestamp())}"
+    new_admin = User(
+        id=admin_id,
+        document_id=clean_doc,
+        name=payload.name.strip(),
+        email=clean_email,
+        phone=payload.phone or "(809) 555-0100",
+        role="admin",
+        role_label="Administrador Condominal",
+        unit="Admin",
+        aliquot="0.00%",
+        password_hash=payload.password,
+        status="approved",
+        avatar="AD"
+    )
+    db.add(new_admin)
+    db.add(ActivityLog(
+        title=f"Nuevo Administrador Creado: {payload.name.strip()}",
+        time="Hace un momento",
+        activity_type="user"
+    ))
+    db.commit()
+    db.refresh(new_admin)
+
+    return {
+        "success": True,
+        "message": f"Administrador '{payload.name}' creado exitosamente.",
+        "admin": {
+            "id": new_admin.id,
+            "name": new_admin.name,
+            "document_id": new_admin.document_id,
+            "email": new_admin.email,
+            "role": new_admin.role
+        }
     }
 

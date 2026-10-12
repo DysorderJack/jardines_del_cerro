@@ -82,3 +82,12 @@ class AIChatPrompt(BaseModel):
     context_type: str = "public" # 'public', 'resident', 'admin'
     user_id: Optional[str] = None
     unit: Optional[str] = None
+
+# Admin Creation Request
+class AdminCreate(BaseModel):
+    name: str
+    document_id: str
+    email: str
+    phone: Optional[str] = None
+    password: str
+

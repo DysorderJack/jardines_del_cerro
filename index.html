@@ -1015,23 +1015,26 @@
         </div>
 
         <form onsubmit="window.app.loginAdmin(event);">
+          <div id="admin-login-error" style="display: none; margin-bottom: 16px; padding: 12px 14px; background: rgba(220, 38, 38, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: var(--radius-sm); color: #FCA5A5; font-size: 12.5px; line-height: 1.4;"></div>
+
           <div class="form-group">
             <label class="form-label" style="color: rgba(255,255,255,0.7);">Usuario / Correo Institucional</label>
-            <input type="email" class="form-input" id="admin-login-user" value="admin@jardinesdelcerro.do" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #fff;" required>
+            <input type="text" class="form-input" id="admin-login-user" placeholder="admin o correo institucional" autocomplete="username" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #fff;" required>
           </div>
           <div class="form-group">
             <label class="form-label" style="color: rgba(255,255,255,0.7);">Contraseña del Sistema</label>
-            <input type="password" class="form-input" id="admin-login-pass" value="••••••••" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #fff;" required>
+            <div class="pw-input-wrapper">
+              <input type="password" class="form-input" id="admin-login-pass" placeholder="Contraseña de administrador" autocomplete="current-password" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #fff; padding-right: 38px;" required>
+              <button type="button" class="pw-toggle-btn" onclick="window.app.togglePasswordVisibility('admin-login-pass', this);" title="Ver u ocultar contraseña" style="color: rgba(255,255,255,0.6);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
           </div>
           <button type="submit" class="btn-accent" style="width: 100%; padding: 12px; margin-top: 8px;">
             <span>Acceder al Panel de Control</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
         </form>
-
-        <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); font-size: 12px; color: rgba(255,255,255,0.6); text-align: center;">
-          🔒 <strong>Acceso Seguro de Demostración:</strong> Haz clic en acceder para cargar el panel con los datos reales del prototipo.
-        </div>
 
         <div style="text-align: center; margin-top: 16px;">
           <button onclick="window.app.setView('landing');" style="font-size: 12.5px; color: rgba(255,255,255,0.6); text-decoration: underline;">
@@ -1405,6 +1408,67 @@
       <div id="email-notification-content">
         <!-- Renderizado dinámicamente con los datos del destinatario y el cuerpo del correo -->
       </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: CREAR NUEVO USUARIO ADMINISTRADOR
+       ========================================================================= -->
+  <div id="create-admin-modal" onclick="if(event.target === this) window.app.closeCreateAdminModal();" style="position: fixed; inset: 0; z-index: 260; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 28px; position: relative; box-shadow: var(--shadow-xl);">
+      <button onclick="window.app.closeCreateAdminModal();" style="position: absolute; top: 20px; right: 20px; color: var(--dust); font-size: 18px;" title="Cerrar">✕</button>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--linen); padding-bottom: 14px;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(201, 167, 112, 0.2); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+          🛡️
+        </div>
+        <div>
+          <h3 style="font-size: 18px; font-weight: 800; color: var(--ink);">Registrar Nuevo Administrador</h3>
+          <div style="font-size: 12.5px; color: var(--dust);">Crea una cuenta con privilegios administrativos para el condominio</div>
+        </div>
+      </div>
+
+      <form onsubmit="window.app.handleCreateAdminSubmit(event);">
+        <div id="create-admin-error" style="display: none; margin-bottom: 14px; padding: 10px 12px; background: #FEE2E2; border: 1px solid #FCA5A5; border-radius: var(--radius-sm); color: #B91C1C; font-size: 12.5px; line-height: 1.4;"></div>
+
+        <div class="form-group">
+          <label class="form-label">Nombre Completo del Administrador *</label>
+          <input type="text" class="form-input" id="new-admin-name" placeholder="Ej. Lic. Carlos Santana" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Cédula de Identidad / RNC *</label>
+          <input type="text" class="form-input" id="new-admin-doc" placeholder="Ej. 034-0012345-6" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Correo Electrónico Institucional *</label>
+          <input type="email" class="form-input" id="new-admin-email" placeholder="Ej. csantana@jardinesdelcerro.do" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Teléfono de Contacto</label>
+          <input type="tel" class="form-input" id="new-admin-phone" placeholder="Ej. (809) 555-0155">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Contraseña de Acceso Administrativo *</label>
+          <div class="pw-input-wrapper">
+            <input type="password" class="form-input" id="new-admin-pass" placeholder="Mínimo 8 caracteres" required style="padding-right: 38px;">
+            <button type="button" class="pw-toggle-btn" onclick="window.app.togglePasswordVisibility('new-admin-pass', this);" title="Ver u ocultar contraseña">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <p style="font-size: 11.5px; color: var(--dust); margin-top: 4px;">Debe tener al menos 8 caracteres, mayúscula, minúscula, número y símbolo.</p>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+          <button type="button" class="btn-outline" onclick="window.app.closeCreateAdminModal();">Cancelar</button>
+          <button type="submit" class="btn-accent" style="padding: 10px 20px;">
+            <span>Crear Administrador</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
