@@ -53,7 +53,9 @@ CORS_ORIGINS = [
     "*",  # Permite conexión desde cualquier cliente frontend en desarrollo o despliegue
 ]
 
-# Configuración de Correo Electrónico (Notificaciones Oficiales vía SMTP o Resend HTTP API)
+# Configuración de Correo Electrónico (Notificaciones Oficiales vía Brevo API, Resend API o SMTP)
+BREVO_API_KEY = get_clean_env("BREVO_API_KEY", "")
+BREVO_SENDER_EMAIL = get_clean_env("BREVO_SENDER_EMAIL", "") or get_clean_env("SMTP_USER", "")
 RESEND_API_KEY = get_clean_env("RESEND_API_KEY", "")
 SMTP_HOST = get_clean_env("SMTP_HOST", "smtp.gmail.com")
 try:

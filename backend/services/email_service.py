@@ -63,6 +63,51 @@ def send_via_resend_api(api_key: str, to_email: str, subject: str, html_content:
         print(f"[EmailService] ✕ {msg}")
         return False, msg
 
+def send_via_brevo_api(api_key: str, sender_email: str, to_email: str, subject: str, html_content: str, text_content: str) -> tuple[bool, str]:
+    """
+    Envía correos electrónicos a CUALQUIER destinatario externo a través de la API REST oficial de Brevo (HTTPS puerto 443).
+    A diferencia de Resend, Brevo NO exige comprar un dominio propio; permite verificar directamente
+    un correo personal (Single Sender, ej. tu cuenta de Gmail) y enviar hasta 300 correos diarios a cualquier persona.
+    """
+    try:
+        payload = {
+            "sender": {
+                "name": "Torre Residencial Jardines del Cerro IV",
+                "email": sender_email.strip()
+            },
+            "to": [{"email": to_email.strip()}],
+            "subject": subject,
+            "htmlContent": html_content,
+            "textContent": text_content
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.brevo.com/v3/smtp/email",
+            data=data,
+            headers={
+                "api-key": api_key.strip(),
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "JardinesDelCerro/2.0"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+            msg_id = resp_data.get("messageId") or resp_data.get("id") or "OK"
+            print(f"[EmailService] ✓ Correo entregado exitosamente vía Brevo API a {to_email} (ID: {msg_id}).")
+            return True, None
+    except urllib.error.HTTPError as he:
+        err_body = he.read().decode("utf-8") if he.fp else str(he)
+        msg = f"Brevo API Error (HTTP {he.code}): {err_body}"
+        print(f"[EmailService] ✕ {msg}")
+        return False, msg
+    except Exception as e:
+        msg = f"Brevo Error ({type(e).__name__}): {str(e)}"
+        print(f"[EmailService] ✕ {msg}")
+        return False, msg
+
+
 def resolve_smtp_config():
     """
     Obtiene la configuración SMTP en tiempo real desde las variables de entorno de Render,
@@ -233,10 +278,30 @@ def send_registration_decision_email(
     smtp_keys_in_env = [k for k in os.environ.keys() if any(w in k.upper() for w in ["SMTP", "MAIL", "EMAIL", "GMAIL"])]
     all_custom_keys = [k for k in os.environ.keys() if not k.startswith(("_", "PYTHON", "PATH", "HOME", "LANG", "LC_", "PWD", "SHLVL", "HOSTNAME", "DEBIAN", "PORT", "LD_", "OLDPWD", "XDG_"))]
 
-    # 1. Comprobar si existe API Key de Resend (HTTP REST sobre puerto 443 — 100% compatible con Render Free)
+    # 1. Comprobar si existe API Key de Brevo (Permite enviar a CUALQUIER persona sin necesidad de comprar un dominio propio)
+    brevo_api_key = get_clean_env("BREVO_API_KEY", "")
+    brevo_sender = get_clean_env("BREVO_SENDER_EMAIL", "") or smtp_user or "dysordergames@gmail.com"
+
+    # 2. Comprobar si existe API Key de Resend (HTTP REST sobre puerto 443)
     resend_api_key = get_clean_env("RESEND_API_KEY", "")
 
-    if resend_api_key:
+    if brevo_api_key:
+        print(f"[EmailService] Enviando correo vía Brevo HTTP API (Remitente autorizado: {brevo_sender})...")
+        brevo_ok, brevo_err = send_via_brevo_api(
+            api_key=brevo_api_key,
+            sender_email=brevo_sender,
+            to_email=recipient_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=plain_text
+        )
+        if brevo_ok:
+            sent_real = True
+            logger.info(f"✓ Correo enviado exitosamente a {recipient_email} vía Brevo API.")
+        else:
+            error_msg = brevo_err
+
+    elif resend_api_key:
         print("[EmailService] Enviando correo vía Resend HTTP API (Puerto 443)...")
         resend_ok, resend_err = send_via_resend_api(
             api_key=resend_api_key,

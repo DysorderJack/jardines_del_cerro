@@ -11,6 +11,10 @@ services:
         value: gemini-2.0-flash
       - key: PAYPAL_MODE
         value: sandbox
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: SMTP_HOST
