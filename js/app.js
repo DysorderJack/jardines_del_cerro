@@ -3136,6 +3136,12 @@ class JardinesApp {
       });
     }
 
+    if (backendResult && backendResult.email_notification && backendResult.email_notification.sent_real_smtp) {
+      alert(`¡Solicitud Aprobada con Éxito! 🎉\n\nEl residente ha sido habilitado y el correo de bienvenida oficial fue enviado automáticamente a:\n${req.email}\n\n(Revisa la bandeja de entrada de ese correo).`);
+    } else if (backendResult && backendResult.email_notification && backendResult.email_notification.error) {
+      alert(`Solicitud aprobada en el sistema, pero el servidor de correo reportó:\n\n${backendResult.email_notification.error}`);
+    }
+
     this.openEmailNotificationModal('approve', req, backendResult);
   }
 
@@ -3172,6 +3178,12 @@ class JardinesApp {
           unit: req.unit,
           role_label: req.roleLabel
         });
+      }
+
+      if (backendResult && backendResult.email_notification && backendResult.email_notification.sent_real_smtp) {
+        alert(`Solicitud Rechazada.\n\nSe ha notificado formalmente por correo a:\n${req.email}`);
+      } else if (backendResult && backendResult.email_notification && backendResult.email_notification.error) {
+        alert(`Solicitud rechazada, pero el envío de correo reportó:\n\n${backendResult.email_notification.error}`);
       }
 
       this.openEmailNotificationModal('reject', req, backendResult);
@@ -3212,10 +3224,10 @@ class JardinesApp {
             <div style="font-size: 26px;">✅</div>
             <div>
               <div style="font-size: 13.5px; font-weight: 800; color: #065F46;">
-                ¡Correo Real Entregado con Éxito vía SMTP!
+                ¡Correo Oficial Entregado con Éxito!
               </div>
               <div style="font-size: 12px; color: #047857;">
-                El servidor en Render conectó exitosamente y despachó el correo a: <strong>${req.email}</strong>
+                El servidor en Render despachó exitosamente la notificación a: <strong>${req.email}</strong>
               </div>
             </div>
           </div>
@@ -3312,9 +3324,15 @@ class JardinesApp {
 
       <!-- Botones de Acción -->
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
-        <a href="${mailtoLink}" class="btn-outline" style="padding: 8px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-          <span>↗</span> Enviar Directo desde mi Correo (Mailto)
-        </a>
+        ${!sentReal ? `
+          <a href="${mailtoLink}" class="btn-outline" style="padding: 8px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <span>↗</span> Enviar Manualmente desde mi Correo
+          </a>
+        ` : `
+          <div style="font-size: 12.5px; color: #059669; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span>✓</span> Correo entregado automáticamente al destinatario
+          </div>
+        `}
         <button type="button" class="btn-primary" onclick="window.app.closeEmailNotificationModal();">
           Cerrar Notificación
         </button>
