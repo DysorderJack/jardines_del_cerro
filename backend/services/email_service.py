@@ -1,11 +1,53 @@
 import os
 import smtplib
 import logging
+import json
+import urllib.request
+import urllib.error
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from config import FRONTEND_URL, get_clean_env
 
 logger = logging.getLogger("EmailService")
+
+def send_via_resend_api(api_key: str, to_email: str, subject: str, html_content: str, text_content: str, from_sender: str = None) -> tuple[bool, str]:
+    """
+    Envía correos electrónicos a través de la API REST oficial de Resend (HTTPS puerto 443).
+    A diferencia de SMTP tradicional (puertos 587/465), el puerto 443 nunca es bloqueado por Render Free Tier.
+    """
+    try:
+        sender = from_sender if (from_sender and "@" in from_sender and not from_sender.endswith("@gmail.com")) else "Torre Jardines del Cerro IV <onboarding@resend.dev>"
+        payload = {
+            "from": sender,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+            "text": text_content
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=data,
+            headers={
+                "Authorization": f"Bearer {api_key.strip()}",
+                "Content-Type": "application/json",
+                "User-Agent": "JardinesDelCerro/2.0"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+            print(f"[EmailService] ✓ Correo enviado exitosamente vía Resend HTTP API (ID: {resp_data.get('id')}).")
+            return True, None
+    except urllib.error.HTTPError as he:
+        err_body = he.read().decode("utf-8") if he.fp else str(he)
+        msg = f"Resend API Error (HTTP {he.code}): {err_body}"
+        print(f"[EmailService] ✕ {msg}")
+        return False, msg
+    except Exception as e:
+        msg = f"Resend Error ({type(e).__name__}): {str(e)}"
+        print(f"[EmailService] ✕ {msg}")
+        return False, msg
 
 def resolve_smtp_config():
     """
@@ -177,7 +219,27 @@ def send_registration_decision_email(
     smtp_keys_in_env = [k for k in os.environ.keys() if any(w in k.upper() for w in ["SMTP", "MAIL", "EMAIL", "GMAIL"])]
     all_custom_keys = [k for k in os.environ.keys() if not k.startswith(("_", "PYTHON", "PATH", "HOME", "LANG", "LC_", "PWD", "SHLVL", "HOSTNAME", "DEBIAN", "PORT", "LD_", "OLDPWD", "XDG_"))]
 
-    if smtp_host and smtp_user and smtp_pass:
+    # 1. Comprobar si existe API Key de Resend (HTTP REST sobre puerto 443 — 100% compatible con Render Free)
+    resend_api_key = get_clean_env("RESEND_API_KEY", "")
+
+    if resend_api_key:
+        print("[EmailService] Enviando correo vía Resend HTTP API (Puerto 443)...")
+        resend_ok, resend_err = send_via_resend_api(
+            api_key=resend_api_key,
+            to_email=recipient_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=plain_text,
+            from_sender=smtp_from or "onboarding@resend.dev"
+        )
+        if resend_ok:
+            sent_real = True
+            logger.info(f"✓ Correo enviado exitosamente a {recipient_email} vía Resend API.")
+        else:
+            error_msg = resend_err
+
+    # 2. Si no hay Resend API Key, intentar conexión directa vía SMTP tradicional
+    elif smtp_host and smtp_user and smtp_pass:
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
@@ -195,11 +257,11 @@ def send_registration_decision_email(
             print(f"[EmailService] Intentando conectar a {smtp_host}:{smtp_port} con usuario {smtp_user}...")
 
             if smtp_port == 465:
-                with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15) as server:
+                with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=12) as server:
                     server.login(smtp_user, smtp_pass)
                     server.sendmail(sender_email, [recipient_email], msg.as_string())
             else:
-                with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=12) as server:
                     server.ehlo()
                     server.starttls()
                     server.ehlo()
@@ -214,8 +276,20 @@ def send_registration_decision_email(
             print(f"[EmailService] ✕ {error_msg}")
             logger.warning(error_msg)
         except Exception as e:
-            error_msg = f"{type(e).__name__}: {str(e)}"
-            print(f"[EmailService] ✕ Error al enviar correo vía SMTP ({error_msg}).")
+            raw_err = f"{type(e).__name__}: {str(e)}"
+            if "Network is unreachable" in raw_err or "101" in raw_err or "timed out" in raw_err.lower():
+                error_msg = (
+                    "Render Free Tier bloquea los puertos SMTP salientes (587 y 465) por política de firewall anti-spam.\n\n"
+                    "💡 Solución recomendada (100% gratuita y toma 1 minuto):\n"
+                    "1. Crea una cuenta gratuita en https://resend.com (sin tarjeta).\n"
+                    "2. En Resend, copia tu API Key (ej. 're_123456...').\n"
+                    "3. En tu servicio de Render, agrega la variable: RESEND_API_KEY con esa clave.\n\n"
+                    "Resend envía los correos vía HTTPS (puerto 443), el cual Render NUNCA bloquea."
+                )
+            else:
+                error_msg = raw_err
+            print(f"[EmailService] ✕ Error al enviar correo ({error_msg}).")
+            logger.warning(f"Error al enviar correo ({error_msg}).")
             logger.warning(f"Error al enviar correo vía SMTP ({error_msg}).")
     else:
         missing = []

@@ -53,7 +53,8 @@ CORS_ORIGINS = [
     "*",  # Permite conexión desde cualquier cliente frontend en desarrollo o despliegue
 ]
 
-# Configuración de Correo Electrónico (Notificaciones SMTP Oficiales)
+# Configuración de Correo Electrónico (Notificaciones Oficiales vía SMTP o Resend HTTP API)
+RESEND_API_KEY = get_clean_env("RESEND_API_KEY", "")
 SMTP_HOST = get_clean_env("SMTP_HOST", "smtp.gmail.com")
 try:
     SMTP_PORT = int(get_clean_env("SMTP_PORT", "587"))
