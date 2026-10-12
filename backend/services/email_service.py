@@ -16,7 +16,14 @@ def send_via_resend_api(api_key: str, to_email: str, subject: str, html_content:
     A diferencia de SMTP tradicional (puertos 587/465), el puerto 443 nunca es bloqueado por Render Free Tier.
     """
     try:
-        sender = from_sender if (from_sender and "@" in from_sender and not from_sender.endswith("@gmail.com")) else "Torre Jardines del Cerro IV <onboarding@resend.dev>"
+        # Si el usuario configura un dominio verificado propio en RESEND_FROM_EMAIL
+        custom_from = get_clean_env("RESEND_FROM_EMAIL", "").strip()
+        if custom_from and "@" in custom_from and not ("jardinesdelcerro.com" in custom_from or "gmail.com" in custom_from):
+            sender = custom_from
+        else:
+            # En modo de prueba sin dominio propio, Resend requiere usar obligatoriamente 'onboarding@resend.dev'
+            sender = "Torre Residencial Jardines del Cerro IV <onboarding@resend.dev>"
+
         payload = {
             "from": sender,
             "to": [to_email],
@@ -41,7 +48,14 @@ def send_via_resend_api(api_key: str, to_email: str, subject: str, html_content:
             return True, None
     except urllib.error.HTTPError as he:
         err_body = he.read().decode("utf-8") if he.fp else str(he)
-        msg = f"Resend API Error (HTTP {he.code}): {err_body}"
+        if "domain is not verified" in err_body or "only send testing emails" in err_body:
+            msg = (
+                "Aviso de Resend: En modo de prueba gratuito (sin dominio personalizado propio), "
+                "Resend permite enviar correos de prueba únicamente al correo con el que te registraste en Resend. "
+                "Para enviar correos a cualquier inquilino externo, Resend requiere agregar un dominio propio en resend.com/domains."
+            )
+        else:
+            msg = f"Resend API Error (HTTP {he.code}): {err_body}"
         print(f"[EmailService] ✕ {msg}")
         return False, msg
     except Exception as e:
@@ -229,8 +243,7 @@ def send_registration_decision_email(
             to_email=recipient_email,
             subject=subject,
             html_content=html_content,
-            text_content=plain_text,
-            from_sender=smtp_from or "onboarding@resend.dev"
+            text_content=plain_text
         )
         if resend_ok:
             sent_real = True
