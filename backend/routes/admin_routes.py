@@ -1,0 +1,173 @@
+import os
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from database import get_db
+from models import User, Unit, RegistrationRequest, Payment, ActivityLog
+from schemas import RegistrationDecision, UnitCreate, UnitUpdateStatus
+from config import UPLOAD_DIR
+
+router = APIRouter(prefix="/api/admin", tags=["Administración Condominal"])
+
+@router.get("/overview")
+def get_overview(db: Session = Depends(get_db)):
+    """Retorna las métricas clave (KPIs) del condominio."""
+    total_units = db.query(Unit).count()
+    available_units = db.query(Unit).filter(Unit.status == "available").count()
+    reserved_units = db.query(Unit).filter(Unit.status == "reserved").count()
+    occupied_units = total_units - available_units - reserved_units
+    pending_reqs = db.query(RegistrationRequest).filter(RegistrationRequest.status == "pending").count()
+    recent_activity = db.query(ActivityLog).order_by(ActivityLog.id.desc()).limit(6).all()
+
+    return {
+        "kpis": {
+            "total_units": total_units,
+            "available_units": available_units,
+            "reserved_units": reserved_units,
+            "occupied_units": occupied_units,
+            "pending_requests_count": pending_reqs,
+            "collection_rate": "94.2%",
+            "reserve_fund": "RD$ 2,340,000.00",
+            "pending_fees": "RD$ 19,500.00"
+        },
+        "recent_activity": [
+            {"title": a.title, "time": a.time, "type": a.activity_type}
+            for a in recent_activity
+        ]
+    }
+
+@router.get("/requests")
+def get_requests(db: Session = Depends(get_db)):
+    """Retorna las solicitudes de acceso y contratos notariados para auditar."""
+    reqs = db.query(RegistrationRequest).order_by(RegistrationRequest.created_at.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "date": r.contract_date or "Reciente",
+            "applicantName": r.applicant_name,
+            "documentId": r.document_id,
+            "email": r.email,
+            "phone": r.phone,
+            "unit": r.unit,
+            "roleRequested": r.role_requested,
+            "roleLabel": r.role_label,
+            "contractFile": r.contract_filename,
+            "contractDate": r.contract_date,
+            "status": r.status,
+            "notes": r.notes
+        }
+        for r in reqs
+    ]
+
+@router.post("/requests/{req_id}/decision")
+def request_decision(req_id: str, decision: RegistrationDecision, db: Session = Depends(get_db)):
+    """
+    Aprueba o rechaza una solicitud tras auditar el contrato notariado (Punto 16.4).
+    """
+    req = db.query(RegistrationRequest).filter(RegistrationRequest.id == req_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+
+    if decision.action == "approve":
+        req.status = "approved"
+
+        # Activar usuario
+        user = db.query(User).filter(
+            (User.document_id == req.document_id) | (User.email == req.email)
+        ).first()
+        if user:
+            user.status = "approved"
+
+        # Marcar la unidad como ocupada
+        unit = db.query(Unit).filter(Unit.number == req.unit).first()
+        if unit:
+            unit.status = "occupied"
+            unit.status_label = "Ocupado"
+
+        # Registrar log
+        db.add(ActivityLog(
+            title=f"Solicitud aprobada: {req.applicant_name} habilitado en Unidad {req.unit}",
+            time="Hace un momento",
+            activity_type="user"
+        ))
+        db.commit()
+        return {"success": True, "message": f"Solicitud {req_id} aprobada con éxito. Residente habilitado."}
+
+    elif decision.action == "reject":
+        req.status = "rejected"
+        user = db.query(User).filter(
+            (User.document_id == req.document_id) | (User.email == req.email)
+        ).first()
+        if user:
+            user.status = "rejected"
+        db.commit()
+        return {"success": True, "message": f"Solicitud {req_id} rechazada."}
+
+    raise HTTPException(status_code=400, detail="Acción inválida. Usa 'approve' o 'reject'.")
+
+@router.get("/contracts/{filename}")
+def download_contract(filename: str):
+    """Descarga o visualiza el archivo físico del contrato notariado."""
+    file_path = UPLOAD_DIR / filename
+    if file_path.exists():
+        return FileResponse(file_path, filename=filename)
+    # Si es un archivo de demostración que aún no se ha subido físicamente
+    return {
+        "status": "virtual_record",
+        "filename": filename,
+        "notary": "Notaría Pública de los del Número del Municipio de Mao, Valverde",
+        "act_number": "ACTO NO. 2026-081-ND",
+        "description": "Documento legal notariado en expediente de debida diligencia conforme a la Ley 5038 y Ley 155-17."
+    }
+
+@router.get("/residents")
+def get_residents(db: Session = Depends(get_db)):
+    """Directorio de residentes y copropietarios."""
+    users = db.query(User).filter(User.role.in_(["owner", "tenant"])).all()
+    return [
+        {
+            "unit": f"Unidad {u.unit}",
+            "name": u.name,
+            "condition": u.role_label,
+            "phone": u.phone or "(809) 555-0100",
+            "status": "Al día" if u.status == "approved" else "Pendiente"
+        }
+        for u in users
+    ]
+
+@router.post("/units")
+def create_unit(unit_in: UnitCreate, db: Session = Depends(get_db)):
+    """Agrega una nueva unidad al inventario del condominio."""
+    existing = db.query(Unit).filter(Unit.number == unit_in.number).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="El número de unidad ya existe.")
+
+    new_unit = Unit(
+        id=f"unit-{unit_in.number.lower().replace(' ', '-')}",
+        number=unit_in.number,
+        unit_type=unit_in.unit_type,
+        type_name="Penthouse" if unit_in.unit_type == "penthouse" else "Apartamento",
+        sqm=unit_in.sqm,
+        bedrooms=unit_in.bedrooms,
+        bathrooms=unit_in.bathrooms,
+        level=unit_in.level,
+        status=unit_in.status,
+        status_label="Disponible" if unit_in.status == "available" else ("Reservado" if unit_in.status == "reserved" else "Ocupado"),
+        price="Consultar",
+        image=unit_in.image or "img/photo-1564078516393-cf04bd966897_w800_h600.jpg"
+    )
+    db.add(new_unit)
+    db.commit()
+    return {"success": True, "unit": unit_in.number}
+
+@router.put("/units/{unit_id}/status")
+def update_unit_status(unit_id: str, payload: UnitUpdateStatus, db: Session = Depends(get_db)):
+    """Actualiza el estado de una unidad (disponible / reservado / ocupado)."""
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unidad no encontrada.")
+
+    unit.status = payload.status
+    unit.status_label = "Disponible" if payload.status == "available" else ("Reservado" if payload.status == "reserved" else "Ocupado")
+    db.commit()
+    return {"success": True, "status": unit.status, "statusLabel": unit.status_label}
