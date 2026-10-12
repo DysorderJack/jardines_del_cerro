@@ -173,6 +173,7 @@ def send_registration_decision_email(
     sent_real = False
     error_msg = None
 
+    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = resolve_smtp_config()
     smtp_keys_in_env = [k for k in os.environ.keys() if any(w in k.upper() for w in ["SMTP", "MAIL", "EMAIL", "GMAIL"])]
     all_custom_keys = [k for k in os.environ.keys() if not k.startswith(("_", "PYTHON", "PATH", "HOME", "LANG", "LC_", "PWD", "SHLVL", "HOSTNAME", "DEBIAN", "PORT", "LD_", "OLDPWD", "XDG_"))]
 

@@ -153,14 +153,23 @@ def send_test_email(email: str):
     """
     Envía un correo de prueba directo para verificar en tiempo real la configuración SMTP en Render.
     """
-    return send_registration_decision_email(
-        applicant_name="Administrador de Pruebas",
-        recipient_email=email,
-        unit="101",
-        role_label="Propietario Titular",
-        action="approve",
-        req_id="TEST-SMTP-DIRECTO"
-    )
+    try:
+        return send_registration_decision_email(
+            applicant_name="Administrador de Pruebas",
+            recipient_email=email,
+            unit="101",
+            role_label="Propietario Titular",
+            action="approve",
+            req_id="TEST-SMTP-DIRECTO"
+        )
+    except Exception as e:
+        return {
+            "success": False,
+            "sent_real_smtp": False,
+            "recipient": email,
+            "error": f"Excepción en el servidor: {type(e).__name__}: {str(e)}",
+            "preview": "Error de ejecución en backend"
+        }
 
 @router.get("/contracts/{filename}")
 def download_contract(filename: str):

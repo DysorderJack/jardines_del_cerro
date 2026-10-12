@@ -114,9 +114,13 @@ class ApiClient {
       const res = await fetch(`${this.baseUrl}/admin/send-test-email?email=${encodeURIComponent(email)}`, {
         method: 'POST'
       });
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => '');
+        return { success: false, error: `Error HTTP ${res.status} desde el servidor: ${errorText || 'Error interno temporal'}` };
+      }
       return await res.json();
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: false, error: `No se pudo conectar con el servidor: ${e.message}` };
     }
   }
 
