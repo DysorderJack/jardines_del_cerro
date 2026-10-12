@@ -2394,16 +2394,24 @@ class JardinesApp {
                     <td><span class="badge ${statusBadge}">${statusText}</span></td>
                     <td>
                       ${req.status === 'pending' ? `
-                        <div style="display: flex; gap: 6px;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
                           <button class="btn-primary" style="padding: 5px 10px; font-size: 11px; background: #059669; border-color: #059669;" onclick="window.app.approveRegistrationRequest('${req.id}');" title="Aprobar y conceder acceso">
                             ✓ Aprobar
                           </button>
                           <button class="btn-outline" style="padding: 5px 10px; font-size: 11px; color: #DC2626; border-color: #F87171;" onclick="window.app.rejectRegistrationRequest('${req.id}');" title="Rechazar solicitud">
                             ✕ Rechazar
                           </button>
+                          <button class="btn-outline" style="padding: 5px 8px; font-size: 11px; color: #DC2626; border-color: #F87171;" onclick="window.app.deleteRegistrationRequest('${req.id}');" title="Eliminar solicitud permanentemente">
+                            🗑️
+                          </button>
                         </div>
                       ` : `
-                        <span style="font-size: 11.5px; color: var(--dust);">Auditoría completada</span>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                          <span style="font-size: 11.5px; color: var(--dust);">Auditoría completada</span>
+                          <button class="btn-outline" style="padding: 4px 7px; font-size: 11px; color: #DC2626; border-color: #F87171;" onclick="window.app.deleteRegistrationRequest('${req.id}');" title="Eliminar registro">
+                            🗑️
+                          </button>
+                        </div>
                       `}
                     </td>
                   </tr>
@@ -2471,11 +2479,12 @@ class JardinesApp {
             <thead>
               <tr>
                 <th>Unidad</th>
-                <th>Titular Propietario</th>
+                <th>Titular Propietario / Inquilino</th>
                 <th>Teléfono</th>
                 <th>Condición</th>
                 <th>Alícuota %</th>
                 <th>Estado Mantenimiento</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -2487,6 +2496,15 @@ class JardinesApp {
                   <td>${r.condition}</td>
                   <td><code>${r.aliquot}</code></td>
                   <td><span class="badge ${r.status === 'Al día' ? 'badge-success' : (r.status === 'Reservado' ? 'badge-warning' : 'badge-neutral')}">${r.status}</span></td>
+                  <td>
+                    ${r.condition !== 'Disponible' && !r.name.includes('Disponible') ? `
+                      <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #DC2626; border-color: #F87171; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.deleteResident('${r.unit}', '${r.name}');" title="Desvincular residente y liberar unidad">
+                        <span>🗑️</span> Desvincular
+                      </button>
+                    ` : `
+                      <span style="font-size: 11px; color: var(--dust);">Vacante</span>
+                    `}
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
@@ -3187,6 +3205,87 @@ class JardinesApp {
       }
 
       this.openEmailNotificationModal('reject', req, backendResult);
+    }
+  }
+
+  async deleteRegistrationRequest(reqId) {
+    const req = this.adminData.registrationRequests.find(r => r.id === reqId);
+    const applicantName = req ? req.applicantName : reqId;
+
+    if (!confirm(`¿Estás seguro de eliminar permanentemente la solicitud de ${applicantName} (${reqId})?\n\n• Esta acción borrará el expediente y el usuario de prueba.\n• La unidad quedará limpia.`)) {
+      return;
+    }
+
+    // 1. Eliminar de registrationRequests
+    this.adminData.registrationRequests = this.adminData.registrationRequests.filter(r => r.id !== reqId);
+
+    // 2. Si existe en registeredUsers como pendiente o rechazado, eliminar
+    if (req) {
+      this.registeredUsers = this.registeredUsers.filter(u =>
+        u.documentId !== req.documentId && u.email.toLowerCase() !== req.email.toLowerCase()
+      );
+    }
+
+    // 3. Registrar actividad en auditoría
+    this.adminData.recentActivity.unshift({
+      title: `Solicitud eliminada: expediente de ${applicantName} depurado`,
+      time: 'Hace un momento',
+      type: 'user'
+    });
+
+    this.saveAllState();
+    this.updateAdminPendingBadge();
+    this.renderAdminTabContent();
+    this.showToast(`Solicitud de ${applicantName} eliminada.`);
+
+    // 4. Sincronizar eliminación con backend
+    if (window.apiClient) {
+      window.apiClient.deleteRegistrationRequest(reqId);
+    }
+  }
+
+  async deleteResident(unit, name) {
+    const cleanUnit = unit.replace('Unidad', '').replace('unidad', '').trim();
+    if (!confirm(`¿Estás seguro de desvincular y eliminar a ${name} de la Unidad ${cleanUnit}?\n\n• Se revocarán todas sus credenciales de acceso al portal.\n• La Unidad ${cleanUnit} quedará liberada como 'Disponible'.\n• Se depurarán sus registros y contratos de prueba.`)) {
+      return;
+    }
+
+    // 1. Actualizar directorio de residentes: marcar unidad como vacante
+    const resDir = this.adminData.residents.find(r => r.unit === cleanUnit || r.unit === unit);
+    if (resDir) {
+      resDir.name = "Sin Asignar (Disponible)";
+      resDir.phone = "N/A";
+      resDir.condition = "Disponible";
+      resDir.status = "Al día";
+    }
+
+    // 2. Eliminar del padrón de usuarios registrados
+    this.registeredUsers = this.registeredUsers.filter(u =>
+      (u.unit !== cleanUnit && u.unit !== unit) || u.name !== name
+    );
+
+    // 3. Actualizar inventario de unidades en marketplace
+    const invUnit = this.unitsData.find(u => u.number === cleanUnit || u.id.endsWith(cleanUnit.toLowerCase()));
+    if (invUnit) {
+      invUnit.status = 'available';
+      invUnit.statusLabel = 'Disponible';
+    }
+
+    // 4. Bitácora de actividad reciente
+    this.adminData.recentActivity.unshift({
+      title: `Residente desvinculado: ${name} retirado de Unidad ${cleanUnit} (Unidad liberada)`,
+      time: 'Hace un momento',
+      type: 'user'
+    });
+
+    this.saveAllState();
+    this.renderAdminTabContent();
+    this.renderUnitsGrid();
+    this.showToast(`Residente ${name} desvinculado y Unidad ${cleanUnit} liberada.`);
+
+    // 5. Sincronizar con backend
+    if (window.apiClient) {
+      await window.apiClient.deleteResident(cleanUnit);
     }
   }
 

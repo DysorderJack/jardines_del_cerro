@@ -108,6 +108,32 @@ class ApiClient {
     }
   }
 
+  // Eliminar solicitud de registro (para pruebas o cancelaciones)
+  async deleteRegistrationRequest(reqId) {
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/requests/${encodeURIComponent(reqId)}`, {
+        method: 'DELETE'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Fallo al eliminar solicitud en backend:', e);
+      return null;
+    }
+  }
+
+  // Desvincular y eliminar inquilino / residente
+  async deleteResident(identifier) {
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/residents/${encodeURIComponent(identifier)}`, {
+        method: 'DELETE'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Fallo al desvincular residente en backend:', e);
+      return null;
+    }
+  }
+
   // Envío de correo de prueba para diagnóstico SMTP
   async sendTestEmail(email) {
     try {

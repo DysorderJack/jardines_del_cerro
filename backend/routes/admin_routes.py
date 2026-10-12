@@ -237,3 +237,83 @@ def update_unit_status(unit_id: str, payload: UnitUpdateStatus, db: Session = De
     unit.status_label = "Disponible" if payload.status == "available" else ("Reservado" if payload.status == "reserved" else "Ocupado")
     db.commit()
     return {"success": True, "status": unit.status, "statusLabel": unit.status_label}
+
+@router.delete("/requests/{req_id}")
+def delete_registration_request(req_id: str, db: Session = Depends(get_db)):
+    """
+    Elimina una solicitud de registro (para depurar pruebas o solicitudes canceladas).
+    """
+    req = db.query(RegistrationRequest).filter(
+        (RegistrationRequest.id == req_id) |
+        (RegistrationRequest.email == req_id) |
+        (RegistrationRequest.document_id == req_id)
+    ).first()
+
+    if req:
+        # Si el usuario asociado está en estado pendiente o rechazado, también eliminarlo
+        user = db.query(User).filter(
+            (User.document_id == req.document_id) | (User.email == req.email)
+        ).first()
+        if user and user.status in ["pending", "rejected"]:
+            db.delete(user)
+
+        db.delete(req)
+        db.commit()
+        return {"success": True, "message": f"Solicitud {req_id} eliminada correctamente de la base de datos."}
+
+    return {"success": True, "message": f"Solicitud {req_id} removida."}
+
+@router.delete("/residents/{identifier}")
+def delete_resident(identifier: str, db: Session = Depends(get_db)):
+    """
+    Desvincula y elimina a un residente/inquilino (cuando deja el condominio o para depurar usuarios de prueba).
+    Libera la unidad residencial dejándola como 'Disponible'.
+    """
+    clean_id = identifier.replace("Unidad", "").replace("unidad", "").strip()
+
+    # Buscar usuario por id, email, document_id o unidad
+    user = db.query(User).filter(
+        (User.id == identifier) |
+        (User.email.ilike(identifier)) |
+        (User.document_id == identifier) |
+        (User.unit == clean_id)
+    ).first()
+
+    unit_number = user.unit if user else clean_id
+    user_name = user.name if user else f"Unidad {clean_id}"
+
+    if user:
+        # Eliminar también solicitudes de registro asociadas a este residente
+        reqs = db.query(RegistrationRequest).filter(
+            (RegistrationRequest.document_id == user.document_id) |
+            (RegistrationRequest.email == user.email) |
+            (RegistrationRequest.unit == user.unit)
+        ).all()
+        for r in reqs:
+            db.delete(r)
+
+        db.delete(user)
+
+    # Liberar la unidad (marcar como 'available')
+    unit = db.query(Unit).filter(
+        (Unit.number == unit_number) |
+        (Unit.id == f"unit-{unit_number.lower().replace(' ', '-')}")
+    ).first()
+    if unit:
+        unit.status = "available"
+        unit.status_label = "Disponible"
+
+    # Registrar en bitácora de auditoría
+    db.add(ActivityLog(
+        title=f"Residente desvinculado: {user_name} (Unidad {unit_number} liberada)",
+        time="Hace un momento",
+        activity_type="user"
+    ))
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Residente {user_name} desvinculado con éxito. La Unidad {unit_number} ahora está Disponible.",
+        "unit": unit_number
+    }
+
