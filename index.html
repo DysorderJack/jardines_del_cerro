@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torre Residencial Jardines del Cerro IV | Mao, Valverde</title>
+  <meta name="description" content="El nuevo estándar de vida residencial de alto nivel en Mao, Valverde. 10 niveles, apartamentos de 120 m², penthouses de 170 m² y 11 amenidades exclusivas.">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231B3B36'><polygon points='12 2 2 22 22 22'/></svg>">
+</head>
+<body>
+
+  <!-- =========================================================================
+       Site Header / Navbar
+       ========================================================================= -->
+  <header class="site-header" id="site-header">
+    <div class="container header-container">
+      <a href="#" class="brand-link" onclick="window.app.setView('landing', 'hero'); return false;">
+        <span class="brand-title">JARDINES DEL CERRO IV</span>
+        <span class="brand-kicker">Mao, Valverde · Torre Residencial</span>
+      </a>
+
+      <!-- Desktop Nav Links -->
+      <nav class="nav-links" id="desktop-nav">
+        <a href="#hero" class="nav-link active" onclick="window.app.setView('landing', 'hero'); return false;">Inicio</a>
+        <a href="#unidades" class="nav-link" onclick="window.app.setView('landing', 'unidades'); return false;">Unidades</a>
+        <a href="#calculadora" class="nav-link" onclick="window.app.setView('landing', 'calculadora'); return false;">Calculadora & DGII</a>
+        <a href="#amenidades" class="nav-link" onclick="window.app.setView('landing', 'amenidades'); return false;">Amenidades</a>
+        <a href="#proyecto" class="nav-link" onclick="window.app.setView('landing', 'proyecto'); return false;">El Proyecto</a>
+        <a href="#proceso" class="nav-link" onclick="window.app.setView('landing', 'proceso'); return false;">Proceso</a>
+        <a href="#contacto" class="nav-link" onclick="window.app.setView('landing', 'contacto'); return false;">Contacto</a>
+      </nav>
+
+      <!-- Header Actions -->
+      <div class="header-actions">
+        <button class="btn-primary" onclick="window.app.setView('schedule');" style="padding: 8px 16px; font-size: 12.5px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Agendar visita</span>
+        </button>
+
+        <!-- Profile Access Dropdown -->
+        <div style="position: relative;">
+          <button class="profile-btn" id="profile-dropdown-btn" title="Accesos a Portales" onclick="window.app.toggleProfileDropdown(event);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </button>
+          <div class="profile-dropdown" id="profile-dropdown-menu">
+            <div style="padding: 6px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dust); border-bottom: 1px solid var(--linen); margin-bottom: 4px;">
+              Accesos a Portales
+            </div>
+            <button class="dropdown-item" onclick="window.app.openResidentLogin();">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span>Portal Residentes (Inquilinos & Dueños)</span>
+            </button>
+            <button class="dropdown-item" onclick="window.app.openAdminLogin();">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <span>Panel de Administración</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mobile Menu Toggle Button -->
+        <button class="menu-toggle" id="mobile-menu-btn" onclick="window.app.toggleMobileMenu();" title="Menú">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-drawer" style="display: none; background: var(--white); border-bottom: 1px solid var(--linen); padding: 16px 24px; box-shadow: var(--shadow-lg);">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <a href="#hero" class="nav-link" onclick="window.app.setView('landing', 'hero'); window.app.toggleMobileMenu(); return false;">Inicio</a>
+        <a href="#unidades" class="nav-link" onclick="window.app.setView('landing', 'unidades'); window.app.toggleMobileMenu(); return false;">Unidades</a>
+        <a href="#calculadora" class="nav-link" onclick="window.app.setView('landing', 'calculadora'); window.app.toggleMobileMenu(); return false;">Calculadora & DGII</a>
+        <a href="#amenidades" class="nav-link" onclick="window.app.setView('landing', 'amenidades'); window.app.toggleMobileMenu(); return false;">Amenidades</a>
+        <a href="#proyecto" class="nav-link" onclick="window.app.setView('landing', 'proyecto'); window.app.toggleMobileMenu(); return false;">El Proyecto</a>
+        <a href="#proceso" class="nav-link" onclick="window.app.setView('landing', 'proceso'); window.app.toggleMobileMenu(); return false;">Proceso</a>
+        <a href="#contacto" class="nav-link" onclick="window.app.setView('landing', 'contacto'); window.app.toggleMobileMenu(); return false;">Contacto</a>
+        <div style="height: 1px; background: var(--linen); margin: 6px 0;"></div>
+        <button class="dropdown-item" onclick="window.app.openResidentLogin(); window.app.toggleMobileMenu();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span>Portal Residentes (Inquilinos & Dueños)</span>
+        </button>
+        <button class="dropdown-item" onclick="window.app.openAdminLogin(); window.app.toggleMobileMenu();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Panel de Administración</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       VIEW 1: PUBLIC LANDING PAGE
+       ========================================================================= -->
+  <main id="view-landing" class="fade-in">
+    <!-- Hero Section -->
+    <section class="hero-section" id="hero">
+      <img src="img/photo-1545324418-cc1a3fa10c00_w1600_h900.jpg" alt="Torre Residencial Jardines del Cerro IV" class="hero-bg-img">
+      <div class="hero-gradient"></div>
+      
+      <div class="container" style="position: relative; z-index: 2;">
+        <div class="hero-content">
+          <div class="hero-kicker">Mao, Valverde · Torre Residencial</div>
+          <h1 class="hero-title">
+            El nuevo estándar de vida en <span>Mao</span>
+          </h1>
+          <div class="hero-subtitle-heading">
+            10 niveles de exclusividad y confort
+          </div>
+          <p class="hero-desc">
+            Apartamentos de 120 m² y penthouses de 170 m² con acabados de primera, amenidades completas y la mejor ubicación en Mao, Valverde. Un proyecto concebido para superar las más altas expectativas residenciales.
+          </p>
+          <div class="hero-buttons">
+            <button class="btn-accent" onclick="window.app.scrollToSection('unidades');">
+              <span>Explorar unidades</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+            <button class="btn-secondary" onclick="window.app.setView('schedule');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>Agendar visita</span>
+            </button>
+          </div>
+          <div class="hero-pills">
+            <span class="hero-pill"><span class="hero-pill-dot"></span> 10 Niveles</span>
+            <span class="hero-pill"><span class="hero-pill-dot"></span> Desde 120 m²</span>
+            <span class="hero-pill"><span class="hero-pill-dot"></span> 11 Amenidades</span>
+            <span class="hero-pill"><span class="hero-pill-dot"></span> Separación US$5,000</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Units Catalog Section -->
+    <section class="units-section" id="unidades">
+      <div class="container">
+        <div class="section-tag">CATÁLOGO RESIDENCIAL</div>
+        <h2 class="section-title">Nuestras unidades disponibles</h2>
+        <p class="section-desc">
+          Encuentra la unidad perfecta para tu estilo de vida. Apartamentos de 120 m² y penthouses exclusivos de 170 m² con terrazas y vistas panorámicas 360° a Mao.
+        </p>
+
+        <!-- Filters Bar -->
+        <div class="filter-bar">
+          <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+              <!-- Modality Filter -->
+              <div class="filter-group">
+                <span class="filter-label">Modalidad:</span>
+                <button class="filter-btn active" data-filter-type="modality" data-value="all" onclick="window.app.setUnitFilter('modality', 'all', this);">Todas</button>
+                <button class="filter-btn" data-filter-type="modality" data-value="purchase" onclick="window.app.setUnitFilter('modality', 'purchase', this);">Solo Compra</button>
+                <button class="filter-btn" data-filter-type="modality" data-value="both" onclick="window.app.setUnitFilter('modality', 'both', this);">Compra · Alquiler</button>
+              </div>
+
+              <!-- Sorting -->
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="filter-label">Ordenar:</span>
+                <select class="sort-select" id="unit-sort-select" onchange="window.app.setUnitSort(this.value);">
+                  <option value="default">Predeterminado</option>
+                  <option value="sqm-desc">Mayor tamaño (m²)</option>
+                  <option value="sqm-asc">Menor tamaño (m²)</option>
+                  <option value="level-asc">Piso: Menor a mayor</option>
+                  <option value="level-desc">Piso: Mayor a menor</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-top: 10px; border-top: 1px solid var(--linen);">
+              <!-- Type Filter -->
+              <div class="filter-group">
+                <span class="filter-label">Tipología:</span>
+                <button class="filter-btn active" data-filter-type="type" data-value="all" onclick="window.app.setUnitFilter('type', 'all', this);">Todos</button>
+                <button class="filter-btn" data-filter-type="type" data-value="apartment" onclick="window.app.setUnitFilter('type', 'apartment', this);">Apartamentos (120 m²)</button>
+                <button class="filter-btn" data-filter-type="type" data-value="penthouse" onclick="window.app.setUnitFilter('type', 'penthouse', this);">Penthouses (170 m²)</button>
+              </div>
+
+              <!-- Status Filter -->
+              <div class="filter-group">
+                <span class="filter-label">Estado:</span>
+                <button class="filter-btn active" data-filter-type="status" data-value="all" onclick="window.app.setUnitFilter('status', 'all', this);">Todos</button>
+                <button class="filter-btn" data-filter-type="status" data-value="available" onclick="window.app.setUnitFilter('status', 'available', this);">Disponibles</button>
+                <button class="filter-btn" data-filter-type="status" data-value="reserved" onclick="window.app.setUnitFilter('status', 'reserved', this);">Reservados</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Grid of Units -->
+        <div class="units-grid" id="units-cards-container">
+          <!-- Rendered dynamically by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         Mortgage Simulator & DGII Transfer Tax Section (Punto 16.1 & 16.10)
+         ========================================================================= -->
+    <section class="calculator-section" id="calculadora" style="padding: 88px 0; background: var(--surface); border-top: 1px solid var(--linen); border-bottom: 1px solid var(--linen);">
+      <div class="container">
+        <div class="section-tag">SIMULADOR FINANCIERO & DGII</div>
+        <h2 class="section-title">Calcula tu cuota bancaria e impuestos de cierre</h2>
+        <p class="section-desc">
+          Planifica tu inversión con total transparencia. Modifica el porcentaje de inicial, selecciona tu banco dominicano preferido y conoce tu cuota estimada junto al 3% de Impuesto de Transferencia Inmobiliaria (Ley 173-07).
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr; gap: 32px; margin-top: 36px;" class="calc-grid">
+          <!-- Columna Izquierda: Parámetros del Simulador -->
+          <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 28px; box-shadow: var(--shadow-sm);">
+            <h3 style="font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h0M2 10h20"/></svg>
+              <span>Configura tu Plan de Financiamiento</span>
+            </h3>
+
+            <!-- Selector de Unidad Referencial -->
+            <div class="form-group">
+              <label class="form-label">Unidad o Tipo de Vivienda</label>
+              <select class="form-select" id="calc-unit-select" onchange="window.app.updateMortgageCalculator();">
+                <option value="145000">Apartamento Estándar 120 m² (Valor tasado ref. US$ 145,000)</option>
+                <option value="230000">Penthouse de Lujo 170 m² (Valor tasado ref. US$ 230,000)</option>
+                <option value="custom">Monto personalizado en USD...</option>
+              </select>
+            </div>
+
+            <!-- Input Monto Personalizado -->
+            <div class="form-group" id="calc-custom-price-wrap" style="display: none;">
+              <label class="form-label">Valor del Inmueble (USD)</label>
+              <input type="number" class="form-input" id="calc-custom-price" value="150000" min="50000" max="1000000" step="5000" oninput="window.app.updateMortgageCalculator();">
+            </div>
+
+            <!-- Selector de Entidad Bancaria Dominicana -->
+            <div class="form-group">
+              <label class="form-label">Entidad Bancaria Dominicana</label>
+              <select class="form-select" id="calc-bank-select" onchange="window.app.updateMortgageCalculator();">
+                <option value="popular">Banco Popular Dominicano — Tasa 10.50% anual</option>
+                <option value="banreservas">Banreservas — Tasa 10.25% anual</option>
+                <option value="bhd">Banco BHD — Tasa 10.75% anual</option>
+              </select>
+            </div>
+
+            <!-- Slider de Porcentaje de Inicial (20% al 30%) -->
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label class="form-label" style="margin-bottom: 0;">Porcentaje de Inicial:</label>
+                <span id="calc-downpayment-pct-label" style="font-weight: 800; color: var(--primary); font-size: 15px;">25%</span>
+              </div>
+              <input type="range" id="calc-downpayment-range" min="20" max="30" value="25" step="1" style="width: 100%; accent-color: var(--primary);" oninput="window.app.updateMortgageCalculator();">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--dust); margin-top: 4px;">
+                <span>20% (Mínimo requerido)</span>
+                <span>25%</span>
+                <span>30%</span>
+              </div>
+            </div>
+
+            <!-- Selector de Plazo -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Plazo del Préstamo Hipotecario</label>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                <button type="button" class="btn-outline calc-term-btn" data-term="15" onclick="window.app.setMortgageTerm(15, this);">15 Años</button>
+                <button type="button" class="btn-outline calc-term-btn active" data-term="20" onclick="window.app.setMortgageTerm(20, this);" style="background: var(--primary); color: #fff; border-color: var(--primary);">20 Años</button>
+                <button type="button" class="btn-outline calc-term-btn" data-term="25" onclick="window.app.setMortgageTerm(25, this);">25 Años</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Resumen de Cálculos y Módulo Fiscal DGII -->
+          <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 28px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dust); margin-bottom: 4px;">
+                CUOTA MENSUAL ESTIMADA (SISTEMA FRANCÉS)
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px;">
+                <div id="calc-result-monthly-usd" style="font-family: var(--font-display); font-size: 36px; font-weight: 800; color: var(--primary);">
+                  US$ 1,068 / mes
+                </div>
+              </div>
+              <div id="calc-result-monthly-dop" style="font-size: 13.5px; font-weight: 600; color: var(--dust); margin-bottom: 20px;">
+                Aprox. RD$ 64,614 DOP / mes (Tasa ref. 60.50)
+              </div>
+
+              <!-- Tabla de Desglose de Operación -->
+              <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px; font-size: 12.5px;">
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                  <span style="color: var(--dust);">Valor Total Inmueble:</span>
+                  <strong id="calc-summary-total-usd">US$ 145,000</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                  <span style="color: var(--dust);">Inicial Total Acordado:</span>
+                  <strong id="calc-summary-down-usd">US$ 36,250 (25%)</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #047857;">
+                  <span>Separación Acreditada:</span>
+                  <strong>- US$ 5,000.00</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-top: 1px dashed var(--linen); margin-top: 4px; padding-top: 6px;">
+                  <span style="font-weight: 600;">Inicial Restante a Pagar:</span>
+                  <strong id="calc-summary-remaining-down" style="color: var(--primary);">US$ 31,250.00</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                  <span style="color: var(--dust);">Monto a Financiar por Banco:</span>
+                  <strong id="calc-summary-financed-usd">US$ 108,750</strong>
+                </div>
+              </div>
+
+              <!-- Bloque Fiscal Oficial (3% Impuesto DGII Ley 173-07) -->
+              <div style="background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%); border: 1.5px solid #FCD34D; border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <span style="font-size: 16px;">🏛️</span>
+                  <div style="font-size: 12px; font-weight: 800; color: #92400E; text-transform: uppercase; letter-spacing: 0.05em;">
+                    Impuesto de Transferencia Inmobiliaria (DGII)
+                  </div>
+                </div>
+                <div style="font-size: 11.5px; color: #78350F; line-height: 1.45; margin-bottom: 10px;">
+                  Conforme a la <strong>Ley 173-07</strong> de la República Dominicana, la transferencia del título de propiedad ante el Registro de Títulos de Mao exige el pago del <strong>3%</strong> sobre el valor tasado del inmueble.
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(180, 83, 9, 0.2); padding-top: 8px; font-size: 13px;">
+                  <span style="color: #92400E; font-weight: 600;">Estimación Tributaria (3%):</span>
+                  <strong id="calc-result-dgii-tax" style="font-size: 15px; color: #78350F; font-weight: 800;">US$ 4,350 (RD$ 263,175)</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button class="btn-primary" style="flex: 1; padding: 12px;" onclick="window.app.applyCalculatorToBooking();">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Agendar Cita con este Banco</span>
+              </button>
+              <button class="btn-outline" style="padding: 12px;" onclick="window.app.openWhatsApp('Hola, utilicé el simulador hipotecario para Torre Jardines del Cerro IV y deseo asesoría personalizada.');">
+                <span>Asesoría WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Amenities Section -->
+    <section class="amenities-section" id="amenidades">
+      <div class="container">
+        <div class="section-tag">ESTILO DE VIDA</div>
+        <h2 class="section-title">Amenidades exclusivas</h2>
+        <p class="section-desc">
+          Disfruta de espacios diseñados para tu bienestar, recreación y tranquilidad familiar en la torre más completa de Mao, Valverde.
+        </p>
+
+        <!-- Amenity Filter Tabs -->
+        <div style="display: flex; gap: 8px; margin-top: 24px; flex-wrap: wrap;">
+          <button class="filter-btn active" data-amenity-filter="all" onclick="window.app.filterAmenities('all', this);">Todas las amenidades (11)</button>
+          <button class="filter-btn" data-amenity-filter="lifestyle" onclick="window.app.filterAmenities('lifestyle', this);">Estilo de vida & Esparcimiento</button>
+          <button class="filter-btn" data-amenity-filter="services" onclick="window.app.filterAmenities('services', this);">Seguridad & Servicios</button>
+        </div>
+
+        <!-- Dynamic Amenities Grid -->
+        <div class="amenities-grid" id="amenities-cards-container">
+          <!-- Rendered dynamically by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- The Project Section -->
+    <section class="about-section" id="proyecto">
+      <div class="container">
+        <div class="about-grid">
+          <div>
+            <div class="section-tag">EL PROYECTO</div>
+            <h2 class="section-title">Torre Residencial Jardines del Cerro IV</h2>
+            <p class="section-desc" style="margin-bottom: 20px;">
+              Ubicada en una de las zonas más privilegiadas y de mayor crecimiento en <strong>Mao, provincia Valverde</strong>, la Torre Residencial Jardines del Cerro IV eleva el estándar arquitectónico regional combinando ingeniería sismorresistente avanzada, acabados de primera y vistas despejadas de 360 grados hacia el valle.
+            </p>
+            <p class="section-desc" style="margin-bottom: 28px;">
+              Cada apartamento ha sido meticulosamente concebido para maximizar la ventilación cruzada natural, el aprovechamiento lumínico y la privacidad acústica de sus residentes, respaldado por un sistema ininterrumpido de energía y seguridad las 24 horas.
+            </p>
+
+            <div class="about-stats-grid">
+              <div class="stat-box">
+                <div class="stat-num">10</div>
+                <div class="stat-label">Niveles de Altura</div>
+                <div class="stat-sub">Vistas panorámicas a Mao</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-num">120<span>-170m²</span></div>
+                <div class="stat-label">Área Construida</div>
+                <div class="stat-sub">Aptos y Penthouses</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-num">11</div>
+                <div class="stat-label">Amenidades de Lujo</div>
+                <div class="stat-sub">Piscina, Gym, Rooftop y más</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-num"><span style="font-size:20px; color:var(--primary);">US$</span>5k</div>
+                <div class="stat-label">Monto de Separación</div>
+                <div class="stat-sub">Abono directo al contrato</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="about-img-wrap">
+            <img src="img/photo-1600585154340-be6161a56a0c_w1000_h1200.jpg" alt="Fachada Jardines del Cerro IV" class="about-img">
+            <div class="about-location-pill">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 38px; height: 38px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <div>
+                  <div style="font-size: 13px; font-weight: 700; color: var(--ink);">Mao, Valverde</div>
+                  <div style="font-size: 11.5px; color: var(--dust);">República Dominicana</div>
+                </div>
+              </div>
+              <span class="badge badge-primary">Zona Exclusiva</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Acquisition Process Section -->
+    <section class="process-section" id="proceso">
+      <div class="container">
+        <div class="section-tag" style="color: var(--accent);">PASO A PASO</div>
+        <h2 class="section-title" style="color: var(--white);">Proceso de adquisición</h2>
+        <p class="section-desc" style="color: rgba(255, 255, 255, 0.75);">
+          Transparencia, asesoría personalizada y acompañamiento legal desde tu primera visita hasta la entrega de tus llaves.
+        </p>
+
+        <div class="process-grid" id="process-cards-container">
+          <!-- Rendered dynamically by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact & Location Section -->
+    <section class="contact-section" id="contacto">
+      <div class="container">
+        <!-- Direct CTA Banner -->
+        <div class="contact-cta-banner">
+          <div class="section-tag" style="justify-content: center;">¿LISTO PARA COMENZAR?</div>
+          <h2 class="section-title" style="margin-bottom: 12px;">Agenda tu visita a la torre hoy mismo</h2>
+          <p class="section-desc" style="margin: 0 auto 24px auto;">
+            Conoce personalmente la unidad de tu preferencia o coordina una sesión informativa virtual con nuestros asesores inmobiliarios autorizados.
+          </p>
+          <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-primary" onclick="window.app.setView('schedule');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>Agendar cita ahora</span>
+            </button>
+            <button class="btn-outline" onclick="window.app.openWhatsApp('Hola, deseo información sobre Jardines del Cerro IV en Mao.');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              <span>Consultar por WhatsApp</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Contact Channels & Quick Form -->
+        <div class="contact-grid">
+          <div>
+            <div class="section-tag">INFORMACIÓN DE CONTACTO</div>
+            <h3 class="section-title" style="font-size: 28px;">Estamos para servirte</h3>
+            <p class="section-desc" style="margin-bottom: 24px;">
+              Ponte en contacto con nuestro departamento de ventas para coordinar tu cita, consultar disponibilidad o resolver inquietudes sobre el financiamiento.
+            </p>
+
+            <div class="contact-channel-card">
+              <div class="contact-channel-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </div>
+              <div>
+                <div class="contact-channel-title">Teléfono & WhatsApp</div>
+                <div class="contact-channel-val">(809) 555-0140</div>
+              </div>
+            </div>
+
+            <div class="contact-channel-card">
+              <div class="contact-channel-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div>
+                <div class="contact-channel-title">Correo Electrónico</div>
+                <div class="contact-channel-val">ventas@jardinesdelcerro.do</div>
+              </div>
+            </div>
+
+            <div class="contact-channel-card">
+              <div class="contact-channel-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <div>
+                <div class="contact-channel-title">Ubicación del Proyecto</div>
+                <div class="contact-channel-val">Calle Principal, Mao, Valverde, Rep. Dom.</div>
+              </div>
+            </div>
+
+            <div class="contact-channel-card">
+              <div class="contact-channel-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div>
+                <div class="contact-channel-title">Horario de Atención</div>
+                <div class="contact-channel-val">Lunes a Sábado: 8:30 AM – 6:00 PM</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Message Card -->
+          <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 32px; box-shadow: var(--shadow-sm);">
+            <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 6px; color: var(--ink);">Envíanos un mensaje</h3>
+            <p style="font-size: 13px; color: var(--dust); margin-bottom: 20px;">Un asesor comercial se comunicará contigo a la mayor brevedad posible.</p>
+
+            <form id="contact-quick-form" onsubmit="window.app.handleContactSubmit(event);">
+              <div class="form-group">
+                <label class="form-label">Nombre completo *</label>
+                <input type="text" class="form-input" id="quick-contact-name" placeholder="Ej. Carlos Mendoza" required>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div class="form-group">
+                  <label class="form-label">Teléfono *</label>
+                  <input type="tel" class="form-input" id="quick-contact-phone" placeholder="(809) 000-0000" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Correo electrónico</label>
+                  <input type="email" class="form-input" id="quick-contact-email" placeholder="carlos@correo.com">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Unidad de interés</label>
+                <select class="form-select" id="quick-contact-unit">
+                  <option value="">Cualquier unidad / Asesoría general</option>
+                  <option value="101">Unidad 101 — Apartamento 120 m²</option>
+                  <option value="201">Unidad 201 — Apartamento 120 m²</option>
+                  <option value="301">Unidad 301 — Apartamento 120 m²</option>
+                  <option value="501">Unidad 501 — Apartamento 120 m²</option>
+                  <option value="PH-901">PH-901 — Penthouse 170 m²</option>
+                  <option value="PH-1001">PH-1001 — Penthouse 170 m²</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mensaje o consulta</label>
+                <textarea class="form-textarea" id="quick-contact-message" rows="3" placeholder="Me gustaría recibir detalles sobre la disponibilidad y facilidades de financiamiento..."></textarea>
+              </div>
+              <button type="submit" class="btn-primary" style="width: 100%; padding: 12px;">
+                <span>Enviar consulta</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="background-color: var(--primary-dark); color: var(--white); padding-top: 64px; padding-bottom: 32px; border-top: 1px solid rgba(255,255,255,0.08);">
+      <div class="container">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; margin-bottom: 48px;">
+          <div>
+            <div style="font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 6px;">JARDINES DEL CERRO IV</div>
+            <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; margin-bottom: 16px;">Mao, Valverde · Torre Residencial</div>
+            <p style="font-size: 13px; color: rgba(255, 255, 255, 0.7); line-height: 1.6;">
+              La torre residencial que redefine el confort y el estatus en el Cibao Occidental. 10 niveles, 11 amenidades y acabados de lujo.
+            </p>
+          </div>
+          <div>
+            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 16px;">Navegación</div>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: rgba(255, 255, 255, 0.7);">
+              <li><a href="#hero" onclick="window.app.setView('landing', 'hero'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Inicio</a></li>
+              <li><a href="#unidades" onclick="window.app.setView('landing', 'unidades'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Catálogo de Unidades</a></li>
+              <li><a href="#amenidades" onclick="window.app.setView('landing', 'amenidades'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Amenidades del Edificio</a></li>
+              <li><a href="#proyecto" onclick="window.app.setView('landing', 'proyecto'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">El Proyecto & Ubicación</a></li>
+              <li><a href="#proceso" onclick="window.app.setView('landing', 'proceso'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Proceso de Adquisición</a></li>
+            </ul>
+          </div>
+          <div>
+            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 16px;">Portales del Sistema</div>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: rgba(255, 255, 255, 0.7);">
+              <li><a href="#" onclick="window.app.setView('schedule'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Agendar Visita a la Torre</a></li>
+              <li><a href="#" onclick="window.app.setView('owner'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Portal de Propietarios (Unidad 301)</a></li>
+              <li><a href="#" onclick="window.app.setView('admin'); return false;" style="transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Panel Administrativo del Condominio</a></li>
+            </ul>
+          </div>
+          <div>
+            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 16px;">Contacto & Legal</div>
+            <p style="font-size: 13px; color: rgba(255, 255, 255, 0.7); line-height: 1.6; margin-bottom: 8px;">
+              Mao, Provincia Valverde, República Dominicana.
+            </p>
+            <p style="font-size: 13px; color: rgba(255, 255, 255, 0.7); line-height: 1.6;">
+              T: (809) 555-0140<br>
+              E: ventas@jardinesdelcerro.do
+            </p>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; font-size: 12px; color: rgba(255, 255, 255, 0.5);">
+          <div>© 2026 Torre Residencial Jardines del Cerro IV. Todos los derechos reservados.</div>
+          <div style="display: flex; gap: 16px;">
+            <span>Mao, Valverde</span>
+            <span>·</span>
+            <span>Régimen de Condominio Ley 5038</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- =========================================================================
+       VIEW 2: DEDICATED SCHEDULE VIEW
+       ========================================================================= -->
+  <section id="view-schedule" class="schedule-view fade-in" style="display: none; padding-top: 88px;">
+    <div class="container">
+      <div class="breadcrumb">
+        <button onclick="window.app.setView('landing', 'hero');">Inicio</button>
+        <span>/</span>
+        <span style="color: var(--ink); font-weight: 600;">Agendar Visita</span>
+      </div>
+
+      <div class="section-tag">RESERVA TU EXPERIENCIA</div>
+      <h1 class="section-title">Agenda una visita a la torre</h1>
+      <p class="section-desc">
+        Selecciona fecha, hora y modalidad (visita presencial guiada en Mao o videollamada interactiva) para conocer cada detalle del proyecto con un asesor especializado.
+      </p>
+
+      <div class="schedule-grid">
+        <!-- Interactive Date & Slot Picker -->
+        <div class="calendar-card">
+          <div class="calendar-header">
+            <div class="calendar-month-name" id="cal-month-title">Octubre 2026</div>
+            <div style="display: flex; gap: 8px;">
+              <button class="calendar-nav-btn" onclick="window.app.prevMonth();" title="Mes anterior">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <button class="calendar-nav-btn" onclick="window.app.nextMonth();" title="Mes siguiente">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="calendar-weekdays">
+            <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+          </div>
+          <div class="calendar-days-grid" id="calendar-days-container">
+            <!-- Rendered by app.js -->
+          </div>
+
+          <!-- Time Slots -->
+          <div style="margin-top: 24px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dust); margin-bottom: 10px;">
+              Horarios disponibles para la fecha seleccionada:
+            </div>
+            <div class="time-slots" id="time-slots-container">
+              <button class="time-slot-btn selected" onclick="window.app.selectTimeSlot('09:00 AM', this);">09:00 AM</button>
+              <button class="time-slot-btn" onclick="window.app.selectTimeSlot('10:30 AM', this);">10:30 AM</button>
+              <button class="time-slot-btn" onclick="window.app.selectTimeSlot('02:00 PM', this);">02:00 PM</button>
+              <button class="time-slot-btn" onclick="window.app.selectTimeSlot('03:30 PM', this);">03:30 PM</button>
+              <button class="time-slot-btn" onclick="window.app.selectTimeSlot('05:00 PM', this);">05:00 PM</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Booking Form -->
+        <div class="schedule-form-card">
+          <h2 style="font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 6px; color: var(--ink);">Datos de tu reserva</h2>
+          <p style="font-size: 13px; color: var(--dust); margin-bottom: 20px;">
+            Recibirás confirmación inmediata y recordatorio vía WhatsApp.
+          </p>
+
+          <form id="booking-form" onsubmit="window.app.handleBookingSubmit(event);">
+            <!-- Modality selector -->
+            <div class="form-group">
+              <label class="form-label">Modalidad de visita</label>
+              <div class="toggle-group">
+                <button type="button" class="toggle-option active" id="btn-mode-presencial" onclick="window.app.setBookingModality('presencial');">Presencial en Mao</button>
+                <button type="button" class="toggle-option" id="btn-mode-virtual" onclick="window.app.setBookingModality('virtual');">Videollamada</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Nombre completo *</label>
+              <input type="text" class="form-input" id="book-name" placeholder="Ej. Roberto Peña" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label class="form-label">Teléfono *</label>
+                <input type="tel" class="form-input" id="book-phone" placeholder="(809) 000-0000" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Correo electrónico</label>
+                <input type="email" class="form-input" id="book-email" placeholder="roberto@correo.com">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Unidad que deseas conocer</label>
+              <select class="form-select" id="book-unit">
+                <option value="Cualquier unidad disponible">Cualquier unidad disponible</option>
+                <option value="Unidad 101 (120 m²)">Unidad 101 — Apartamento 120 m²</option>
+                <option value="Unidad 201 (120 m²)">Unidad 201 — Apartamento 120 m²</option>
+                <option value="Unidad 301 (120 m²)">Unidad 301 — Apartamento 120 m²</option>
+                <option value="Unidad 501 (120 m²)">Unidad 501 — Apartamento 120 m²</option>
+                <option value="PH-901 (170 m²)">PH-901 — Penthouse 170 m²</option>
+                <option value="PH-1001 (170 m²)">PH-1001 — Penthouse 170 m²</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Comentarios o requerimientos</label>
+              <textarea class="form-textarea" id="book-notes" rows="2" placeholder="Notas sobre el número de personas o inquietudes sobre financiamiento..."></textarea>
+            </div>
+
+            <!-- Booking Summary Box -->
+            <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 12px; color: var(--ink);">
+              <div style="font-weight: 700; margin-bottom: 4px; color: var(--primary);">Resumen de tu cita:</div>
+              <div>📅 <strong>Fecha:</strong> <span id="summary-date">02 Octubre 2026</span></div>
+              <div>⏰ <strong>Horario:</strong> <span id="summary-time">09:00 AM</span></div>
+              <div>📍 <strong>Modalidad:</strong> <span id="summary-mode">Presencial en la Torre (Mao)</span></div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 12px;">
+              <span>Confirmar cita ahora</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW 3: RESIDENT OWNER PORTAL (MOCK UNIT 301)
+       ========================================================================= -->
+  <!-- =========================================================================
+       VIEW 3: RESIDENT PORTAL (PROPIETARIOS & INQUILINOS)
+       ========================================================================= -->
+  <section id="view-owner" class="portal-view fade-in" style="display: none;">
+    <!-- Resident Login / Register View (when not authenticated) -->
+    <div id="owner-login-container" class="portal-login-wrap">
+      <div class="portal-login-card" style="max-width: 480px;">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="width: 48px; height: 48px; border-radius: 12px; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <h2 style="font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--ink);">Portal de Residentes</h2>
+          <p style="font-size: 13px; color: var(--dust); margin-top: 4px;">Acceso oficial para propietarios e inquilinos de Jardines del Cerro IV</p>
+        </div>
+
+        <!-- Selector de Pestañas: Login vs Registro (Punto 16.3) -->
+        <div style="display: flex; background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px;">
+          <button id="tab-btn-resident-login" type="button" class="btn-primary" style="flex: 1; padding: 8px 12px; font-size: 12px; border-radius: 6px;" onclick="window.app.switchResidentAuthTab('login');">
+            Iniciar Sesión
+          </button>
+          <button id="tab-btn-resident-register" type="button" class="btn-outline" style="flex: 1; padding: 8px 12px; font-size: 12px; border: none; border-radius: 6px; color: var(--dust);" onclick="window.app.switchResidentAuthTab('register');">
+            Solicitar Registro
+          </button>
+        </div>
+
+        <!-- Alerta de Cuenta Pendiente (si aplica) -->
+        <div id="resident-pending-alert" style="display: none; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; font-size: 12px; color: #92400E;">
+          ⏳ <strong>Cuenta Pendiente de Aprobación:</strong> Tu solicitud se encuentra en revisión administrativa conforme al Punto 16.3. El administrador debe auditar tu contrato antes de autorizar el acceso.
+        </div>
+
+        <!-- Formulario 1: Iniciar Sesión -->
+        <form id="resident-login-form" onsubmit="window.app.loginResident(event);">
+          <div class="form-group">
+            <label class="form-label">Condición de Residente</label>
+            <select class="form-select" id="resident-login-role">
+              <option value="owner">Propietario Titular</option>
+              <option value="tenant">Inquilino Arrendatario</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cédula o Correo Electrónico</label>
+            <input type="text" class="form-input" id="resident-login-user" value="ramona.ramos@gmail.com" placeholder="Ej. 034-0012345-6 o correo" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contraseña de acceso</label>
+            <input type="password" class="form-input" id="resident-login-pass" value="1234" required>
+          </div>
+          <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; margin-top: 8px;">
+            <span>Ingresar a mi portal</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </form>
+
+        <!-- Formulario 2: Solicitud de Registro de Nuevo Residente / Inquilino (Punto 16.3) -->
+        <form id="resident-register-form" style="display: none;" onsubmit="window.app.handleResidentRegisterSubmit(event);">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo *</label>
+            <input type="text" class="form-input" id="reg-name" placeholder="Ej. Dra. Laura Batista" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Cédula o Pasaporte *</label>
+              <input type="text" class="form-input" id="reg-doc" placeholder="034-0029182-3" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Teléfono / WhatsApp *</label>
+              <input type="tel" class="form-input" id="reg-phone" placeholder="(809) 555-8931" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Correo Electrónico *</label>
+            <input type="email" class="form-input" id="reg-email" placeholder="correo@ejemplo.com" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Unidad Residencial *</label>
+              <select class="form-select" id="reg-unit" required>
+                <option value="101">Unidad 101 (120 m²)</option>
+                <option value="201">Unidad 201 (120 m²)</option>
+                <option value="301">Unidad 301 (120 m²)</option>
+                <option value="501">Unidad 501 (120 m²)</option>
+                <option value="PH-901">PH-901 (170 m²)</option>
+                <option value="PH-1001">PH-1001 (170 m²)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Condición *</label>
+              <select class="form-select" id="reg-role" required>
+                <option value="tenant">Inquilino (Alquiler)</option>
+                <option value="owner">Propietario (Compra)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Carga de Contrato Obligatoria (Punto 16.3) -->
+          <div class="form-group">
+            <label class="form-label">Adjuntar Contrato Notariado (PDF o Imagen) *</label>
+            <div style="border: 1.5px dashed var(--linen-dark); border-radius: var(--radius-sm); padding: 12px; text-align: center; background: var(--surface);">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="margin: 0 auto 6px auto;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+              <input type="file" id="reg-contract-file" accept=".pdf,.png,.jpg,.jpeg" style="display: none;" onchange="window.app.handleContractFileSelected(this);">
+              <button type="button" class="btn-outline" style="padding: 5px 12px; font-size: 11px; margin-bottom: 4px;" onclick="document.getElementById('reg-contract-file').click();">
+                Seleccionar archivo PDF
+              </button>
+              <div id="reg-contract-filename" style="font-size: 11.5px; color: var(--dust);">Contrato_Arrendamiento_o_Compraventa.pdf</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Contraseña para tu cuenta *</label>
+            <input type="password" class="form-input" id="reg-pass" value="1234" required>
+          </div>
+
+          <button type="submit" class="btn-primary" style="width: 100%; padding: 12px;">
+            <span>Radicar Solicitud de Acceso</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+        </form>
+
+        <!-- Accesos Rápidos de Demostración -->
+        <div style="margin-top: 20px; padding: 14px; background: var(--surface); border-radius: var(--radius-sm); font-size: 11.5px; color: var(--dust);">
+          <div style="font-weight: 700; color: var(--ink); margin-bottom: 6px;">💡 Accesos rápidos de prueba:</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn-outline" style="padding: 4px 8px; font-size: 10.5px; background: var(--white);" onclick="window.app.fillDemoResident('owner');">
+              🔑 Ramona Ramos (Propietaria U-301)
+            </button>
+            <button type="button" class="btn-outline" style="padding: 4px 8px; font-size: 10.5px; background: var(--white);" onclick="window.app.fillDemoResident('tenant');">
+              🔑 Laura Batista (Inquilina U-101)
+            </button>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 16px;">
+          <button onclick="window.app.setView('landing');" style="font-size: 12.5px; color: var(--dust); text-decoration: underline;">
+            ← Volver a la página principal
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Owner Dashboard Layout (when authenticated) -->
+    <div id="owner-dashboard-container" class="portal-layout" style="display: none;">
+      <!-- Sidebar -->
+      <aside class="portal-sidebar">
+        <!-- Tarjeta de Usuario Activo -->
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--linen);">
+          <div id="sidebar-user-avatar" style="width: 38px; height: 38px; border-radius: 8px; background: var(--primary); color: var(--white); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">
+            RR
+          </div>
+          <div style="overflow: hidden;">
+            <div id="sidebar-user-name" style="font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">Ramona Ramos</div>
+            <div id="sidebar-user-unit" style="font-size: 11px; color: var(--dust);">Unidad 301 · Nivel 3</div>
+            <span id="sidebar-user-badge" class="badge badge-accent" style="font-size: 9px; padding: 1px 6px; margin-top: 3px;">Propietaria</span>
+          </div>
+        </div>
+
+        <nav style="flex-grow: 1;">
+          <button class="portal-nav-btn active" data-owner-tab="overview" onclick="window.app.setOwnerTab('overview', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span>Resumen de Mi Unidad</span>
+          </button>
+          <button class="portal-nav-btn" data-owner-tab="cuotas" onclick="window.app.setOwnerTab('cuotas', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <span>Cuotas y Pagos</span>
+          </button>
+          <button class="portal-nav-btn" data-owner-tab="pagos" onclick="window.app.setOwnerTab('pagos', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Historial y Recibos NCF</span>
+          </button>
+          <button class="portal-nav-btn" data-owner-tab="documentos" onclick="window.app.setOwnerTab('documentos', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>Documentos Legales</span>
+          </button>
+          <button class="portal-nav-btn" data-owner-tab="solicitudes" onclick="window.app.setOwnerTab('solicitudes', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span>Mantenimiento & Tickets</span>
+          </button>
+          <!-- Pestaña de Asambleas (Punto 16.14) -->
+          <button class="portal-nav-btn" id="sidebar-tab-asambleas" data-owner-tab="asambleas" onclick="window.app.setOwnerTab('asambleas', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Asambleas & Quórum</span>
+          </button>
+          <!-- Pestaña de Asistente IA Condominal con Suscripción PayPal (Punto 16.13) -->
+          <button class="portal-nav-btn" data-owner-tab="ia_assistant" onclick="window.app.setOwnerTab('ia_assistant', this);" style="position: relative;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>Asistente IA Privado</span>
+            <span class="badge badge-accent" style="font-size: 8px; margin-left: auto;">PayPal</span>
+          </button>
+          <!-- Pestaña de Membresía / Suscripción PayPal -->
+          <button class="portal-nav-btn" data-owner-tab="suscripcion_ia" onclick="window.app.setOwnerTab('suscripcion_ia', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <span>Suscripción IA (PayPal)</span>
+          </button>
+        </nav>
+
+        <div style="padding-top: 16px; border-top: 1px solid var(--linen); display: flex; flex-direction: column; gap: 8px;">
+          <button class="portal-nav-btn" onclick="window.app.logoutResident();" style="color: #DC2626;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Cerrar Sesión</span>
+          </button>
+          <button class="portal-nav-btn" onclick="window.app.setView('landing');" style="color: var(--dust);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <span>Salir al Sitio Web</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main Dashboard Panel -->
+      <main class="portal-main" id="owner-content-panel">
+        <!-- Tab content rendered dynamically by app.js -->
+      </main>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW 4: CONDOMINIUM ADMIN DASHBOARD
+       ========================================================================= -->
+  <section id="view-admin" class="portal-view fade-in" style="display: none;">
+    <!-- Admin Login Screen (when not logged in) -->
+    <div id="admin-login-container" class="portal-login-wrap" style="background-color: #0E1614;">
+      <div class="portal-login-card dark">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(201, 167, 112, 0.15); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <h2 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--white);">Panel de Administración</h2>
+          <p style="font-size: 13px; color: rgba(255, 255, 255, 0.6); margin-top: 4px;">Gestión de inventario, solicitudes de acceso, CRM y operaciones</p>
+        </div>
+
+        <form onsubmit="window.app.loginAdmin(event);">
+          <div class="form-group">
+            <label class="form-label" style="color: rgba(255,255,255,0.7);">Usuario / Correo Institucional</label>
+            <input type="email" class="form-input" id="admin-login-user" value="admin@jardinesdelcerro.do" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #fff;" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color: rgba(255,255,255,0.7);">Contraseña del Sistema</label>
+            <input type="password" class="form-input" id="admin-login-pass" value="••••••••" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #fff;" required>
+          </div>
+          <button type="submit" class="btn-accent" style="width: 100%; padding: 12px; margin-top: 8px;">
+            <span>Acceder al Panel de Control</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </form>
+
+        <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); font-size: 12px; color: rgba(255,255,255,0.6); text-align: center;">
+          🔒 <strong>Acceso Seguro de Demostración:</strong> Haz clic en acceder para cargar el panel con los datos reales del prototipo.
+        </div>
+
+        <div style="text-align: center; margin-top: 16px;">
+          <button onclick="window.app.setView('landing');" style="font-size: 12.5px; color: rgba(255,255,255,0.6); text-decoration: underline;">
+            ← Volver al sitio público
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard Main Layout (when authenticated) -->
+    <div id="admin-dashboard-container" class="portal-layout" style="display: none;">
+      <!-- Sidebar Dark -->
+      <aside class="portal-sidebar dark">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+          <div style="width: 36px; height: 36px; border-radius: 8px; background: var(--accent); color: var(--ink); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">
+            JC
+          </div>
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: var(--white);">Jardines del Cerro IV</div>
+            <div style="font-size: 11px; color: rgba(255,255,255,0.5);">Admin Condominio</div>
+          </div>
+        </div>
+
+        <nav style="flex-grow: 1;">
+          <button class="portal-nav-btn active" data-admin-tab="inventario" onclick="window.app.setAdminTab('inventario', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span>Inventario de Unidades</span>
+          </button>
+          <!-- Nueva Pestaña Oficial: Solicitudes de Registro (Punto 16.4) -->
+          <button class="portal-nav-btn" data-admin-tab="solicitudes" onclick="window.app.setAdminTab('solicitudes', this);" style="position: relative;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+            <span>Solicitudes de Acceso</span>
+            <span class="badge badge-warning" id="admin-pending-req-count" style="margin-left: auto; font-size: 9px; padding: 1px 6px;">2</span>
+          </button>
+          <button class="portal-nav-btn" data-admin-tab="prospectos" onclick="window.app.setAdminTab('prospectos', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Prospectos & CRM</span>
+          </button>
+          <button class="portal-nav-btn" data-admin-tab="residentes" onclick="window.app.setAdminTab('residentes', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            <span>Directorio de Residentes</span>
+          </button>
+          <button class="portal-nav-btn" data-admin-tab="visitas" onclick="window.app.setAdminTab('visitas', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>Agenda de Visitas</span>
+          </button>
+          <button class="portal-nav-btn" data-admin-tab="mantenimiento" onclick="window.app.setAdminTab('mantenimiento', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span>Mantenimiento & Tickets</span>
+          </button>
+          <button class="portal-nav-btn" data-admin-tab="reportes" onclick="window.app.setAdminTab('reportes', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Reportes Financieros</span>
+          </button>
+          <!-- Nueva Pestaña Oficial: Copiloto IA Ejecutivo (Administrador) -->
+          <button class="portal-nav-btn" data-admin-tab="ia_admin" onclick="window.app.setAdminTab('ia_admin', this);" style="position: relative;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>Copiloto IA Ejecutivo</span>
+            <span class="badge badge-accent" style="font-size: 8px; margin-left: auto;">PayPal</span>
+          </button>
+          <!-- Pestaña: Suscripción Suite IA Administrador -->
+          <button class="portal-nav-btn" data-admin-tab="suscripcion_admin" onclick="window.app.setAdminTab('suscripcion_admin', this);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <span>Suscripción IA Admin</span>
+          </button>
+        </nav>
+
+        <div style="padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+          <button class="portal-nav-btn" onclick="window.app.logoutAdmin();" style="color: #F87171;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Cerrar Sesión Admin</span>
+          </button>
+          <button class="portal-nav-btn" onclick="window.app.setView('landing');" style="color: rgba(255,255,255,0.6);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <span>Volver al Sitio Público</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main Admin Content Area -->
+      <main class="portal-main" id="admin-content-panel">
+        <!-- Rendered dynamically by app.js -->
+      </main>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       UNIT DETAIL MODAL VIEW
+       ========================================================================= -->
+  <div id="unit-detail-modal" style="position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 960px; max-height: 90vh; overflow-y: auto; padding: 32px; position: relative; box-shadow: var(--shadow-xl); animation: slideUp 0.25s ease;" id="unit-modal-card">
+      <!-- Modal Close Button -->
+      <button onclick="window.app.closeUnitDetail();" style="position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border-radius: 50%; background: var(--surface); color: var(--ink); display: flex; align-items: center; justify-content: center; z-index: 10;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div id="unit-modal-body">
+        <!-- Injected dynamically by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: AGREGAR UNIDAD (ADMIN)
+       ========================================================================= -->
+  <div id="add-unit-modal" style="position: fixed; inset: 0; z-index: 210; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 540px; padding: 32px; box-shadow: var(--shadow-xl);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <h3 style="font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--ink);">Agregar Nueva Unidad Residencial</h3>
+        <button onclick="window.app.closeAddUnitModal();" style="color: var(--dust);">✕</button>
+      </div>
+
+      <form onsubmit="window.app.handleAddUnitSubmit(event);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Número de Unidad *</label>
+            <input type="text" class="form-input" id="new-unit-number" placeholder="Ej. 601" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipología *</label>
+            <select class="form-select" id="new-unit-type" required>
+              <option value="apartment">Apartamento (120 m²)</option>
+              <option value="penthouse">Penthouse (170 m²)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Metros (m²)</label>
+            <input type="number" class="form-input" id="new-unit-sqm" value="120" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Habitaciones</label>
+            <input type="number" class="form-input" id="new-unit-beds" value="3" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Baños</label>
+            <input type="number" class="form-input" id="new-unit-baths" value="2" required>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Nivel de Piso</label>
+            <input type="number" class="form-input" id="new-unit-level" value="6" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado Inicial</label>
+            <select class="form-select" id="new-unit-status">
+              <option value="available">Disponible</option>
+              <option value="reserved">Reservado</option>
+              <option value="occupied">Ocupado / Vendido</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">URL de Imagen Principal</label>
+          <input type="url" class="form-input" id="new-unit-image" value="img/photo-1564078516393-cf04bd966897_w800_h600.jpg">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+          <button type="button" class="btn-outline" onclick="window.app.closeAddUnitModal();">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar e Incorporar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: SEPARACIÓN DE UNIDAD (US$ 5,000 - VENTANA 15 MIN - PUNTO 16.8)
+       ========================================================================= -->
+  <div id="reservation-modal" style="position: fixed; inset: 0; z-index: 220; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 32px; position: relative; box-shadow: var(--shadow-xl);">
+      <button onclick="window.app.closeReservationModal();" style="position: absolute; top: 20px; right: 20px; color: var(--dust); font-size: 18px;" title="Cerrar">✕</button>
+
+      <!-- Encabezado con Temporizador de 15 Minutos -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid var(--linen); padding-bottom: 16px;">
+        <div>
+          <span class="badge badge-accent" style="margin-bottom: 6px;">Punto 16.8 · Exclusividad Comercial</span>
+          <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--ink);">Separación Formal de Vivienda</h3>
+          <p id="res-modal-unit-subtitle" style="font-size: 13px; color: var(--dust); margin-top: 2px;">Bloqueo transaccional de Unidad seleccionada</p>
+        </div>
+        <!-- Temporizador 15 Minutos -->
+        <div style="background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: var(--radius-sm); padding: 8px 12px; text-align: center;">
+          <div style="font-size: 10px; font-weight: 700; color: #B45309; text-transform: uppercase;">Ventana Temporal</div>
+          <div id="res-countdown-timer" style="font-family: var(--font-display); font-size: 18px; font-weight: 800; color: #B45309;">14:59</div>
+        </div>
+      </div>
+
+      <!-- Resumen de Separación -->
+      <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span>Monto de Separación Requerido:</span>
+          <strong style="color: var(--primary); font-size: 16px;">US$ 5,000.00</strong>
+        </div>
+        <div style="font-size: 11.5px; color: var(--dust); line-height: 1.45;">
+          ✓ 100% deducible y acreditable al inicial pactado en el contrato.<br>
+          ✓ Otorga <strong>30 días de exclusividad</strong> para entrega de documentos y firma de promesa notarial.
+        </div>
+      </div>
+
+      <!-- Pestañas de Método de Pago -->
+      <div style="display: flex; background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px;">
+        <button id="res-tab-paypal-btn" type="button" class="btn-primary" style="flex: 1; padding: 8px 12px; font-size: 12px; border-radius: 6px;" onclick="window.app.switchReservationPaymentTab('paypal');">
+          💳 Pasarela PayPal / Tarjeta
+        </button>
+        <button id="res-tab-bank-btn" type="button" class="btn-outline" style="flex: 1; padding: 8px 12px; font-size: 12px; border: none; border-radius: 6px; color: var(--dust);" onclick="window.app.switchReservationPaymentTab('bank');">
+          🏦 Transferencia Bancaria Local
+        </button>
+      </div>
+
+      <!-- Opción 1: PayPal / Tarjeta Internacional -->
+      <div id="res-paypal-panel">
+        <form onsubmit="window.app.handleConfirmReservationPaypal(event);">
+          <div class="form-group">
+            <label class="form-label">Nombre del Titular de Reserva</label>
+            <input type="text" class="form-input" id="res-paypal-name" placeholder="Tu nombre completo" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Correo Electrónico para Recibo Oficial</label>
+            <input type="email" class="form-input" id="res-paypal-email" placeholder="correo@ejemplo.com" required>
+          </div>
+          <div style="background: #F0FDF4; border: 1px solid #86EFAC; border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; font-size: 12px; color: #166534;">
+            🔒 <strong>Pasarela Segura Integrada:</strong> Al confirmar, el sistema captura el abono de US$5,000 mediante PayPal o tarjeta internacional y bloquea la unidad inmediatamente en el catálogo.
+          </div>
+          <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-size: 14px; background: #003087; border-color: #003087; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <span>Abonar US$ 5,000 con</span>
+            <strong style="color: #0079C1; background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 13px;">PayPal</strong>
+          </button>
+        </form>
+      </div>
+
+      <!-- Opción 2: Reporte de Transferencia Bancaria -->
+      <div id="res-bank-panel" style="display: none;">
+        <form onsubmit="window.app.handleConfirmReservationBank(event);">
+          <div class="form-group">
+            <label class="form-label">Banco Receptor</label>
+            <select class="form-select" id="res-bank-name">
+              <option value="Banco Popular">Banco Popular Dominicano — Cta. Cte. 820-19283-1</option>
+              <option value="Banreservas">Banreservas — Cta. Cte. 240-58192-4</option>
+              <option value="Banco BHD">Banco BHD — Cta. Cte. 110-39281-9</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Número de Comprobante / Referencia Bancaria</label>
+            <input type="text" class="form-input" id="res-bank-voucher" placeholder="Ej. TRF-92837102" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Adjuntar Voucher o Captura de Depósito</label>
+            <input type="file" class="form-input" accept=".pdf,.png,.jpg,.jpeg">
+          </div>
+          <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-size: 14px;">
+            <span>Reportar Transferencia y Bloquear Unidad</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: PASARELA DE SUSCRIPCIÓN PAYPAL PARA ASISTENTE IA (PUNTO 16.13)
+       ========================================================================= -->
+  <div id="paypal-subscription-modal" style="position: fixed; inset: 0; z-index: 230; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 520px; padding: 32px; position: relative; box-shadow: var(--shadow-xl);">
+      <button onclick="window.app.closePaypalSubscriptionModal();" style="position: absolute; top: 20px; right: 20px; color: var(--dust); font-size: 18px;" title="Cerrar">✕</button>
+
+      <!-- Brand PayPal Header -->
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--linen); padding-bottom: 16px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #003087; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">
+            P
+          </div>
+          <div>
+            <div style="font-weight: 800; font-size: 16px; color: #003087;">PayPal <span style="color: #0079C1;">Subscriptions</span></div>
+            <div style="font-size: 11px; color: var(--dust);">Torre Residencial Jardines del Cerro IV</div>
+          </div>
+        </div>
+        <div style="font-size: 11px; color: #047857; font-weight: 700; background: #ECFDF5; padding: 3px 8px; border-radius: 999px;">
+          🔒 Conexión Cifrada SSL
+        </div>
+      </div>
+
+      <!-- Resumen del Plan de IA Seleccionado -->
+      <div style="background: var(--surface); border: 1.5px solid var(--accent); border-radius: var(--radius-md); padding: 18px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+          <h4 id="paypal-modal-plan-title" style="font-size: 15px; font-weight: 800; color: var(--ink);">Plan Mensual IA Condominal</h4>
+          <div id="paypal-modal-plan-price" style="font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--primary);">US$ 9.99 <span style="font-size: 12px; font-weight: 500; color: var(--dust);">/ mes</span></div>
+        </div>
+        <div id="paypal-modal-plan-desc" style="font-size: 12px; color: var(--dust); line-height: 1.45;">
+          Activación inmediata de consultas 24/7 sobre estado de cuenta personal de la Unidad 301, facturación NCF DGII, normativas internas y recordatorios de asambleas.
+        </div>
+      </div>
+
+      <form onsubmit="window.app.handleProcessPaypalSubscription(event);">
+        <div class="form-group">
+          <label class="form-label">Cuenta de Correo de PayPal</label>
+          <input type="email" class="form-input" id="paypal-sub-email" value="ramona.ramos@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Método de Cargo Preferido</label>
+          <select class="form-select" id="paypal-sub-method">
+            <option value="wallet">Saldo Principal de PayPal (USD)</option>
+            <option value="card-visa">Tarjeta Visa Internacional (•••• 4821)</option>
+            <option value="card-mc">Tarjeta Mastercard Débito (•••• 9015)</option>
+          </select>
+        </div>
+
+        <div style="font-size: 11px; color: var(--dust); margin-bottom: 20px; line-height: 1.4;">
+          Al hacer clic en el botón inferior, autorizas a PayPal a cargar la tarifa del servicio de forma recurrente. Puedes pausar o cancelar tu suscripción en cualquier momento desde tu portal de residentes.
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; background: #FFC439; color: #111; border: 1px solid #E0AA3E; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>Autorizar Suscripción con</span>
+          <strong style="color: #003087; font-size: 16px;">PayPal</strong>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: VISOR DE CONTRATO NOTARIADO (AUDITORÍA ADMIN)
+       ========================================================================= -->
+  <div id="contract-viewer-modal" style="position: fixed; inset: 0; z-index: 240; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; padding: 28px; position: relative; box-shadow: var(--shadow-xl);">
+      <button onclick="window.app.closeContractViewerModal();" style="position: absolute; top: 20px; right: 20px; color: var(--dust); font-size: 18px;" title="Cerrar">✕</button>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--linen); padding-bottom: 12px;">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-weight: 800;">
+          PDF
+        </div>
+        <div>
+          <h3 id="contract-viewer-title" style="font-size: 16px; font-weight: 800; color: var(--ink);">Contrato Notariado de Ocupación</h3>
+          <div id="contract-viewer-subtitle" style="font-size: 12px; color: var(--dust);">Expediente de debida diligencia según Punto 16.2 y 16.4</div>
+        </div>
+      </div>
+
+      <!-- Simulación Visual del Documento Legal -->
+      <div style="background: #FAFAF9; border: 1.5px solid var(--linen); border-radius: var(--radius-sm); padding: 24px; font-family: 'Times New Roman', serif; font-size: 12px; color: #292524; line-height: 1.6; margin-bottom: 20px; max-height: 380px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);">
+        <div style="text-align: center; border-bottom: 1px double #78716C; padding-bottom: 10px; margin-bottom: 14px;">
+          <h4 style="font-size: 14px; text-transform: uppercase; margin-bottom: 2px;">REPÚBLICA DOMINICANA</h4>
+          <div style="font-size: 11px; font-weight: bold;">NOTARÍA PÚBLICA DE LOS DEL NÚMERO DEL MUNICIPIO DE MAO, VALVERDE</div>
+          <div style="font-size: 10px; color: #78716C;">ACTO NO. 2026-081-ND · PROTOCOLO DE CONDOMINIOS</div>
+        </div>
+
+        <p style="text-align: justify; margin-bottom: 10px;">
+          En el municipio de Mao, provincia Valverde, a los días fijados del mes en curso, comparecen libremente de una parte la sociedad inmobiliaria <strong>INVERSIONISTO S.R.L.</strong>, administradora de la <strong>Torre Residencial Jardines del Cerro IV</strong>, y de la otra parte el solicitante debidamente identificado con su documento legal en expediente.
+        </p>
+
+        <p style="text-align: justify; margin-bottom: 10px;" id="contract-viewer-body">
+          Las partes hacen constar que han suscrito formalmente los términos del contrato de arrendamiento/adquisición sobre la unidad residencial, comprometiéndose al fiel acatamiento del Reglamento de Régimen de Condominio, cuotas de mantenimiento mensual y disposiciones de la Ley 5038 y Ley 155-17.
+        </p>
+
+        <div style="margin-top: 24px; border-top: 1px dashed #A8A29E; padding-top: 12px; display: flex; justify-content: space-between; font-size: 11px;">
+          <div>
+            <strong>Firma del Administrador</strong><br>
+            Inversionisto S.R.L.
+          </div>
+          <div>
+            <strong>Firma del Compareciente</strong><br>
+            Identidad Verificada
+          </div>
+          <div style="text-align: right;">
+            <strong>Sello Notarial</strong><br>
+            Matrícula No. 8921-JCE
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón de Cierre -->
+      <div style="display: flex; justify-content: flex-end;">
+        <button type="button" class="btn-primary" onclick="window.app.closeContractViewerModal();">
+          Cerrar Visor de Documento
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       FLOATING AI ASSISTANT CHAT WIDGET
+       ========================================================================= -->
+  <button class="ai-chat-btn" id="ai-chat-toggle-btn" onclick="window.app.toggleAIChat();" title="Asistente Virtual">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  </button>
+
+  <div class="ai-chat-window" id="ai-chat-window">
+    <div class="ai-chat-header">
+      <div>
+        <div class="ai-chat-header-title">Asistente Virtual Jardines</div>
+        <div class="ai-chat-status">En línea · Respuestas automáticas</div>
+      </div>
+      <button onclick="window.app.toggleAIChat();" style="color: var(--white); opacity: 0.8; font-size: 18px;" title="Cerrar">✕</button>
+    </div>
+
+    <div class="ai-chat-messages" id="ai-chat-messages-container">
+      <div class="chat-bubble assistant">
+        ¡Hola! 👋 Soy el asistente virtual de la Torre Residencial <strong>Jardines del Cerro IV</strong> en Mao, Valverde. ¿Cómo puedo ayudarte hoy?
+      </div>
+      <div class="chat-suggestions" id="ai-chat-suggestions">
+        <button class="chat-suggestion-btn" onclick="window.app.sendAIChatPrompt('¿Qué apartamentos están disponibles?');">¿Qué apartamentos están disponibles?</button>
+        <button class="chat-suggestion-btn" onclick="window.app.sendAIChatPrompt('¿Cuánto cuesta un penthouse?');">¿Cuánto cuesta un penthouse?</button>
+        <button class="chat-suggestion-btn" onclick="window.app.sendAIChatPrompt('¿Qué requisitos necesito para alquilar?');">¿Qué requisitos necesito para alquilar?</button>
+        <button class="chat-suggestion-btn" onclick="window.app.sendAIChatPrompt('¿Cómo puedo agendar una visita?');">¿Cómo puedo agendar una visita?</button>
+      </div>
+    </div>
+
+    <div class="ai-chat-footer">
+      <form class="ai-chat-form" onsubmit="window.app.handleAIChatSubmit(event);">
+        <input type="text" class="ai-chat-input" id="ai-chat-input-field" placeholder="Escribe tu pregunta aquí..." autocomplete="off">
+        <button type="submit" class="ai-chat-send" title="Enviar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       TOAST NOTIFICATION
+       ========================================================================= -->
+  <div class="toast-notice" id="toast-notification">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+    <span id="toast-message">Operación realizada con éxito</span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

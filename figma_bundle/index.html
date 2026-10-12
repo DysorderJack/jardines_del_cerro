@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Torre Residencial Jardines del Cerro IV</title>
+    <script type="module" crossorigin src="./assets/index-CisKpb1a.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CMVSDRhg.css">
+    <script>
+      window.__SCREEN_READY = false;
+
+      function scrollToId(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const top = window.pageYOffset + rect.top;
+          window.scrollTo(0, top);
+        }
+      }
+
+      async function runAutoNav() {
+        const params = new URLSearchParams(window.location.search);
+        const screen = params.get('screen') || 'home';
+        console.log("AutoNav target screen:", screen);
+
+        while (!window.__setView) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+
+        // Wait for React to finish mounting
+        await new Promise(r => setTimeout(r, 300));
+
+        if (screen === 'home') {
+          window.__setView('home');
+          window.scrollTo(0, 0);
+        } else if (screen === 'units') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          scrollToId('units');
+        } else if (screen === 'penthouses') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          scrollToId('units');
+          const btns = Array.from(document.querySelectorAll('button'));
+          const phBtn = btns.find(b => (b.innerText || '').trim() === 'Penthouses');
+          if (phBtn) phBtn.click();
+        } else if (screen === 'amenities') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          scrollToId('amenidades');
+        } else if (screen === 'amenities-services') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          scrollToId('amenidades');
+          window.scrollBy(0, 560);
+        } else if (screen === 'project') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          scrollToId('about');
+        } else if (screen === 'process') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          scrollToId('process');
+        } else if (screen === 'contact') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          scrollToId('contact');
+        } else if (screen === 'unit-detail-101') {
+          window.__setSelectedUnitId('apt-101');
+          window.__setView('unit-detail');
+        } else if (screen === 'unit-detail-901') {
+          window.__setSelectedUnitId('ph-901');
+          window.__setView('unit-detail');
+        } else if (screen === 'schedule') {
+          window.__setScheduleUnitId('apt-101');
+          window.__setView('schedule');
+        } else if (screen === 'chat') {
+          window.__setView('home');
+          await new Promise(r => setTimeout(r, 200));
+          if (window.__setChatOpen) window.__setChatOpen(true);
+        } else if (screen === 'owner-login') {
+          window.__setView('owner-portal');
+        } else if (screen.startsWith('owner-')) {
+          window.__setView('owner-portal');
+          const sub = screen.replace('owner-', '');
+          while (!window.__setOwnerLoggedIn) {
+            await new Promise(r => setTimeout(r, 50));
+          }
+          window.__setOwnerLoggedIn(true);
+          await new Promise(r => setTimeout(r, 150));
+          if (window.__setOwnerSection) window.__setOwnerSection(sub);
+        } else if (screen === 'admin-login') {
+          window.__setView('admin');
+        } else if (screen.startsWith('admin-')) {
+          window.__setView('admin');
+          const sub = screen.replace('admin-', '');
+          while (!window.__setAdminLoggedIn) {
+            await new Promise(r => setTimeout(r, 50));
+          }
+          window.__setAdminLoggedIn(true);
+          await new Promise(r => setTimeout(r, 150));
+          if (window.__setAdminSection) window.__setAdminSection(sub);
+        }
+
+        setTimeout(() => {
+          window.__SCREEN_READY = true;
+        }, 500);
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        runAutoNav();
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
