@@ -3014,8 +3014,8 @@ class JardinesApp {
                   <td><code>${r.aliquot}</code></td>
                   <td><span class="badge ${r.status === 'Al día' ? 'badge-success' : (r.status === 'Reservado' ? 'badge-warning' : 'badge-neutral')}">${r.status}</span></td>
                   <td>
-                    ${r.condition !== 'Disponible' && !r.name.includes('Disponible') ? `
-                      <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #DC2626; border-color: #F87171; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.deleteResident('${r.unit}', '${r.name}');" title="Desvincular residente y liberar unidad">
+                    ${r.condition !== 'Disponible' && !r.name.includes('Disponible') && r.name !== '—' ? `
+                      <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #DC2626; border-color: #F87171; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.deleteResident('${r.unit}');" title="Desvincular residente y liberar unidad">
                         <span>🗑️</span> Desvincular
                       </button>
                     ` : `
@@ -3761,48 +3761,83 @@ class JardinesApp {
     }
   }
 
-  async deleteResident(unit, name) {
-    const cleanUnit = unit.replace('Unidad', '').replace('unidad', '').trim();
-    if (!confirm(`¿Estás seguro de desvincular y eliminar a ${name} de la Unidad ${cleanUnit}?\n\n• Se revocarán todas sus credenciales de acceso al portal.\n• La Unidad ${cleanUnit} quedará liberada como 'Disponible'.\n• Se depurarán sus registros y contratos de prueba.`)) {
+  async deleteResident(unit, name = null) {
+    const cleanUnit = (unit || '').toString().replace('Unidad', '').replace('unidad', '').trim();
+    const resDir = (this.adminData && this.adminData.residents ? this.adminData.residents : []).find(r => r.unit === cleanUnit || r.unit === unit);
+    const targetName = (name && name !== '—') ? name : ((resDir && resDir.name && resDir.name !== '—') ? resDir.name : `Unidad ${cleanUnit}`);
+
+    if (!confirm(`¿Estás seguro de desvincular y eliminar a "${targetName}" de la Unidad ${cleanUnit}?\n\n• Se revocarán todas sus credenciales de acceso al portal.\n• La Unidad ${cleanUnit} quedará liberada como 'Disponible'.\n• Se depurarán sus registros y contratos de prueba.`)) {
       return;
     }
 
     // 1. Actualizar directorio de residentes: marcar unidad como vacante
-    const resDir = this.adminData.residents.find(r => r.unit === cleanUnit || r.unit === unit);
     if (resDir) {
-      resDir.name = "Sin Asignar (Disponible)";
-      resDir.phone = "N/A";
+      resDir.name = "—";
+      resDir.phone = "—";
       resDir.condition = "Disponible";
-      resDir.status = "Al día";
+      resDir.status = "Libre";
     }
 
     // 2. Eliminar del padrón de usuarios registrados
-    this.registeredUsers = this.registeredUsers.filter(u =>
-      (u.unit !== cleanUnit && u.unit !== unit) || u.name !== name
-    );
+    this.registeredUsers = (this.registeredUsers || []).filter(u => {
+      const uUnit = (u.unit || '').toString().replace('Unidad', '').replace('unidad', '').trim();
+      const isSameUnit = uUnit === cleanUnit || u.unit === unit;
+      const isSameName = (u.name || '').trim().toLowerCase() === targetName.trim().toLowerCase();
+      return !isSameUnit && !isSameName;
+    });
 
-    // 3. Actualizar inventario de unidades en marketplace
-    const invUnit = this.unitsData.find(u => u.number === cleanUnit || u.id.endsWith(cleanUnit.toLowerCase()));
+    // 3. Eliminar solicitudes de registro asociadas a esta unidad o residente
+    if (this.adminData && this.adminData.registrationRequests) {
+      this.adminData.registrationRequests = this.adminData.registrationRequests.filter(r => {
+        const rUnit = (r.unit || '').toString().replace('Unidad', '').replace('unidad', '').trim();
+        const isSameUnit = rUnit === cleanUnit || r.unit === unit;
+        const isSameName = (r.applicantName || '').trim().toLowerCase() === targetName.trim().toLowerCase();
+        return !isSameUnit && !isSameName;
+      });
+      this.updateAdminPendingBadge();
+    }
+
+    // 4. Actualizar inventario de unidades en marketplace (marcar como disponible)
+    const invUnit = (this.units || []).find(u =>
+      u.number === cleanUnit ||
+      u.id === cleanUnit ||
+      u.id === `apt-${cleanUnit.toLowerCase()}` ||
+      u.id === `ph-${cleanUnit.toLowerCase()}` ||
+      (u.id && u.id.endsWith(cleanUnit.toLowerCase()))
+    );
     if (invUnit) {
       invUnit.status = 'available';
       invUnit.statusLabel = 'Disponible';
     }
 
-    // 4. Bitácora de actividad reciente
+    // 5. Cerrar sesión activa si coincide con el residente desvinculado
+    if (this.currentUser && (this.currentUser.unit === cleanUnit || this.currentUser.name === targetName)) {
+      this.currentUser = null;
+      this.isResidentLoggedIn = false;
+      this.renderResidentState();
+    }
+
+    // 6. Bitácora de actividad reciente
     this.adminData.recentActivity.unshift({
-      title: `Residente desvinculado: ${name} retirado de Unidad ${cleanUnit} (Unidad liberada)`,
+      title: `Residente desvinculado: ${targetName} retirado de Unidad ${cleanUnit} (Unidad liberada)`,
       time: 'Hace un momento',
       type: 'user'
     });
 
     this.saveAllState();
     this.renderAdminTabContent();
-    this.renderUnitsGrid();
-    this.showToast(`Residente ${name} desvinculado y Unidad ${cleanUnit} liberada.`);
+    if (typeof this.renderUnits === 'function') {
+      this.renderUnits();
+    }
+    this.showToast(`Residente "${targetName}" desvinculado y Unidad ${cleanUnit} liberada.`);
 
-    // 5. Sincronizar con backend
-    if (window.apiClient) {
-      await window.apiClient.deleteResident(cleanUnit);
+    // 7. Sincronizar con backend si está disponible
+    if (window.apiClient && typeof window.apiClient.deleteResident === 'function') {
+      try {
+        await window.apiClient.deleteResident(cleanUnit);
+      } catch (err) {
+        console.warn('Fallo en sincronización con backend:', err);
+      }
     }
   }
 

@@ -272,41 +272,51 @@ def delete_resident(identifier: str, db: Session = Depends(get_db)):
     """
     clean_id = identifier.replace("Unidad", "").replace("unidad", "").strip()
 
-    # Buscar usuario por id, email, document_id o unidad
-    user = db.query(User).filter(
+    # Buscar todos los usuarios asociados por id, email, document_id o unidad
+    users = db.query(User).filter(
         (User.id == identifier) |
         (User.email.ilike(identifier)) |
         (User.document_id == identifier) |
         (User.unit == clean_id)
-    ).first()
+    ).all()
 
-    unit_number = user.unit if user else clean_id
-    user_name = user.name if user else f"Unidad {clean_id}"
-
-    if user:
+    names = []
+    for u in users:
+        names.append(u.name)
         # Eliminar también solicitudes de registro asociadas a este residente
         reqs = db.query(RegistrationRequest).filter(
-            (RegistrationRequest.document_id == user.document_id) |
-            (RegistrationRequest.email == user.email) |
-            (RegistrationRequest.unit == user.unit)
+            (RegistrationRequest.document_id == u.document_id) |
+            (RegistrationRequest.email == u.email) |
+            (RegistrationRequest.unit == u.unit)
         ).all()
         for r in reqs:
             db.delete(r)
+        db.delete(u)
 
-        db.delete(user)
+    # Eliminar solicitudes sueltas para esa unidad
+    extra_reqs = db.query(RegistrationRequest).filter(
+        (RegistrationRequest.unit == clean_id) |
+        (RegistrationRequest.unit == identifier)
+    ).all()
+    for r in extra_reqs:
+        db.delete(r)
 
     # Liberar la unidad (marcar como 'available')
     unit = db.query(Unit).filter(
-        (Unit.number == unit_number) |
-        (Unit.id == f"unit-{unit_number.lower().replace(' ', '-')}")
+        (Unit.number == clean_id) |
+        (Unit.id == f"unit-{clean_id.lower().replace(' ', '-')}") |
+        (Unit.id == f"apt-{clean_id.lower().replace(' ', '-')}") |
+        (Unit.id == f"ph-{clean_id.lower().replace(' ', '-')}")
     ).first()
     if unit:
         unit.status = "available"
         unit.status_label = "Disponible"
 
+    user_label = ", ".join(names) if names else f"Unidad {clean_id}"
+
     # Registrar en bitácora de auditoría
     db.add(ActivityLog(
-        title=f"Residente desvinculado: {user_name} (Unidad {unit_number} liberada)",
+        title=f"Residente desvinculado: {user_label} (Unidad {clean_id} liberada)",
         time="Hace un momento",
         activity_type="user"
     ))
@@ -314,8 +324,8 @@ def delete_resident(identifier: str, db: Session = Depends(get_db)):
 
     return {
         "success": True,
-        "message": f"Residente {user_name} desvinculado con éxito. La Unidad {unit_number} ahora está Disponible.",
-        "unit": unit_number
+        "message": f"Residente {user_label} desvinculado con éxito. La Unidad {clean_id} ahora está Disponible.",
+        "unit": clean_id
     }
 
 @router.post("/create-admin")
