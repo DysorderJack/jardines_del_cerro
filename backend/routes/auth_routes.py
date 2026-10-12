@@ -1,5 +1,6 @@
 import os
 import shutil
+import re
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -80,34 +81,113 @@ async def register(
     phone: str = Form(...),
     unit: str = Form(...),
     role: str = Form(...), # 'owner' o 'tenant'
+    password: Optional[str] = Form(None),
     contract_file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
     """
-    Registro formal de Propietario o Inquilino con subida física de Contrato Notariado en PDF.
-    Cumple con el Punto 16.4 del Diseño de Sistemas.
+    Registro formal de Propietario o Inquilino con validaciones estrictas:
+    1. Cédula y correo no duplicados (en padrón activo y solicitudes pendientes).
+    2. Documento físico de contrato notariado obligatorio (PDF o Imagen).
+    3. Contraseña segura (mínimo 8 caracteres, mayúscula, minúscula, número y símbolo).
+    Cumple con el Punto 16.3 y 16.4 del Diseño de Sistemas.
     """
     clean_doc = document_id.strip()
     clean_email = email.strip().lower()
 
-    # Verificar si el usuario ya existe
-    existing = db.query(User).filter(
-        (User.document_id == clean_doc) | (User.email == clean_email)
+    # 1. Validación de unicidad de Cédula y Correo en usuarios registrados
+    existing_user = db.query(User).filter(
+        (User.document_id.ilike(clean_doc)) | (User.email.ilike(clean_email))
     ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Esta cédula o correo ya se encuentra registrado.")
+    if existing_user:
+        if existing_user.document_id.lower() == clean_doc.lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"La cédula o identificación '{clean_doc}' ya se encuentra registrada en el padrón del condominio."
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El correo electrónico '{clean_email}' ya se encuentra registrado en el sistema."
+            )
 
-    # Guardar archivo de contrato si fue adjuntado
-    saved_filename = "Contrato_Notariado_Pendiente.pdf"
-    if contract_file and contract_file.filename:
-        ext = os.path.splitext(contract_file.filename)[1] or ".pdf"
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_name = f"Contrato_{clean_doc.replace('-', '')}_{timestamp}{ext}"
-        dest_path = UPLOAD_DIR / safe_name
-        
-        with open(dest_path, "wb") as buffer:
-            shutil.copyfileobj(contract_file.file, buffer)
-        saved_filename = safe_name
+    # 2. Validación de Cédula y Correo en solicitudes pendientes
+    existing_req = db.query(RegistrationRequest).filter(
+        ((RegistrationRequest.document_id.ilike(clean_doc)) | (RegistrationRequest.email.ilike(clean_email))) &
+        (RegistrationRequest.status == "pending")
+    ).first()
+    if existing_req:
+        if existing_req.document_id.lower() == clean_doc.lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ya existe una solicitud pendiente de aprobación (ID: {existing_req.id}) para la cédula '{clean_doc}'."
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ya existe una solicitud pendiente de aprobación para el correo '{clean_email}'."
+            )
+
+    # 3. Validación obligatoria de subida física de contrato
+    if not contract_file or not contract_file.filename or len(contract_file.filename.strip()) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Es obligatorio adjuntar el archivo físico del contrato notariado (PDF o Imagen)."
+        )
+
+    allowed_exts = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+    ext = os.path.splitext(contract_file.filename)[1].lower()
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Formato de archivo inválido ('{ext}'). Solo se aceptan documentos en formato PDF, JPG, PNG o WEBP."
+        )
+
+    # 4. Validación de contraseña segura
+    clean_pass = (password or "").strip()
+    if not clean_pass:
+        raise HTTPException(
+            status_code=400,
+            detail="Debes especificar una contraseña segura para tu cuenta."
+        )
+
+    if len(clean_pass) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe tener al menos 8 caracteres."
+        )
+
+    if not re.search(r"[A-Z]", clean_pass):
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe contener al menos una letra mayúscula (A-Z)."
+        )
+
+    if not re.search(r"[a-z]", clean_pass):
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe contener al menos una letra minúscula (a-z)."
+        )
+
+    if not re.search(r"\d", clean_pass):
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe contener al menos un número (0-9)."
+        )
+
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?~`]", clean_pass):
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña debe contener al menos un carácter especial (!, @, #, $, %, &, *, etc.)."
+        )
+
+    # Guardar archivo físico en el servidor
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_name = f"Contrato_{clean_doc.replace('-', '')}_{timestamp}{ext}"
+    dest_path = UPLOAD_DIR / safe_name
+    with open(dest_path, "wb") as buffer:
+        shutil.copyfileobj(contract_file.file, buffer)
+    saved_filename = safe_name
 
     role_label = "Propietario Adquirente" if role == "owner" else "Inquilino Arrendatario"
     aliquot = "4.65%" if role == "owner" else "0.00%"
@@ -131,7 +211,7 @@ async def register(
     )
     db.add(new_request)
 
-    # 2. Crear usuario en estado pendiente
+    # 2. Crear usuario en estado pendiente con la contraseña provista
     new_user = User(
         id=f"usr-{unit.lower()}-{int(datetime.now().timestamp()) % 10000}",
         document_id=clean_doc,
@@ -142,7 +222,7 @@ async def register(
         role_label=role_label,
         unit=unit,
         aliquot=aliquot,
-        password_hash="1234",
+        password_hash=clean_pass,
         status="pending",
         avatar=initials
     )

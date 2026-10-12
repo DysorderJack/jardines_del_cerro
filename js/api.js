@@ -68,10 +68,14 @@ class ApiClient {
         method: 'POST',
         body: formData // multipart/form-data
       });
-      return await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.detail || 'Error al procesar el registro en el servidor' };
+      }
+      return data;
     } catch (e) {
       console.warn('Fallo en registro de API:', e);
-      return null;
+      return { success: false, error: 'No se pudo contactar con el servidor de autenticación' };
     }
   }
 

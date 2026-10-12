@@ -1848,3 +1848,91 @@ a {
   color: var(--white) !important;
   border-color: var(--primary) !important;
 }
+
+/* ==========================================================================
+   Validaciones de Autenticación y Registro Seguro (Punto 16.3 / 16.4)
+   ========================================================================== */
+.pw-rule-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--dust);
+  font-size: 11.5px;
+  line-height: 1.35;
+  transition: all 0.2s ease;
+}
+
+.pw-rule-item.valid {
+  color: #047857 !important;
+  font-weight: 600;
+}
+
+.pw-rule-item .pw-rule-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.pw-rule-item.invalid .pw-rule-icon {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.pw-rule-item.valid .pw-rule-icon {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.contract-dropzone {
+  border: 1.5px dashed var(--linen-dark);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  text-align: center;
+  background: var(--surface);
+  transition: all 0.25s ease;
+}
+
+.contract-dropzone.has-file {
+  border: 1.5px solid #10B981 !important;
+  background: #F0FDF4 !important;
+}
+
+.contract-dropzone.has-error {
+  border: 1.5px solid #EF4444 !important;
+  background: #FEF2F2 !important;
+}
+
+.pw-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pw-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--dust);
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+}
+
+.pw-toggle-btn:hover {
+  color: var(--ink);
+}
+

@@ -1067,6 +1067,9 @@ class JardinesApp {
     const btnRegister = document.getElementById('tab-btn-resident-register');
     const pendingAlert = document.getElementById('resident-pending-alert');
 
+    const formError = document.getElementById('reg-form-error');
+    if (formError) formError.style.display = 'none';
+
     if (tab === 'login') {
       if (loginForm) loginForm.style.display = 'block';
       if (registerForm) registerForm.style.display = 'none';
@@ -1100,34 +1103,326 @@ class JardinesApp {
     }
   }
 
+  /* =========================================================================
+     Validaciones de Autenticación & Registro (Cédula Única, Contrato & Clave)
+     ========================================================================= */
+  normalizeDoc(doc) {
+    return (doc || '').toString().trim().replace(/[-\s]/g, '').toLowerCase();
+  }
+
+  isDocumentIdTaken(docId) {
+    const norm = this.normalizeDoc(docId);
+    if (!norm) return false;
+    const inUsers = (this.registeredUsers || []).some(u => this.normalizeDoc(u.documentId) === norm);
+    const inReqs = ((this.adminData && this.adminData.registrationRequests) || []).some(
+      r => this.normalizeDoc(r.documentId) === norm && r.status !== 'rejected'
+    );
+    return inUsers || inReqs;
+  }
+
+  isEmailTaken(email) {
+    const clean = (email || '').toString().trim().toLowerCase();
+    if (!clean) return false;
+    const inUsers = (this.registeredUsers || []).some(u => (u.email || '').toLowerCase() === clean);
+    const inReqs = ((this.adminData && this.adminData.registrationRequests) || []).some(
+      r => (r.email || '').toLowerCase() === clean && r.status !== 'rejected'
+    );
+    return inUsers || inReqs;
+  }
+
+  handleDocInput(input) {
+    const warning = document.getElementById('reg-doc-warning');
+    const val = input.value.trim();
+    const norm = this.normalizeDoc(val);
+
+    if (norm.length >= 7) {
+      if (this.isDocumentIdTaken(norm)) {
+        if (warning) {
+          warning.style.display = 'block';
+          warning.innerText = `⚠️ La cédula '${val}' ya está registrada o en proceso de revisión.`;
+        }
+        input.style.borderColor = '#dc2626';
+        return;
+      }
+    }
+    if (warning) warning.style.display = 'none';
+    input.style.borderColor = '';
+  }
+
+  handleEmailInput(input) {
+    const warning = document.getElementById('reg-email-warning');
+    const val = input.value.trim().toLowerCase();
+
+    if (val.includes('@') && val.includes('.')) {
+      if (this.isEmailTaken(val)) {
+        if (warning) {
+          warning.style.display = 'block';
+          warning.innerText = `⚠️ El correo '${val}' ya se encuentra registrado.`;
+        }
+        input.style.borderColor = '#dc2626';
+        return;
+      }
+    }
+    if (warning) warning.style.display = 'none';
+    input.style.borderColor = '';
+  }
+
   handleContractFileSelected(input) {
     const filenameDisplay = document.getElementById('reg-contract-filename');
+    const dropzone = document.getElementById('reg-contract-dropzone');
+    const removeBtn = document.getElementById('reg-contract-remove-btn');
+    const errorEl = document.getElementById('reg-contract-error');
+
     if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const allowed = ['.pdf', '.png', '.jpg', '.jpeg', '.webp'];
+      const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+      if (!allowed.includes(ext)) {
+        if (filenameDisplay) {
+          filenameDisplay.innerHTML = `❌ Formato no permitido (<code>${ext}</code>). Solo PDF, JPG, PNG o WEBP.`;
+          filenameDisplay.style.color = '#dc2626';
+        }
+        if (dropzone) {
+          dropzone.classList.remove('has-file');
+          dropzone.classList.add('has-error');
+        }
+        input.value = '';
+        if (removeBtn) removeBtn.style.display = 'none';
+        return;
+      }
+
       if (filenameDisplay) {
-        filenameDisplay.innerHTML = `<strong>Archivo adjunto:</strong> ${input.files[0].name} (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+        filenameDisplay.innerHTML = `✓ <strong>Archivo cargado:</strong> ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
         filenameDisplay.style.color = '#047857';
       }
+      if (dropzone) {
+        dropzone.classList.remove('has-error');
+        dropzone.classList.add('has-file');
+      }
+      if (removeBtn) removeBtn.style.display = 'inline-block';
+      if (errorEl) errorEl.style.display = 'none';
+    } else {
+      this.clearContractFile();
     }
   }
 
-  handleResidentRegisterSubmit(e) {
+  clearContractFile() {
+    const input = document.getElementById('reg-contract-file');
+    if (input) input.value = '';
+    const filenameDisplay = document.getElementById('reg-contract-filename');
+    const dropzone = document.getElementById('reg-contract-dropzone');
+    const removeBtn = document.getElementById('reg-contract-remove-btn');
+    if (filenameDisplay) {
+      filenameDisplay.innerHTML = '⚠️ Ningún archivo adjunto (Requerido: PDF o Imagen)';
+      filenameDisplay.style.color = '#dc2626';
+    }
+    if (dropzone) {
+      dropzone.classList.remove('has-file', 'has-error');
+    }
+    if (removeBtn) removeBtn.style.display = 'none';
+  }
+
+  validatePasswordStrength() {
+    const passInput = document.getElementById('reg-pass');
+    const confirmInput = document.getElementById('reg-pass-confirm');
+    if (!passInput) return false;
+
+    const pass = passInput.value;
+    const confirm = confirmInput ? confirmInput.value : '';
+
+    const hasLen = pass.length >= 8;
+    const hasUpper = /[A-Z]/.test(pass);
+    const hasLower = /[a-z]/.test(pass);
+    const hasNum = /\d/.test(pass);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pass);
+    const hasMatch = pass.length > 0 && confirm.length > 0 && pass === confirm;
+
+    const updateRule = (id, valid) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const icon = el.querySelector('.pw-rule-icon');
+      if (valid) {
+        el.classList.remove('invalid');
+        el.classList.add('valid');
+        if (icon) icon.innerText = '✓';
+      } else {
+        el.classList.remove('valid');
+        el.classList.add('invalid');
+        if (icon) icon.innerText = '✕';
+      }
+    };
+
+    updateRule('rule-len', hasLen);
+    updateRule('rule-upper', hasUpper);
+    updateRule('rule-lower', hasLower);
+    updateRule('rule-num', hasNum);
+    updateRule('rule-special', hasSpecial);
+    updateRule('rule-match', hasMatch);
+
+    let score = 0;
+    if (hasLen) score++;
+    if (hasUpper) score++;
+    if (hasLower) score++;
+    if (hasNum) score++;
+    if (hasSpecial) score++;
+
+    const bar = document.getElementById('pw-strength-bar');
+    const label = document.getElementById('pw-strength-label');
+
+    if (pass.length === 0) {
+      if (bar) { bar.style.width = '0%'; bar.style.backgroundColor = '#ef4444'; }
+      if (label) { label.innerText = 'No ingresada'; label.style.color = '#9ca3af'; }
+    } else if (score <= 1) {
+      if (bar) { bar.style.width = '20%'; bar.style.backgroundColor = '#ef4444'; }
+      if (label) { label.innerText = 'Muy Débil'; label.style.color = '#ef4444'; }
+    } else if (score === 2) {
+      if (bar) { bar.style.width = '40%'; bar.style.backgroundColor = '#f97316'; }
+      if (label) { label.innerText = 'Débil'; label.style.color = '#f97316'; }
+    } else if (score === 3) {
+      if (bar) { bar.style.width = '60%'; bar.style.backgroundColor = '#eab308'; }
+      if (label) { label.innerText = 'Media'; label.style.color = '#eab308'; }
+    } else if (score === 4) {
+      if (bar) { bar.style.width = '80%'; bar.style.backgroundColor = '#0d9488'; }
+      if (label) { label.innerText = 'Buena'; label.style.color = '#0d9488'; }
+    } else if (score === 5) {
+      if (bar) { bar.style.width = '100%'; bar.style.backgroundColor = '#10b981'; }
+      if (label) { label.innerText = 'Segura y Robusta'; label.style.color = '#10b981'; }
+    }
+
+    return hasLen && hasUpper && hasLower && hasNum && hasSpecial && hasMatch;
+  }
+
+  togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+
+    if (btn) {
+      btn.innerHTML = isPassword
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+        : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    }
+  }
+
+  async handleResidentRegisterSubmit(e) {
     e.preventDefault();
+
+    const formError = document.getElementById('reg-form-error');
+    const showError = (msg) => {
+      if (formError) {
+        formError.style.display = 'block';
+        formError.innerHTML = `<strong>Error de validación:</strong> ${msg}`;
+        formError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else {
+        alert(msg);
+      }
+    };
+    if (formError) formError.style.display = 'none';
+
     const name = document.getElementById('reg-name').value.trim();
     const docId = document.getElementById('reg-doc').value.trim();
     const phone = document.getElementById('reg-phone').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const unit = document.getElementById('reg-unit').value;
     const role = document.getElementById('reg-role').value;
-    const pass = document.getElementById('reg-pass').value.trim() || '1234';
+    const pass = (document.getElementById('reg-pass') || {}).value || '';
+    const passConfirm = (document.getElementById('reg-pass-confirm') || {}).value || '';
+
+    // 1. VALIDACIÓN: Cédula única (Requisito 1)
+    if (this.isDocumentIdTaken(docId)) {
+      showError(`El número de cédula o documento '${docId}' ya se encuentra registrado o tiene una solicitud en trámite de validación.`);
+      const docInput = document.getElementById('reg-doc');
+      if (docInput) {
+        docInput.focus();
+        docInput.style.borderColor = '#dc2626';
+      }
+      return;
+    }
+
+    // 2. VALIDACIÓN: Correo único
+    if (this.isEmailTaken(email)) {
+      showError(`El correo electrónico '${email}' ya se encuentra registrado en el sistema.`);
+      const emailInput = document.getElementById('reg-email');
+      if (emailInput) {
+        emailInput.focus();
+        emailInput.style.borderColor = '#dc2626';
+      }
+      return;
+    }
+
+    // 3. VALIDACIÓN: Documento del contrato obligatorio (Requisito 2)
     const contractFileEl = document.getElementById('reg-contract-file');
     const file = (contractFileEl && contractFileEl.files && contractFileEl.files[0]) ? contractFileEl.files[0] : null;
 
-    const contractFileName = file
-      ? file.name
-      : `Contrato_${role === 'owner' ? 'Compra' : 'Alquiler'}_U${unit}_Notariado.pdf`;
+    if (!file) {
+      showError('Es obligatorio adjuntar el archivo físico del contrato notariado (PDF o Imagen) para formalizar la solicitud.');
+      const dropzone = document.getElementById('reg-contract-dropzone');
+      if (dropzone) {
+        dropzone.classList.add('has-error');
+        dropzone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      return;
+    }
+
+    const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg', '.webp'];
+    const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedExts.includes(fileExt)) {
+      showError(`El archivo '${file.name}' no tiene una extensión admitida. Solo se aceptan documentos PDF, JPG, PNG o WEBP.`);
+      return;
+    }
+
+    // 4. VALIDACIÓN: Contraseña segura (Requisito 3)
+    const isStrong = this.validatePasswordStrength();
+    if (!isStrong) {
+      if (pass !== passConfirm) {
+        showError('Las contraseñas no coinciden. Por favor confirma tu contraseña exactamente.');
+        document.getElementById('reg-pass-confirm').focus();
+      } else {
+        showError('La contraseña no cumple con los requisitos de seguridad obligatorios: mínimo 8 caracteres, al menos una mayúscula (A-Z), una minúscula (a-z), un número (0-9) y un símbolo especial (!@#$%...).');
+        document.getElementById('reg-pass').focus();
+      }
+      return;
+    }
+
+    const submitBtn = document.getElementById('btn-submit-register');
+    const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span>Procesando solicitud y expediente...</span>`;
+    }
 
     const newReqId = `SOL-2026-${Math.floor(100 + Math.random() * 899)}`;
     const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    const contractFileName = file.name;
+
+    // Conexión con Backend FastAPI
+    if (window.apiClient) {
+      const formData = new FormData();
+      formData.append('full_name', name);
+      formData.append('document_id', docId);
+      formData.append('email', email);
+      formData.append('phone', phone);
+      formData.append('unit', unit);
+      formData.append('role', role);
+      formData.append('password', pass);
+      formData.append('contract_file', file);
+
+      try {
+        const backendRes = await window.apiClient.registerWithContract(formData);
+        if (backendRes && backendRes.success === false) {
+          showError(backendRes.error || 'Error reportado por el servidor al radicar la solicitud.');
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml;
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('Advertencia al enviar al backend:', err);
+      }
+    }
 
     const newRequest = {
       id: newReqId,
@@ -1142,7 +1437,7 @@ class JardinesApp {
       contractFile: contractFileName,
       contractDate: today,
       status: 'pending',
-      notes: `Solicitud de ingreso registrada desde el portal web. Unidad ${unit}.`
+      notes: `Solicitud de ingreso formal radicada desde el portal web con contrato adjunto (${file.name}).`
     };
 
     const processComplete = (dataUrl = null, fileType = null, fileSize = null) => {
@@ -1152,13 +1447,13 @@ class JardinesApp {
         newRequest.contractFileSize = fileSize;
       }
 
-      // 1. Agregar solicitud pendiente en el panel de administración (Punto 16.3 & 16.4)
+      // 1. Agregar solicitud pendiente en el panel de administración (Puntos 16.3 & 16.4)
       this.adminData.registrationRequests.unshift(newRequest);
 
-      // 2. Registrar usuario en padrón con estado "pending"
+      // 2. Registrar usuario en padrón con estado "pending" y su contraseña segura
       const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
       const newUser = {
-        id: `usr-${unit}-${Date.now()}`,
+        id: `usr-${unit.toLowerCase()}-${Date.now()}`,
         name: name,
         documentId: docId,
         email: email,
@@ -1180,28 +1475,9 @@ class JardinesApp {
         }
       };
 
-      const existingIdx = this.registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase() || u.documentId === docId);
-      if (existingIdx >= 0) {
-        this.registeredUsers[existingIdx] = newUser;
-      } else {
-        this.registeredUsers.push(newUser);
-      }
-
+      this.registeredUsers.push(newUser);
       this.saveAllState();
       this.updateAdminPendingBadge();
-
-      // Enviar al backend si apiClient está disponible
-      if (window.apiClient) {
-        const formData = new FormData();
-        formData.append('full_name', name);
-        formData.append('document_id', docId);
-        formData.append('email', email);
-        formData.append('phone', phone);
-        formData.append('unit', unit);
-        formData.append('role', role);
-        if (file) formData.append('contract_file', file);
-        window.apiClient.registerWithContract(formData);
-      }
 
       // 3. Notificar y mostrar alerta de cuenta en revisión
       this.switchResidentAuthTab('login');
@@ -1209,7 +1485,7 @@ class JardinesApp {
       if (pendingAlert) {
         pendingAlert.style.display = 'block';
         pendingAlert.innerHTML = `
-          ⏳ <strong>Solicitud Radicada (${newReqId}):</strong> Tu expediente y contrato notariado (<code>${contractFileName}</code>) han sido remitidos al Administrador de Jardines del Cerro IV para su auditoría y aprobación. Una vez verificado, podrás iniciar sesión con tu clave.
+          ⏳ <strong>Solicitud Radicada (${newReqId}):</strong> Tu expediente y contrato notariado (<code>${contractFileName}</code>) han sido remitidos al Administrador de Jardines del Cerro IV para su auditoría y aprobación. Una vez verificado, podrás iniciar sesión con tu clave segura.
         `;
       }
 
@@ -1218,27 +1494,25 @@ class JardinesApp {
 
       this.showToast(`¡Solicitud ${newReqId} radicada! El archivo '${contractFileName}' fue cargado exitosamente.`);
       e.target.reset();
-      const filenameDisplay = document.getElementById('reg-contract-filename');
-      if (filenameDisplay) {
-        filenameDisplay.innerText = 'Contrato_Arrendamiento_o_Compraventa.pdf';
-        filenameDisplay.style.color = 'var(--dust)';
+      this.clearContractFile();
+      this.validatePasswordStrength();
+
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHtml;
       }
     };
 
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target.result;
-        const fileSize = (file.size / 1024).toFixed(1) + ' KB';
-        processComplete(dataUrl, file.type, fileSize);
-      };
-      reader.onerror = () => {
-        processComplete();
-      };
-      reader.readAsDataURL(file);
-    } else {
-      processComplete();
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+      processComplete(dataUrl, file.type, fileSize);
+    };
+    reader.onerror = () => {
+      processComplete(null, file.type, (file.size / 1024).toFixed(1) + ' KB');
+    };
+    reader.readAsDataURL(file);
   }
 
   loginResident(e) {
