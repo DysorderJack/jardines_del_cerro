@@ -86,17 +86,37 @@ class ApiClient {
     }
   }
 
-  async decideRegistrationRequest(reqId, action) {
-    if (!this.isBackendOnline) return null;
+  async decideRegistrationRequest(reqId, action, extraData = {}) {
     try {
+      const payload = { action, ...extraData };
       const res = await fetch(`${this.baseUrl}/admin/requests/${reqId}/decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        this.isBackendOnline = true;
+        return await res.json();
+      } else {
+        const errData = await res.json().catch(() => null);
+        console.warn('Backend decision status:', res.status, errData);
+        return errData;
+      }
+    } catch (e) {
+      console.warn('Fallo en petición de decisión al backend:', e);
+      return null;
+    }
+  }
+
+  // Envío de correo de prueba para diagnóstico SMTP
+  async sendTestEmail(email) {
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/send-test-email?email=${encodeURIComponent(email)}`, {
+        method: 'POST'
       });
       return await res.json();
     } catch (e) {
-      return null;
+      return { success: false, error: e.message };
     }
   }
 

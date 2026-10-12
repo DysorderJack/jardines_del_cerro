@@ -142,7 +142,10 @@ def send_registration_decision_email(
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
-            msg["From"] = f"Jardines del Cerro IV <{SMTP_FROM}>"
+            
+            # Para Gmail y proveedores SMTP, el envelope sender debe coincidir con la cuenta autenticada
+            sender_email = SMTP_USER if ("@gmail.com" in SMTP_USER.lower()) else (SMTP_FROM or SMTP_USER)
+            msg["From"] = f"Torre Residencial Jardines del Cerro IV <{sender_email}>"
             msg["To"] = recipient_email
 
             part1 = MIMEText(plain_text, "plain", "utf-8")
@@ -150,20 +153,39 @@ def send_registration_decision_email(
             msg.attach(part1)
             msg.attach(part2)
 
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_FROM, [recipient_email], msg.as_string())
+            print(f"[EmailService] Intentando conectar a {SMTP_HOST}:{SMTP_PORT} con usuario {SMTP_USER}...")
+
+            if SMTP_PORT == 465:
+                with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                    server.login(SMTP_USER, SMTP_PASS)
+                    server.sendmail(sender_email, [recipient_email], msg.as_string())
+            else:
+                with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                    server.login(SMTP_USER, SMTP_PASS)
+                    server.sendmail(sender_email, [recipient_email], msg.as_string())
             
             sent_real = True
+            print(f"[EmailService] ✓ Correo enviado exitosamente a {recipient_email} vía SMTP.")
             logger.info(f"✓ Correo enviado exitosamente a {recipient_email} vía SMTP.")
+        except smtplib.SMTPAuthenticationError as auth_err:
+            error_msg = f"Error de autenticación SMTP (Código {auth_err.smtp_code}): Las credenciales de Gmail/SMTP fueron rechazadas. Revisa que tu clave de aplicación sea correcta y no tenga espacios."
+            print(f"[EmailService] ✕ {error_msg}")
+            logger.warning(error_msg)
         except Exception as e:
-            error_msg = str(e)
-            logger.warning(f"Error al enviar correo vía SMTP ({e}). Fallback a registro de notificación.")
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            print(f"[EmailService] ✕ Error al enviar correo vía SMTP ({error_msg}).")
+            logger.warning(f"Error al enviar correo vía SMTP ({error_msg}).")
     else:
-        logger.info(f"ℹ SMTP no configurado en entorno. Notificación registrada para {recipient_email}.")
+        missing = []
+        if not SMTP_HOST: missing.append("SMTP_HOST")
+        if not SMTP_USER: missing.append("SMTP_USER")
+        if not SMTP_PASS: missing.append("SMTP_PASS")
+        error_msg = f"Variables SMTP faltantes en el servidor: {', '.join(missing)}"
+        print(f"[EmailService] ℹ {error_msg}. Notificación registrada para {recipient_email}.")
+        logger.info(f"ℹ {error_msg}. Notificación registrada para {recipient_email}.")
 
     return {
         "success": True,

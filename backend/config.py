@@ -39,9 +39,11 @@ CORS_ORIGINS = [
 ]
 
 # Configuración de Correo Electrónico (Notificaciones SMTP Oficiales)
-SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASS = os.getenv("SMTP_PASS", "")
-SMTP_FROM = os.getenv("SMTP_FROM", "notificaciones@jardinesdelcerro.com")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://jardines-del-cerro.vercel.app")
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+# Eliminar posibles espacios en blanco si el usuario copió la clave con formato 'xxxx xxxx xxxx xxxx'
+SMTP_PASS = os.getenv("SMTP_PASS", "").replace(" ", "").strip()
+SMTP_FROM = os.getenv("SMTP_FROM", "").strip() or SMTP_USER or "notificaciones@jardinesdelcerro.com"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://jardines-del-cerro.vercel.app").strip()
+

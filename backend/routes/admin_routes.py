@@ -65,40 +65,51 @@ def request_decision(req_id: str, decision: RegistrationDecision, db: Session = 
     """
     Aprueba o rechaza una solicitud tras auditar el contrato notariado (Punto 16.4).
     """
-    req = db.query(RegistrationRequest).filter(RegistrationRequest.id == req_id).first()
-    if not req:
-        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+    req = db.query(RegistrationRequest).filter(
+        (RegistrationRequest.id == req_id) |
+        (RegistrationRequest.email == req_id) |
+        (RegistrationRequest.document_id == req_id)
+    ).first()
+
+    applicant_name = (req.applicant_name if req else None) or decision.applicant_name or "Residente"
+    recipient_email = (req.email if req else None) or decision.email
+    unit_str = (req.unit if req else None) or decision.unit or "101"
+    role_label_str = (req.role_label if req else None) or decision.role_label or "Inquilino / Propietario"
+
+    if not req and not recipient_email:
+        raise HTTPException(status_code=404, detail=f"Solicitud {req_id} no encontrada en la base de datos.")
 
     if decision.action == "approve":
-        req.status = "approved"
+        if req:
+            req.status = "approved"
 
-        # Activar usuario
-        user = db.query(User).filter(
-            (User.document_id == req.document_id) | (User.email == req.email)
-        ).first()
-        if user:
-            user.status = "approved"
+            # Activar usuario
+            user = db.query(User).filter(
+                (User.document_id == req.document_id) | (User.email == req.email)
+            ).first()
+            if user:
+                user.status = "approved"
 
-        # Marcar la unidad como ocupada
-        unit = db.query(Unit).filter(Unit.number == req.unit).first()
-        if unit:
-            unit.status = "occupied"
-            unit.status_label = "Ocupado"
+            # Marcar la unidad como ocupada
+            unit = db.query(Unit).filter(Unit.number == req.unit).first()
+            if unit:
+                unit.status = "occupied"
+                unit.status_label = "Ocupado"
 
-        # Registrar log
-        db.add(ActivityLog(
-            title=f"Solicitud aprobada: {req.applicant_name} habilitado en Unidad {req.unit}",
-            time="Hace un momento",
-            activity_type="user"
-        ))
-        db.commit()
+            # Registrar log
+            db.add(ActivityLog(
+                title=f"Solicitud aprobada: {applicant_name} habilitado en Unidad {unit_str}",
+                time="Hace un momento",
+                activity_type="user"
+            ))
+            db.commit()
 
         # Enviar notificación oficial por correo electrónico
         email_res = send_registration_decision_email(
-            applicant_name=req.applicant_name,
-            recipient_email=req.email,
-            unit=req.unit,
-            role_label=req.role_label,
+            applicant_name=applicant_name,
+            recipient_email=recipient_email,
+            unit=unit_str,
+            role_label=role_label_str,
             action="approve",
             req_id=req_id
         )
@@ -110,20 +121,21 @@ def request_decision(req_id: str, decision: RegistrationDecision, db: Session = 
         }
 
     elif decision.action == "reject":
-        req.status = "rejected"
-        user = db.query(User).filter(
-            (User.document_id == req.document_id) | (User.email == req.email)
-        ).first()
-        if user:
-            user.status = "rejected"
-        db.commit()
+        if req:
+            req.status = "rejected"
+            user = db.query(User).filter(
+                (User.document_id == req.document_id) | (User.email == req.email)
+            ).first()
+            if user:
+                user.status = "rejected"
+            db.commit()
 
         # Enviar notificación oficial por correo electrónico
         email_res = send_registration_decision_email(
-            applicant_name=req.applicant_name,
-            recipient_email=req.email,
-            unit=req.unit,
-            role_label=req.role_label,
+            applicant_name=applicant_name,
+            recipient_email=recipient_email,
+            unit=unit_str,
+            role_label=role_label_str,
             action="reject",
             req_id=req_id
         )
@@ -135,6 +147,20 @@ def request_decision(req_id: str, decision: RegistrationDecision, db: Session = 
         }
 
     raise HTTPException(status_code=400, detail="Acción inválida. Usa 'approve' o 'reject'.")
+
+@router.post("/send-test-email")
+def send_test_email(email: str):
+    """
+    Envía un correo de prueba directo para verificar en tiempo real la configuración SMTP en Render.
+    """
+    return send_registration_decision_email(
+        applicant_name="Administrador de Pruebas",
+        recipient_email=email,
+        unit="101",
+        role_label="Propietario Titular",
+        action="approve",
+        req_id="TEST-SMTP-DIRECTO"
+    )
 
 @router.get("/contracts/{filename}")
 def download_contract(filename: str):

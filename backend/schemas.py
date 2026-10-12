@@ -38,6 +38,10 @@ class UnitUpdateStatus(BaseModel):
 class RegistrationDecision(BaseModel):
     action: str # 'approve', 'reject'
     notes: Optional[str] = None
+    applicant_name: Optional[str] = None
+    email: Optional[str] = None
+    unit: Optional[str] = None
+    role_label: Optional[str] = None
 
 # Payment
 class PaymentCreate(BaseModel):

@@ -2345,6 +2345,9 @@ class JardinesApp {
             </div>
             <p style="font-size: 13px; color: var(--dust);">Auditoría notarial y aprobación conforme al Punto 16.3 y 16.4</p>
           </div>
+          <button type="button" class="btn-outline" style="font-size: 11.5px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;" onclick="window.app.promptTestEmail();" title="Probar si el servidor en Render envía correos reales a tu bandeja">
+            <span>✉️</span> Probar Envío SMTP
+          </button>
         </div>
 
         <div class="table-card">
@@ -3120,13 +3123,23 @@ class JardinesApp {
 
     this.saveAllState();
     this.updateAdminPendingBadge();
-    if (window.apiClient) window.apiClient.decideRegistrationRequest(reqId, 'approve');
-    this.showToast(`¡Solicitud aprobada! Correo de activación enviado a ${req.email}.`);
     this.renderAdminTabContent();
-    this.openEmailNotificationModal('approve', req);
+    this.showToast(`Aprobando y despachando notificación oficial a ${req.email}...`);
+
+    let backendResult = null;
+    if (window.apiClient) {
+      backendResult = await window.apiClient.decideRegistrationRequest(reqId, 'approve', {
+        applicant_name: req.applicantName,
+        email: req.email,
+        unit: req.unit,
+        role_label: req.roleLabel
+      });
+    }
+
+    this.openEmailNotificationModal('approve', req, backendResult);
   }
 
-  rejectRegistrationRequest(reqId) {
+  async rejectRegistrationRequest(reqId) {
     const req = this.adminData.registrationRequests.find(r => r.id === reqId);
     if (!req) return;
 
@@ -3148,17 +3161,27 @@ class JardinesApp {
 
       this.saveAllState();
       this.updateAdminPendingBadge();
-      if (window.apiClient) window.apiClient.decideRegistrationRequest(reqId, 'reject');
-      this.showToast(`Solicitud rechazada. Correo de notificación enviado a ${req.email}.`);
       this.renderAdminTabContent();
-      this.openEmailNotificationModal('reject', req);
+      this.showToast(`Notificando rechazo a ${req.email}...`);
+
+      let backendResult = null;
+      if (window.apiClient) {
+        backendResult = await window.apiClient.decideRegistrationRequest(reqId, 'reject', {
+          applicant_name: req.applicantName,
+          email: req.email,
+          unit: req.unit,
+          role_label: req.roleLabel
+        });
+      }
+
+      this.openEmailNotificationModal('reject', req, backendResult);
     }
   }
 
   /* =========================================================================
      Modal de Notificación por Correo Electrónico Oficial
      ========================================================================= */
-  openEmailNotificationModal(type, req) {
+  openEmailNotificationModal(type, req, backendResult = null) {
     const modal = document.getElementById('email-notification-modal');
     const container = document.getElementById('email-notification-content');
     if (!modal || !container) return;
@@ -3167,6 +3190,10 @@ class JardinesApp {
     const subject = isApproved
       ? `🎉 Solicitud Aprobada — Acceso Habilitado a Jardines del Cerro IV (Unidad ${req.unit})`
       : `⚠️ Notificación sobre su Solicitud de Acceso — Jardines del Cerro IV (Expediente ${req.id})`;
+
+    const emailStatus = backendResult && backendResult.email_notification;
+    const sentReal = emailStatus && emailStatus.sent_real_smtp;
+    const smtpError = emailStatus && emailStatus.error;
 
     const mailtoBody = encodeURIComponent(
       `Estimado(a) ${req.applicantName},\n\n` +
@@ -3178,22 +3205,57 @@ class JardinesApp {
     const mailtoLink = `mailto:${encodeURIComponent(req.email)}?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`;
 
     container.innerHTML = `
-      <div style="background: ${isApproved ? '#ECFDF5' : '#FEF2F2'}; border: 1px solid ${isApproved ? '#A7F3D0' : '#FECACA'}; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="font-size: 24px;">${isApproved ? '📧' : '✉️'}</div>
-          <div>
-            <div style="font-size: 13.5px; font-weight: 700; color: ${isApproved ? '#065F46' : '#991B1B'};">
-              ${isApproved ? 'Notificación de Aprobación Enviada' : 'Notificación de Rechazo Enviada'}
+      <!-- Diagnóstico de Envío en Tiempo Real -->
+      ${sentReal ? `
+        <div style="background: #ECFDF5; border: 1.5px solid #059669; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 26px;">✅</div>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 800; color: #065F46;">
+                ¡Correo Real Entregado con Éxito vía SMTP!
+              </div>
+              <div style="font-size: 12px; color: #047857;">
+                El servidor en Render conectó exitosamente y despachó el correo a: <strong>${req.email}</strong>
+              </div>
             </div>
-            <div style="font-size: 12px; color: ${isApproved ? '#047857' : '#B91C1C'};">
-              Destinatario: <strong>${req.applicantName}</strong> &lt;<code>${req.email}</code>&gt;
+          </div>
+          <span class="badge badge-success" style="font-size: 11px;">Entregado a Inbox</span>
+        </div>
+      ` : smtpError ? `
+        <div style="background: #FFFBEB; border: 1.5px solid #F59E0B; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div style="font-size: 24px; line-height: 1;">⚠️</div>
+            <div style="flex: 1;">
+              <div style="font-size: 13.5px; font-weight: 800; color: #92400E; margin-bottom: 4px;">
+                Respuesta del Servidor SMTP de Render
+              </div>
+              <div style="font-size: 12px; color: #78350F; line-height: 1.5; font-family: monospace; background: rgba(0,0,0,0.05); padding: 6px 10px; border-radius: 6px;">
+                ${smtpError}
+              </div>
+              <div style="font-size: 11.5px; color: #92400E; margin-top: 8px;">
+                💡 <strong>Consejo:</strong> Si es Gmail, asegúrate de que <code>SMTP_USER</code> sea tu correo y que <code>SMTP_PASS</code> sea la clave de 16 letras generada en Google App Passwords. También puedes hacer clic abajo en <em>"Enviar Directo desde mi Correo"</em> para despacharlo de inmediato.
+              </div>
             </div>
           </div>
         </div>
-        <span class="badge ${isApproved ? 'badge-success' : 'badge-danger'}" style="font-size: 11px;">
-          ${isApproved ? '✓ Cuenta Habilitada' : '✕ Acceso Denegado'}
-        </span>
-      </div>
+      ` : `
+        <div style="background: #EFF6FF; border: 1.5px solid #3B82F6; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 24px;">📧</div>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 800; color: #1E40AF;">
+                Notificación Oficial Generada
+              </div>
+              <div style="font-size: 12px; color: #1D4ED8;">
+                Destinatario: <strong>${req.applicantName}</strong> &lt;<code>${req.email}</code>&gt;
+              </div>
+            </div>
+          </div>
+          <span class="badge ${isApproved ? 'badge-success' : 'badge-danger'}" style="font-size: 11px;">
+            ${isApproved ? '✓ Cuenta Habilitada' : '✕ Acceso Denegado'}
+          </span>
+        </div>
+      `}
 
       <!-- Tarjeta de Vista Previa del Correo Oficial -->
       <div style="background: var(--white, #ffffff); border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
@@ -3251,10 +3313,10 @@ class JardinesApp {
       <!-- Botones de Acción -->
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
         <a href="${mailtoLink}" class="btn-outline" style="padding: 8px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-          <span>↗</span> Abrir en mi Cliente de Correo (Mailto)
+          <span>↗</span> Enviar Directo desde mi Correo (Mailto)
         </a>
         <button type="button" class="btn-primary" onclick="window.app.closeEmailNotificationModal();">
-          Entendido, Cerrar
+          Cerrar Notificación
         </button>
       </div>
     `;
@@ -3265,6 +3327,24 @@ class JardinesApp {
   closeEmailNotificationModal() {
     const modal = document.getElementById('email-notification-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  async promptTestEmail() {
+    const targetEmail = prompt("Ingresa el correo electrónico donde deseas recibir el email de prueba para validar tu SMTP en Render:", (this.currentUser ? this.currentUser.email : ""));
+    if (!targetEmail || !targetEmail.trim()) return;
+
+    this.showToast(`Conectando con Render para enviar email de prueba a ${targetEmail}...`);
+    if (window.apiClient) {
+      const res = await window.apiClient.sendTestEmail(targetEmail.trim());
+      if (res && res.sent_real_smtp) {
+        alert(`¡Éxito! 🎉\n\nEl correo de prueba ha sido entregado exitosamente a:\n${targetEmail}\n\nRevisa tu bandeja de entrada.`);
+      } else {
+        const errorMsg = (res && res.error) ? res.error : 'No se pudo conectar al servidor de Render o las credenciales no son válidas.';
+        alert(`Aviso de diagnóstico SMTP:\n\n${errorMsg}\n\nRevisa en Render que las variables SMTP_USER y SMTP_PASS estén configuradas correctamente.`);
+      }
+    } else {
+      alert("El cliente API del backend no está disponible.");
+    }
   }
 
   /* =========================================================================
