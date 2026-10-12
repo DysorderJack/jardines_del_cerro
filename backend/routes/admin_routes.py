@@ -6,6 +6,7 @@ from database import get_db
 from models import User, Unit, RegistrationRequest, Payment, ActivityLog
 from schemas import RegistrationDecision, UnitCreate, UnitUpdateStatus
 from config import UPLOAD_DIR
+from services.email_service import send_registration_decision_email
 
 router = APIRouter(prefix="/api/admin", tags=["Administración Condominal"])
 
@@ -91,7 +92,22 @@ def request_decision(req_id: str, decision: RegistrationDecision, db: Session = 
             activity_type="user"
         ))
         db.commit()
-        return {"success": True, "message": f"Solicitud {req_id} aprobada con éxito. Residente habilitado."}
+
+        # Enviar notificación oficial por correo electrónico
+        email_res = send_registration_decision_email(
+            applicant_name=req.applicant_name,
+            recipient_email=req.email,
+            unit=req.unit,
+            role_label=req.role_label,
+            action="approve",
+            req_id=req_id
+        )
+
+        return {
+            "success": True,
+            "message": f"Solicitud {req_id} aprobada con éxito. Residente habilitado.",
+            "email_notification": email_res
+        }
 
     elif decision.action == "reject":
         req.status = "rejected"
@@ -101,7 +117,22 @@ def request_decision(req_id: str, decision: RegistrationDecision, db: Session = 
         if user:
             user.status = "rejected"
         db.commit()
-        return {"success": True, "message": f"Solicitud {req_id} rechazada."}
+
+        # Enviar notificación oficial por correo electrónico
+        email_res = send_registration_decision_email(
+            applicant_name=req.applicant_name,
+            recipient_email=req.email,
+            unit=req.unit,
+            role_label=req.role_label,
+            action="reject",
+            req_id=req_id
+        )
+
+        return {
+            "success": True,
+            "message": f"Solicitud {req_id} rechazada.",
+            "email_notification": email_res
+        }
 
     raise HTTPException(status_code=400, detail="Acción inválida. Usa 'approve' o 'reject'.")
 

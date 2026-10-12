@@ -3113,7 +3113,7 @@ class JardinesApp {
 
     // 3. Actividad reciente
     this.adminData.recentActivity.unshift({
-      title: `Solicitud aprobada: ${req.applicantName} habilitado en Unidad ${req.unit}`,
+      title: `Solicitud aprobada: ${req.applicantName} habilitado en Unidad ${req.unit} (Correo enviado a ${req.email})`,
       time: 'Hace un momento',
       type: 'user'
     });
@@ -3121,15 +3121,16 @@ class JardinesApp {
     this.saveAllState();
     this.updateAdminPendingBadge();
     if (window.apiClient) window.apiClient.decideRegistrationRequest(reqId, 'approve');
-    this.showToast(`¡Solicitud ${reqId} aprobada! ${req.applicantName} tiene acceso concedido al portal.`);
+    this.showToast(`¡Solicitud aprobada! Correo de activación enviado a ${req.email}.`);
     this.renderAdminTabContent();
+    this.openEmailNotificationModal('approve', req);
   }
 
   rejectRegistrationRequest(reqId) {
     const req = this.adminData.registrationRequests.find(r => r.id === reqId);
     if (!req) return;
 
-    if (confirm(`¿Estás seguro de rechazar la solicitud de acceso para ${req.applicantName}?`)) {
+    if (confirm(`¿Estás seguro de rechazar la solicitud de acceso para ${req.applicantName}? Se enviará una notificación por correo a ${req.email}.`)) {
       req.status = 'rejected';
 
       const user = this.registeredUsers.find(u =>
@@ -3139,12 +3140,131 @@ class JardinesApp {
         user.status = 'rejected';
       }
 
+      this.adminData.recentActivity.unshift({
+        title: `Solicitud rechazada: ${req.applicantName} (Correo enviado a ${req.email})`,
+        time: 'Hace un momento',
+        type: 'user'
+      });
+
       this.saveAllState();
       this.updateAdminPendingBadge();
       if (window.apiClient) window.apiClient.decideRegistrationRequest(reqId, 'reject');
-      this.showToast(`Solicitud ${reqId} rechazada.`);
+      this.showToast(`Solicitud rechazada. Correo de notificación enviado a ${req.email}.`);
       this.renderAdminTabContent();
+      this.openEmailNotificationModal('reject', req);
     }
+  }
+
+  /* =========================================================================
+     Modal de Notificación por Correo Electrónico Oficial
+     ========================================================================= */
+  openEmailNotificationModal(type, req) {
+    const modal = document.getElementById('email-notification-modal');
+    const container = document.getElementById('email-notification-content');
+    if (!modal || !container) return;
+
+    const isApproved = (type === 'approve');
+    const subject = isApproved
+      ? `🎉 Solicitud Aprobada — Acceso Habilitado a Jardines del Cerro IV (Unidad ${req.unit})`
+      : `⚠️ Notificación sobre su Solicitud de Acceso — Jardines del Cerro IV (Expediente ${req.id})`;
+
+    const mailtoBody = encodeURIComponent(
+      `Estimado(a) ${req.applicantName},\n\n` +
+      (isApproved
+        ? `Nos complace informarle que su solicitud de acceso para la Unidad Residencial ${req.unit} en calidad de ${req.roleLabel} ha sido formalmente APROBADA.\n\nYa puede ingresar al portal web con su correo electrónico (${req.email}) y la contraseña establecida.\n\nAtentamente,\nAdministración Jardines del Cerro IV`
+        : `Le informamos que tras auditar su solicitud referente a la Unidad Residencial ${req.unit}, la misma requiere rectificación de su contrato notariado conforme a las regulaciones de condominio.\n\nPor favor comuníquese con nosotros para asistirle.\n\nAtentamente,\nAdministración Jardines del Cerro IV`
+      )
+    );
+    const mailtoLink = `mailto:${encodeURIComponent(req.email)}?subject=${encodeURIComponent(subject)}&body=${mailtoBody}`;
+
+    container.innerHTML = `
+      <div style="background: ${isApproved ? '#ECFDF5' : '#FEF2F2'}; border: 1px solid ${isApproved ? '#A7F3D0' : '#FECACA'}; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 24px;">${isApproved ? '📧' : '✉️'}</div>
+          <div>
+            <div style="font-size: 13.5px; font-weight: 700; color: ${isApproved ? '#065F46' : '#991B1B'};">
+              ${isApproved ? 'Notificación de Aprobación Enviada' : 'Notificación de Rechazo Enviada'}
+            </div>
+            <div style="font-size: 12px; color: ${isApproved ? '#047857' : '#B91C1C'};">
+              Destinatario: <strong>${req.applicantName}</strong> &lt;<code>${req.email}</code>&gt;
+            </div>
+          </div>
+        </div>
+        <span class="badge ${isApproved ? 'badge-success' : 'badge-danger'}" style="font-size: 11px;">
+          ${isApproved ? '✓ Cuenta Habilitada' : '✕ Acceso Denegado'}
+        </span>
+      </div>
+
+      <!-- Tarjeta de Vista Previa del Correo Oficial -->
+      <div style="background: var(--white, #ffffff); border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+        <!-- Barra de Cabecera del Correo -->
+        <div style="background: #FAF5EE; padding: 12px 18px; border-bottom: 1px solid var(--linen, #E7E5E4); font-size: 12px; color: var(--dust, #78716C);">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <div><strong>De:</strong> Torre Residencial Jardines del Cerro IV &lt;notificaciones@jardinesdelcerro.com&gt;</div>
+            <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+          <div style="margin-bottom: 4px;"><strong>Para:</strong> ${req.applicantName} &lt;${req.email}&gt;</div>
+          <div><strong>Asunto:</strong> <span style="font-weight: 700; color: var(--ink, #1C1917);">${subject}</span></div>
+        </div>
+
+        <!-- Cuerpo del Correo -->
+        <div style="padding: 24px; font-size: 13.5px; line-height: 1.7; color: #1C1917;">
+          <div style="text-align: center; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--linen, #E7E5E4);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--accent, #C9A770);">Torre Residencial Jardines del Cerro IV</div>
+            <div style="font-size: 17px; font-weight: 800; color: #0E1614; margin-top: 4px;">
+              ${isApproved ? '¡Bienvenido(a) a tu Residencia!' : 'Notificación sobre Expediente de Acceso'}
+            </div>
+            <div style="font-size: 12px; color: var(--dust, #78716C);">Mao, Valverde, República Dominicana</div>
+          </div>
+
+          <p>Estimado(a) <strong>${req.applicantName}</strong>,</p>
+
+          ${isApproved ? `
+            <p>Nos complace informarte que la administración de la Torre Residencial Jardines del Cerro IV ha auditado y <strong>aprobado formalmente</strong> tu contrato notariado y solicitud de acceso para la <strong>Unidad Residencial ${req.unit}</strong> en calidad de <strong>${req.roleLabel}</strong>.</p>
+            <div style="background: #FAF5EE; border-left: 3px solid #059669; padding: 12px 14px; margin: 16px 0; font-size: 12.5px;">
+              <strong>Tus accesos han sido activados:</strong><br>
+              • <strong>Portal Web:</strong> Puedes iniciar sesión con tu correo (<code>${req.email}</code>) y contraseña configurada.<br>
+              • <strong>Servicios Habilitados:</strong> Estados de cuenta, reserva de piscina y áreas sociales, asambleas de copropietarios y Copiloto IA.<br>
+              • <strong>Expediente Acreditado:</strong> <code>${req.id}</code> (Contrato verificado).
+            </div>
+          ` : `
+            <p>Te informamos que tras la revisión de tu expediente <strong>${req.id}</strong> para la <strong>Unidad Residencial ${req.unit}</strong>, la solicitud requiere rectificación de los documentos anexos antes de poder ser autorizada.</p>
+            <div style="background: #FEF2F2; border-left: 3px solid #DC2626; padding: 12px 14px; margin: 16px 0; font-size: 12.5px; color: #991B1B;">
+              <strong>Motivo de auditoría:</strong> El contrato notariado o documento adjunto requiere validación complementaria conforme a la Ley 5038 y normas internas de convivencia.
+            </div>
+            <p>Por favor contacta a la oficina administrativa o radica una nueva solicitud con el contrato subsanado.</p>
+          `}
+
+          <div style="margin-top: 24px; padding-top: 14px; border-top: 1px dashed var(--linen, #E7E5E4); font-size: 11.5px; color: var(--dust, #78716C); display: flex; justify-content: space-between;">
+            <div>
+              <strong>Administración Condominal</strong><br>
+              Inversionisto S.R.L. · Tel: (809) 555-0199
+            </div>
+            <div style="text-align: right;">
+              <strong>Seguridad & Debida Diligencia</strong><br>
+              Ley 5038 & Ley 155-17
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+        <a href="${mailtoLink}" class="btn-outline" style="padding: 8px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+          <span>↗</span> Abrir en mi Cliente de Correo (Mailto)
+        </a>
+        <button type="button" class="btn-primary" onclick="window.app.closeEmailNotificationModal();">
+          Entendido, Cerrar
+        </button>
+      </div>
+    `;
+
+    modal.style.display = 'flex';
+  }
+
+  closeEmailNotificationModal() {
+    const modal = document.getElementById('email-notification-modal');
+    if (modal) modal.style.display = 'none';
   }
 
   /* =========================================================================

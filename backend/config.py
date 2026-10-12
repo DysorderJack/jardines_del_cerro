@@ -37,3 +37,11 @@ PAYPAL_BASE_URL = (
 CORS_ORIGINS = [
     "*",  # Permite conexión desde cualquier cliente frontend en desarrollo o despliegue
 ]
+
+# Configuración de Correo Electrónico (Notificaciones SMTP Oficiales)
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "notificaciones@jardinesdelcerro.com")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://jardines-del-cerro.vercel.app")

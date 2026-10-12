@@ -1312,6 +1312,30 @@
   </div>
 
   <!-- =========================================================================
+       MODAL: NOTIFICACIÓN OFICIAL POR CORREO ELECTRÓNICO (AUDITORÍA ADMIN)
+       ========================================================================= -->
+  <div id="email-notification-modal" onclick="if(event.target === this) window.app.closeEmailNotificationModal();" style="position: fixed; inset: 0; z-index: 250; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; padding: 28px; position: relative; box-shadow: var(--shadow-xl);">
+      <button onclick="window.app.closeEmailNotificationModal();" style="position: absolute; top: 20px; right: 20px; color: var(--dust); font-size: 18px;" title="Cerrar">✕</button>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--linen); padding-bottom: 12px;">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: #E0E7FF; color: #4338CA; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+          ✉️
+        </div>
+        <div>
+          <h3 style="font-size: 16px; font-weight: 800; color: var(--ink);">Notificación Oficial por Correo Electrónico</h3>
+          <div style="font-size: 12px; color: var(--dust);">Despacho automático de credenciales y decisión de auditoría</div>
+        </div>
+      </div>
+
+      <!-- Contenedor Dinámico del Correo Notificado -->
+      <div id="email-notification-content">
+        <!-- Renderizado dinámicamente con los datos del destinatario y el cuerpo del correo -->
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
        FLOATING AI ASSISTANT CHAT WIDGET
        ========================================================================= -->
   <button class="ai-chat-btn" id="ai-chat-toggle-btn" onclick="window.app.toggleAIChat();" title="Asistente Virtual">
