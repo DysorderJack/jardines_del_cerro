@@ -1120,14 +1120,15 @@ class JardinesApp {
     const role = document.getElementById('reg-role').value;
     const pass = document.getElementById('reg-pass').value.trim() || '1234';
     const contractFileEl = document.getElementById('reg-contract-file');
-    const contractFileName = (contractFileEl && contractFileEl.files && contractFileEl.files[0])
-      ? contractFileEl.files[0].name
+    const file = (contractFileEl && contractFileEl.files && contractFileEl.files[0]) ? contractFileEl.files[0] : null;
+
+    const contractFileName = file
+      ? file.name
       : `Contrato_${role === 'owner' ? 'Compra' : 'Alquiler'}_U${unit}_Notariado.pdf`;
 
     const newReqId = `SOL-2026-${Math.floor(100 + Math.random() * 899)}`;
     const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    // 1. Agregar solicitud pendiente en el panel de administración (Punto 16.3 & 16.4)
     const newRequest = {
       id: newReqId,
       date: today,
@@ -1144,58 +1145,100 @@ class JardinesApp {
       notes: `Solicitud de ingreso registrada desde el portal web. Unidad ${unit}.`
     };
 
-    this.adminData.registrationRequests.unshift(newRequest);
+    const processComplete = (dataUrl = null, fileType = null, fileSize = null) => {
+      if (dataUrl) {
+        newRequest.contractDataUrl = dataUrl;
+        newRequest.contractFileType = fileType;
+        newRequest.contractFileSize = fileSize;
+      }
 
-    // 2. Registrar usuario en padrón con estado "pending"
-    const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
-    const newUser = {
-      id: `usr-${unit}-${Date.now()}`,
-      name: name,
-      documentId: docId,
-      email: email,
-      unit: unit,
-      role: role,
-      roleLabel: role === 'owner' ? 'Propietario Residente' : 'Inquilino Arrendatario',
-      aliquot: role === 'owner' ? '4.65%' : 'N/A (Inquilino)',
-      password: pass,
-      status: 'pending',
-      avatar: initials,
-      aiSubscription: {
-        active: false,
-        plan: null,
-        priceUsd: null,
-        paypalSubId: null,
-        subscribedAt: null,
-        renewalDate: null,
-        statusLabel: 'Inactiva (Requiere Suscripción)'
+      // 1. Agregar solicitud pendiente en el panel de administración (Punto 16.3 & 16.4)
+      this.adminData.registrationRequests.unshift(newRequest);
+
+      // 2. Registrar usuario en padrón con estado "pending"
+      const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
+      const newUser = {
+        id: `usr-${unit}-${Date.now()}`,
+        name: name,
+        documentId: docId,
+        email: email,
+        unit: unit,
+        role: role,
+        roleLabel: role === 'owner' ? 'Propietario Residente' : 'Inquilino Arrendatario',
+        aliquot: role === 'owner' ? '4.65%' : 'N/A (Inquilino)',
+        password: pass,
+        status: 'pending',
+        avatar: initials,
+        aiSubscription: {
+          active: false,
+          plan: null,
+          priceUsd: null,
+          paypalSubId: null,
+          subscribedAt: null,
+          renewalDate: null,
+          statusLabel: 'Inactiva (Requiere Suscripción)'
+        }
+      };
+
+      const existingIdx = this.registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase() || u.documentId === docId);
+      if (existingIdx >= 0) {
+        this.registeredUsers[existingIdx] = newUser;
+      } else {
+        this.registeredUsers.push(newUser);
+      }
+
+      this.saveAllState();
+      this.updateAdminPendingBadge();
+
+      // Enviar al backend si apiClient está disponible
+      if (window.apiClient) {
+        const formData = new FormData();
+        formData.append('full_name', name);
+        formData.append('document_id', docId);
+        formData.append('email', email);
+        formData.append('phone', phone);
+        formData.append('unit', unit);
+        formData.append('role', role);
+        if (file) formData.append('contract_file', file);
+        window.apiClient.registerWithContract(formData);
+      }
+
+      // 3. Notificar y mostrar alerta de cuenta en revisión
+      this.switchResidentAuthTab('login');
+      const pendingAlert = document.getElementById('resident-pending-alert');
+      if (pendingAlert) {
+        pendingAlert.style.display = 'block';
+        pendingAlert.innerHTML = `
+          ⏳ <strong>Solicitud Radicada (${newReqId}):</strong> Tu expediente y contrato notariado (<code>${contractFileName}</code>) han sido remitidos al Administrador de Jardines del Cerro IV para su auditoría y aprobación. Una vez verificado, podrás iniciar sesión con tu clave.
+        `;
+      }
+
+      const userInput = document.getElementById('resident-login-user');
+      if (userInput) userInput.value = email;
+
+      this.showToast(`¡Solicitud ${newReqId} radicada! El archivo '${contractFileName}' fue cargado exitosamente.`);
+      e.target.reset();
+      const filenameDisplay = document.getElementById('reg-contract-filename');
+      if (filenameDisplay) {
+        filenameDisplay.innerText = 'Contrato_Arrendamiento_o_Compraventa.pdf';
+        filenameDisplay.style.color = 'var(--dust)';
       }
     };
 
-    const existingIdx = this.registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase() || u.documentId === docId);
-    if (existingIdx >= 0) {
-      this.registeredUsers[existingIdx] = newUser;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target.result;
+        const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+        processComplete(dataUrl, file.type, fileSize);
+      };
+      reader.onerror = () => {
+        processComplete();
+      };
+      reader.readAsDataURL(file);
     } else {
-      this.registeredUsers.push(newUser);
+      processComplete();
     }
-
-    this.saveAllState();
-    this.updateAdminPendingBadge();
-
-    // 3. Notificar y mostrar alerta de cuenta en revisión
-    this.switchResidentAuthTab('login');
-    const pendingAlert = document.getElementById('resident-pending-alert');
-    if (pendingAlert) {
-      pendingAlert.style.display = 'block';
-      pendingAlert.innerHTML = `
-        ⏳ <strong>Solicitud Radicada (${newReqId}):</strong> Tu expediente y contrato notariado (<code>${contractFileName}</code>) han sido remitidos al Administrador de Jardines del Cerro IV para su auditoría y aprobación. Una vez verificado, podrás iniciar sesión con tu clave.
-      `;
-    }
-
-    const userInput = document.getElementById('resident-login-user');
-    if (userInput) userInput.value = email;
-
-    this.showToast(`¡Solicitud ${newReqId} radicada! Pendiente de auditoría notarial.`);
-    e.target.reset();
   }
 
   loginResident(e) {
@@ -2170,6 +2213,39 @@ class JardinesApp {
       btnElement.classList.add('active');
     }
     this.renderAdminTabContent();
+
+    // Sincronización automática con el backend de producción si está online
+    if (tabName === 'solicitudes' && window.apiClient && window.apiClient.isBackendOnline) {
+      window.apiClient.getAdminRequests().then(backendReqs => {
+        if (backendReqs && Array.isArray(backendReqs) && backendReqs.length > 0) {
+          let updated = false;
+          backendReqs.forEach(bReq => {
+            const existing = this.adminData.registrationRequests.find(r => r.id === bReq.id || r.documentId === bReq.documentId);
+            if (existing) {
+              if (existing.status !== bReq.status) {
+                existing.status = bReq.status;
+                updated = true;
+              }
+              if (!existing.backendContractUrl && bReq.contractFile) {
+                existing.backendContractUrl = `${window.apiClient.baseUrl.replace('/api', '')}/uploads/${bReq.contractFile}`;
+                updated = true;
+              }
+            } else {
+              bReq.backendContractUrl = `${window.apiClient.baseUrl.replace('/api', '')}/uploads/${bReq.contractFile}`;
+              this.adminData.registrationRequests.unshift(bReq);
+              updated = true;
+            }
+          });
+          if (updated) {
+            this.saveAllState();
+            this.updateAdminPendingBadge();
+            if (this.activeAdminTab === 'solicitudes') {
+              this.renderAdminTabContent();
+            }
+          }
+        }
+      }).catch(() => {});
+    }
   }
 
   renderAdminTabContent() {
@@ -2850,7 +2926,7 @@ class JardinesApp {
     const modal = document.getElementById('contract-viewer-modal');
     const titleEl = document.getElementById('contract-viewer-title');
     const subtitleEl = document.getElementById('contract-viewer-subtitle');
-    const bodyEl = document.getElementById('contract-viewer-body');
+    const contentEl = document.getElementById('contract-viewer-content');
 
     if (titleEl) {
       titleEl.innerText = `Contrato Notariado — ${req.applicantName} (${req.roleLabel})`;
@@ -2858,10 +2934,125 @@ class JardinesApp {
     if (subtitleEl) {
       subtitleEl.innerText = `Unidad ${req.unit} · Cédula/Doc: ${req.documentId} · Radicado el ${req.date}`;
     }
-    if (bodyEl) {
-      bodyEl.innerHTML = `
-        Las partes hacen constar que comparece <strong>${req.applicantName}</strong> (Cédula/Doc: <code>${req.documentId}</code>, Teléfono: ${req.phone}), habiendo suscrito formalmente el <strong>${req.roleRequested === 'owner' ? 'Contrato de Promesa de Compraventa Inmobiliaria' : 'Contrato de Arrendamiento Residencial'}</strong> de la <strong>Unidad Residencial ${req.unit}</strong> de la Torre Residencial Jardines del Cerro IV en Mao, Valverde. El solicitante asume el acatamiento estricto al Régimen de Condominio (Ley 5038), las normas de debida diligencia de prevención de lavado (Ley 155-17), el pago oportuno de las cuotas de mantenimiento mensual y los reglamentos internos de convivencia. Archivo auditado: <code>${req.contractFile}</code>.
-      `;
+
+    if (contentEl) {
+      // Prioridad 1: Data URL guardado del archivo real subido por el inquilino
+      // Prioridad 2: Archivo físico alojado en el backend (/uploads/...)
+      let fileUrl = req.contractDataUrl || req.backendContractUrl;
+      const fileName = req.contractFile || 'Contrato_Notariado.pdf';
+
+      // Si no hay dataUrl pero el backend está en línea y el nombre no es uno de los mocks sin binario
+      if (!fileUrl && window.apiClient && window.apiClient.isBackendOnline && fileName && !fileName.includes('Unidad_101_Notariado') && !fileName.includes('PH901_Inversionisto')) {
+        fileUrl = `${window.apiClient.baseUrl.replace('/api', '')}/uploads/${fileName}`;
+      }
+
+      const isPdf = (req.contractFileType && req.contractFileType.includes('pdf')) ||
+                    (req.contractDataUrl && req.contractDataUrl.startsWith('data:application/pdf')) ||
+                    fileName.toLowerCase().endsWith('.pdf');
+      const isImage = (req.contractFileType && req.contractFileType.startsWith('image/')) ||
+                      (req.contractDataUrl && req.contractDataUrl.startsWith('data:image/')) ||
+                      /\.(jpe?g|png|webp|gif|svg)$/i.test(fileName);
+
+      if (fileUrl) {
+        // Renderizado del documento real subido
+        contentEl.innerHTML = `
+          <!-- Ficha Resumen del Documento Real Subido -->
+          <div style="background: var(--sand-light, #FAF5EE); border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 44px; height: 44px; border-radius: 10px; background: ${isPdf ? '#FEE2E2' : '#E0E7FF'}; color: ${isPdf ? '#DC2626' : '#4338CA'}; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800;">
+                ${isPdf ? 'PDF' : isImage ? 'IMG' : 'DOC'}
+              </div>
+              <div>
+                <div style="font-size: 14px; font-weight: 700; color: var(--ink, #1C1917); word-break: break-all;">${fileName}</div>
+                <div style="font-size: 11.5px; color: var(--dust, #78716C);">
+                  Subido por <strong>${req.applicantName}</strong> (Unidad ${req.unit}) · ${req.contractFileSize || (isPdf ? 'Documento Legal PDF' : 'Imagen Escaneada')} · <span style="color: #059669; font-weight: 700;">✓ Documento Real del Inquilino</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="${fileUrl}" download="${fileName}" class="btn-primary" style="padding: 7px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;">
+                ⬇ Descargar Original
+              </a>
+              <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" class="btn-outline" style="padding: 7px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;">
+                ↗ Abrir en Nueva Ventana
+              </a>
+            </div>
+          </div>
+
+          <!-- Visor Interactivo Integrado -->
+          ${isPdf ? `
+            <div style="border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; background: #525659; box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);">
+              <iframe src="${fileUrl}" style="width: 100%; height: 500px; border: none; display: block;" title="Contrato Notariado Subido por el Inquilino"></iframe>
+            </div>
+          ` : isImage ? `
+            <div style="border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; background: #F8FAFC; text-align: center; padding: 20px; max-height: 520px; overflow-y: auto;">
+              <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; height: auto; max-height: 480px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); object-fit: contain;">
+            </div>
+          ` : `
+            <div style="padding: 32px; text-align: center; background: var(--sand-light, #FAF5EE); border-radius: var(--radius-md, 8px); border: 1px dashed var(--dust, #78716C);">
+              <div style="font-size: 36px; margin-bottom: 8px;">📎</div>
+              <p style="font-size: 14px; font-weight: 600; color: var(--ink, #1C1917); margin-bottom: 6px;">Documento adjunto recibido correctamente</p>
+              <p style="font-size: 12px; color: var(--dust, #78716C); margin-bottom: 16px;">Haz clic a continuación para descargar y auditar el archivo original.</p>
+              <a href="${fileUrl}" download="${fileName}" class="btn-primary" style="padding: 9px 18px; text-decoration: none; display: inline-block;">
+                ⬇ Descargar Archivo para Auditoría
+              </a>
+            </div>
+          `}
+        `;
+      } else {
+        // En caso de expedientes de prueba precargados sin archivo binario físico
+        contentEl.innerHTML = `
+          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md, 8px); padding: 12px 16px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 12px; color: #1E40AF;">
+              <strong>ℹ️ Expediente Notarial Registrado:</strong> Archivo asociado <code>${fileName}</code> (Protocolo notarial digital).
+            </div>
+            ${window.apiClient && window.apiClient.isBackendOnline ? `
+              <a href="${window.apiClient.baseUrl.replace('/api', '')}/uploads/${fileName}" target="_blank" class="btn-outline" style="padding: 4px 10px; font-size: 11px; text-decoration: none;">
+                Ver en Servidor Cloud
+              </a>
+            ` : ''}
+          </div>
+
+          <!-- Hoja Notarial Oficial Protocolar Dinámica -->
+          <div style="background: #FAFAF9; border: 2px solid #D6D3D1; border-radius: var(--radius-md, 8px); padding: 24px; font-family: 'Times New Roman', serif; color: #1C1917; box-shadow: inset 0 0 12px rgba(0,0,0,0.03);">
+            <div style="text-align: center; border-bottom: 2px solid #1C1917; padding-bottom: 14px; margin-bottom: 16px;">
+              <div style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; color: #78716C;">República Dominicana · Matrícula Notarial 8921-JCE</div>
+              <h2 style="font-size: 18px; margin: 4px 0; font-weight: 800; letter-spacing: 1px;">NOTARÍA PÚBLICA DE MAO, VALVERDE</h2>
+              <div style="font-size: 13px; font-style: italic;">Acto Auténtico de Ocupación Condominal y Debida Diligencia</div>
+              <div style="font-size: 11px; font-weight: 700; margin-top: 4px; color: #DC2626;">EXPEDIENTE NO. ${req.id}</div>
+            </div>
+
+            <div style="font-size: 13px; line-height: 1.7; text-align: justify; margin-bottom: 18px;">
+              En la ciudad de Mao, Municipio Cabecera de la Provincia Valverde, República Dominicana, a los ${req.date || 'días del mes en curso'}, ante mí, Notario Público de los del Número para este Municipio, comparece formalmente:
+              <br><br>
+              <strong>${req.applicantName}</strong>, portador(a) del Documento de Identidad No. <code>${req.documentId}</code>, de nacionalidad dominicana, con número telefónico ${req.phone} y correo registrado ${req.email}, quien interviene en calidad de <strong>${req.roleLabel}</strong> de la <strong>Unidad Residencial ${req.unit}</strong> de la Torre Residencial Jardines del Cerro IV.
+              <br><br>
+              <strong>DECLARACIÓN JURADA Y CLÁUSULAS CONDICIONALES:</strong>
+              <br>
+              <strong>PRIMERO:</strong> El solicitante declara haber suscrito el ${req.roleRequested === 'owner' ? 'Contrato de Promesa de Compraventa Inmobiliaria' : 'Contrato de Alquiler Residencial'} formal referente a la Unidad ${req.unit}, asumiendo fiel observancia a la Ley 5038 sobre Régimen de Condominio.
+              <br>
+              <strong>SEGUNDO:</strong> Declara bajo la fe del juramento que los fondos destinados al pago de iniciales, alquileres y mantenimiento provienen de fuentes lícitas conforme a la Ley 155-17 contra el Lavado de Activos y Financiamiento del Terrorismo.
+              <br>
+              <strong>TERCERO:</strong> El solicitante autoriza al Administrador de Jardines del Cerro IV la verificación de este expediente (Archivo radicado: <code>${fileName}</code>) para la expedición de sus credenciales de acceso biométrico y digital.
+            </div>
+
+            <div style="margin-top: 24px; border-top: 1px dashed #A8A29E; padding-top: 14px; display: flex; justify-content: space-between; font-size: 11px;">
+              <div>
+                <strong>Administración Condominal</strong><br>
+                Inversionisto S.R.L.
+              </div>
+              <div style="text-align: center;">
+                <strong>Firma del Solicitante</strong><br>
+                ${req.applicantName}
+              </div>
+              <div style="text-align: right;">
+                <strong>Sello Notaría Pública</strong><br>
+                Mao, Valverde, R.D.
+              </div>
+            </div>
+          </div>
+        `;
+      }
     }
 
     if (modal) modal.style.display = 'flex';
@@ -2929,6 +3120,7 @@ class JardinesApp {
 
     this.saveAllState();
     this.updateAdminPendingBadge();
+    if (window.apiClient) window.apiClient.decideRegistrationRequest(reqId, 'approve');
     this.showToast(`¡Solicitud ${reqId} aprobada! ${req.applicantName} tiene acceso concedido al portal.`);
     this.renderAdminTabContent();
   }
@@ -2949,6 +3141,7 @@ class JardinesApp {
 
       this.saveAllState();
       this.updateAdminPendingBadge();
+      if (window.apiClient) window.apiClient.decideRegistrationRequest(reqId, 'reject');
       this.showToast(`Solicitud ${reqId} rechazada.`);
       this.renderAdminTabContent();
     }
