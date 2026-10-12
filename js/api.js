@@ -6,23 +6,41 @@
 
 class ApiClient {
   constructor() {
-    // Si se ejecuta en localhost o un dominio desplegado
+    // URL oficial del Backend en producción desplegado en Render
+    this.remoteApi = 'https://jardines-del-cerro.onrender.com/api';
+
+    // Si se ejecuta en localhost o en la nube (Vercel)
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    this.baseUrl = isLocal ? 'http://127.0.0.1:8000/api' : '/api';
+    this.baseUrl = isLocal ? 'http://127.0.0.1:8000/api' : this.remoteApi;
     this.isBackendOnline = false;
     this.checkConnection();
   }
 
   async checkConnection() {
+    const healthUrl = this.baseUrl.replace('/api', '') + '/health';
     try {
-      const res = await fetch(`${this.baseUrl.replace('/api', '')}/health`, { signal: AbortSignal.timeout(2000) });
+      const res = await fetch(healthUrl, { signal: AbortSignal.timeout(10000) });
       if (res.ok) {
         this.isBackendOnline = true;
-        console.log('✓ Backend FastAPI conectado exitosamente (Base de datos en vivo).');
+        console.log(`✓ Backend FastAPI conectado exitosamente en: ${this.baseUrl}`);
+        return;
       }
     } catch (e) {
+      // Si estamos en local y el puerto 8000 no responde, intentar automáticamente con Render
+      if (this.baseUrl !== this.remoteApi) {
+        try {
+          const remoteHealth = this.remoteApi.replace('/api', '') + '/health';
+          const resRemote = await fetch(remoteHealth, { signal: AbortSignal.timeout(10000) });
+          if (resRemote.ok) {
+            this.baseUrl = this.remoteApi;
+            this.isBackendOnline = true;
+            console.log(`✓ Conectado al backend en vivo en Render: ${this.baseUrl}`);
+            return;
+          }
+        } catch (e2) {}
+      }
       this.isBackendOnline = false;
-      console.log('ℹ Backend FastAPI no detectado. Operando en modo local/desconectado.');
+      console.log('ℹ Backend FastAPI no detectado. Operando con motor local de respaldo.');
     }
   }
 
