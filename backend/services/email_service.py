@@ -17,11 +17,29 @@ def resolve_smtp_config():
         port = int(get_clean_env("SMTP_PORT", "587"))
     except Exception:
         port = 587
-    user = get_clean_env("SMTP_USER", "")
-    raw_pass = get_clean_env("SMTP_PASS", "")
+    user = (
+        get_clean_env("SMTP_USER", "")
+        or get_clean_env("SMTP_USERNAME", "")
+        or get_clean_env("EMAIL_USER", "")
+        or get_clean_env("MAIL_USER", "")
+        or get_clean_env("GMAIL_USER", "")
+    )
+    raw_pass = (
+        get_clean_env("SMTP_PASS", "")
+        or get_clean_env("SMTP_PASSWORD", "")
+        or get_clean_env("EMAIL_PASS", "")
+        or get_clean_env("EMAIL_PASSWORD", "")
+        or get_clean_env("MAIL_PASSWORD", "")
+        or get_clean_env("GMAIL_PASS", "")
+    )
     # Para Gmail o contraseñas de aplicación (16 caracteres 'xxxx xxxx xxxx xxxx'), eliminar todos los espacios y guiones
     password = raw_pass.replace(" ", "").replace("-", "").strip()
-    from_email = get_clean_env("SMTP_FROM", "") or user or "notificaciones@jardinesdelcerro.com"
+    from_email = (
+        get_clean_env("SMTP_FROM", "")
+        or get_clean_env("EMAIL_FROM", "")
+        or user
+        or "notificaciones@jardinesdelcerro.com"
+    )
     return host, port, user, password, from_email
 
 def send_registration_decision_email(
@@ -155,8 +173,8 @@ def send_registration_decision_email(
     sent_real = False
     error_msg = None
 
-    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = resolve_smtp_config()
-    smtp_keys_in_env = [k for k in os.environ.keys() if "SMTP" in k.upper()]
+    smtp_keys_in_env = [k for k in os.environ.keys() if any(w in k.upper() for w in ["SMTP", "MAIL", "EMAIL", "GMAIL"])]
+    all_custom_keys = [k for k in os.environ.keys() if not k.startswith(("_", "PYTHON", "PATH", "HOME", "LANG", "LC_", "PWD", "SHLVL", "HOSTNAME", "DEBIAN", "PORT", "LD_", "OLDPWD", "XDG_"))]
 
     if smtp_host and smtp_user and smtp_pass:
         try:
@@ -225,7 +243,8 @@ def send_registration_decision_email(
             "host_configured": bool(smtp_host),
             "user_configured": bool(smtp_user),
             "pass_configured": bool(smtp_pass),
-            "keys_in_env": smtp_keys_in_env
+            "mail_keys_in_env": smtp_keys_in_env,
+            "all_custom_env_vars": all_custom_keys
         },
         "preview": plain_text[:200].strip()
     }
