@@ -3066,7 +3066,7 @@ class JardinesApp {
     if (modal) modal.style.display = 'none';
   }
 
-  approveRegistrationRequest(reqId) {
+  async approveRegistrationRequest(reqId) {
     const req = this.adminData.registrationRequests.find(r => r.id === reqId);
     if (!req) return;
 
