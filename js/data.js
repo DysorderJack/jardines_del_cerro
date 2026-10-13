@@ -345,10 +345,66 @@ const OWNER_MOCK_DATA = {
     { id: "PAG-2025-058", date: "01 Ago 2025", concept: "Cuota de Mantenimiento Agosto", ncf: "B0200000115", amount: "RD$ 6,500.00", method: "Transferencia Banreservas", status: "Aprobado" }
   ],
   documentos: [
-    { name: "Reglamento del Régimen de Condominio Jardines del Cerro IV", date: "2025", size: "2.4 MB", type: "PDF" },
-    { name: "Contrato de Adquisición y Separación Inmobiliaria", date: "2025", size: "1.8 MB", type: "PDF" },
-    { name: "Acta de la Asamblea General Ordinaria de Condóminos", date: "Mayo 2025", size: "850 KB", type: "PDF" },
-    { name: "Manual de Uso de Amenidades y Convivencia", date: "2025", size: "1.1 MB", type: "PDF" }
+    {
+      id: "DOC-01",
+      name: "Reglamento del Régimen de Condominio Jardines del Cerro IV",
+      file: "docs/reglamento_condominio_jardines_del_cerro_iv.pdf",
+      date: "2026",
+      size: "6.8 KB",
+      type: "PDF",
+      category: "Legal & Estatutos",
+      desc: "Normativa oficial registrada bajo la Ley No. 5038 sobre condominios, alícuotas indivisas, órganos de gobierno y régimen de copropiedad."
+    },
+    {
+      id: "DOC-02",
+      name: "Contrato de Adquisición y Separación Inmobiliaria",
+      file: "docs/contrato_adquisicion_separacion_inmobiliaria.pdf",
+      date: "2026",
+      size: "5.9 KB",
+      type: "PDF",
+      category: "Contratos & Ventas",
+      desc: "Modelo oficial de contrato de promesa de compraventa, plazos de inicial, garantía decenal y entrega de título de propiedad."
+    },
+    {
+      id: "DOC-03",
+      name: "Acta de la Asamblea General Ordinaria de Condóminos",
+      file: "docs/acta_asamblea_general_ordinaria.pdf",
+      date: "2026",
+      size: "4.6 KB",
+      type: "PDF",
+      category: "Asambleas & Actas",
+      desc: "Acta notariada con verificación de quórum (86.4%), aprobación del informe financiero, auditoría del Fondo de Reserva y cuotas."
+    },
+    {
+      id: "DOC-04",
+      name: "Manual de Uso de Amenidades y Convivencia",
+      file: "docs/manual_uso_amenidades_convivencia.pdf",
+      date: "2026",
+      size: "4.6 KB",
+      type: "PDF",
+      category: "Convivencia",
+      desc: "Protocolos y normativas de uso para piscina, gimnasio biométrico, rooftop BBQ, régimen acústico y tenencia responsable de mascotas."
+    },
+    {
+      id: "DOC-05",
+      name: "Contrato Tipo de Arrendamiento Residencial",
+      file: "docs/contrato_arrendamiento_residencial_tipo.pdf",
+      date: "2026",
+      size: "4.4 KB",
+      type: "PDF",
+      category: "Alquileres",
+      desc: "Modelo contractual para alquiler residencial con fiador solidario, depósito legal ante el Banco Agrícola y normas condominales."
+    },
+    {
+      id: "DOC-06",
+      name: "Formulario de Poder y Representación Legal en Asamblea",
+      file: "docs/formulario_poder_representacion_asamblea.pdf",
+      date: "2026",
+      size: "4.0 KB",
+      type: "PDF",
+      category: "Poderes & Votación",
+      desc: "Formulario oficial para delegar representación con derecho a voz y voto en asambleas ordinarias y extraordinarias (Ley 5038)."
+    }
   ],
   tickets: [
     { id: "TCK-104", date: "28 Sep 2026", category: "Plomería", subject: "Revisión preventiva de grifo en cocina", status: "En proceso", priority: "Media" },

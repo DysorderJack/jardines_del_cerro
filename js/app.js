@@ -2491,29 +2491,64 @@ class JardinesApp {
         </div>
       `;
     } else if (this.activeOwnerTab === 'documentos') {
+      const docList = (this.ownerData && this.ownerData.documentos && this.ownerData.documentos.length > 0 && this.ownerData.documentos[0].file)
+        ? this.ownerData.documentos
+        : ((typeof OWNER_MOCK_DATA !== 'undefined' && OWNER_MOCK_DATA.documentos) ? OWNER_MOCK_DATA.documentos : []);
+
       panel.innerHTML = `
-        <div style="margin-bottom: 24px;">
-          <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Documentación Legal del Condominio</h2>
-          <p style="font-size: 13px; color: var(--dust);">Reglamentos, contratos y actas oficiales de la Torre Jardines del Cerro IV</p>
+        <div style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Documentación Legal del Condominio</h2>
+            <p style="font-size: 13px; color: var(--dust);">Reglamentos oficiales, contratos modelo y actas notariales de la Torre Jardines del Cerro IV</p>
+          </div>
+          <span class="badge badge-success" style="padding: 6px 14px; font-size: 11.5px;">
+            ✓ ${docList.length} Modelos Legales Oficiales
+          </span>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-          ${(data.documentos || []).map(doc => `
-            <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
-              <div style="display: flex; gap: 14px; margin-bottom: 14px;">
-                <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0;">
-                  PDF
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px;">
+          ${docList.map(doc => {
+            const fileName = (doc.file || '').split('/').pop();
+            return `
+            <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-lg); padding: 22px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-sm); transition: transform 0.15s ease;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                  <div style="width: 44px; height: 44px; border-radius: 10px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(220,38,38,0.15);">
+                    PDF
+                  </div>
+                  <span class="badge badge-neutral" style="font-size: 10px; font-weight: 700;">
+                    ${doc.category || 'Legal'}
+                  </span>
                 </div>
-                <div>
-                  <h4 style="font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.4;">${doc.name}</h4>
-                  <div style="font-size: 11px; color: var(--dust); margin-top: 4px;">${doc.date} · ${doc.size}</div>
+                
+                <h4 style="font-size: 14.5px; font-weight: 800; color: var(--ink); line-height: 1.35; margin-bottom: 6px;">
+                  ${doc.name}
+                </h4>
+                
+                <p style="font-size: 12px; color: #4B5563; line-height: 1.5; margin-bottom: 14px;">
+                  ${doc.desc || 'Documento oficial regulatorio y modelo contractual del régimen de condominio.'}
+                </p>
+                
+                <div style="font-size: 11px; color: var(--dust); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #F8FAFC; border-radius: 6px;">
+                  <span>📅 ${doc.date}</span>
+                  <span>•</span>
+                  <span>📦 ${doc.size}</span>
+                  <span>•</span>
+                  <span style="color: #059669; font-weight: 600;">✓ Verificado</span>
                 </div>
               </div>
-              <button class="btn-outline" style="width: 100%; padding: 8px; font-size: 12px;" onclick="window.app.showToast('Abriendo documento oficial...');">
-                Descargar documento
-              </button>
+
+              <div style="display: flex; gap: 8px; margin-top: auto;">
+                <a href="${doc.file}" download="${fileName}" class="btn-primary" style="flex: 1; padding: 9px 12px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px;" onclick="window.app.showToast('Descargando ${doc.name.substring(0, 30)}... (PDF Oficial)');">
+                  <span>📥 Descargar PDF</span>
+                </a>
+                <button type="button" class="btn-outline" style="padding: 9px 14px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 6px;" onclick="window.app.previewOfficialDocument('${doc.id || doc.file}');" title="Previsualizar en visor interactivo">
+                  <span>👁️ Ver</span>
+                </button>
+              </div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `;
     } else if (this.activeOwnerTab === 'solicitudes') {
@@ -3753,6 +3788,41 @@ class JardinesApp {
             </tbody>
           </table>
         </div>
+
+        <!-- Repositorio Oficial de Modelos Legales del Condominio (Ley 5038) -->
+        <div style="margin-top: 36px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--ink);">Modelos y Documentación Legal del Condominio (Ley 5038)</h3>
+            <p style="font-size: 12.5px; color: var(--dust);">Expedientes y contratos oficiales para descarga, gestión condominal y asambleas notariales</p>
+          </div>
+          <span class="badge badge-accent" style="font-size: 11px;">Suite Ejecutiva · Descarga Oficial</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+          ${((typeof OWNER_MOCK_DATA !== 'undefined' && OWNER_MOCK_DATA.documentos) ? OWNER_MOCK_DATA.documentos : []).map(doc => {
+            const fileName = (doc.file || '').split('/').pop();
+            return `
+            <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-sm);">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                  <span class="badge badge-neutral" style="font-size: 10px;">${doc.category || 'Legal'}</span>
+                  <span style="font-size: 11px; color: var(--dust);">${doc.size}</span>
+                </div>
+                <h4 style="font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.35; margin-bottom: 6px;">${doc.name}</h4>
+                <p style="font-size: 11.5px; color: #4B5563; line-height: 1.45; margin-bottom: 14px;">${doc.desc || ''}</p>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: auto;">
+                <a href="${doc.file}" download="${fileName}" class="btn-primary" style="flex: 1; padding: 7px 12px; font-size: 11.5px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px;" onclick="window.app.showToast('Descargando ${doc.name.substring(0, 30)}... (PDF Oficial)');">
+                  <span>📥 Descargar PDF</span>
+                </a>
+                <button type="button" class="btn-outline" style="padding: 7px 12px; font-size: 11.5px; border-radius: 6px;" onclick="window.app.previewOfficialDocument('${doc.id || doc.file}');" title="Previsualizar en visor interactivo">
+                  <span>👁️ Ver</span>
+                </button>
+              </div>
+            </div>
+            `;
+          }).join('')}
+        </div>
       `;
     } else if (this.activeAdminTab === 'ia_admin') {
       const sub = this.adminData.aiSubscription || {
@@ -4161,6 +4231,66 @@ class JardinesApp {
   closeContractViewerModal() {
     const modal = document.getElementById('contract-viewer-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  /* =========================================================================
+     Visor Interactivo y Descarga de Documentos Legales Oficiales
+     ========================================================================= */
+  previewOfficialDocument(docIdentifier) {
+    const docList = (this.ownerData && this.ownerData.documentos && this.ownerData.documentos.length > 0 && this.ownerData.documentos[0].file)
+      ? this.ownerData.documentos
+      : ((typeof OWNER_MOCK_DATA !== 'undefined' && OWNER_MOCK_DATA.documentos) ? OWNER_MOCK_DATA.documentos : []);
+    const doc = docList.find(d => d.id === docIdentifier || d.file === docIdentifier || d.name === docIdentifier);
+    if (!doc) {
+      this.showToast('Documento no encontrado', 'error');
+      return;
+    }
+
+    const modal = document.getElementById('contract-viewer-modal');
+    const titleEl = document.getElementById('contract-viewer-title');
+    const subtitleEl = document.getElementById('contract-viewer-subtitle');
+    const contentEl = document.getElementById('contract-viewer-content');
+
+    if (titleEl) {
+      titleEl.innerText = doc.name;
+    }
+    if (subtitleEl) {
+      subtitleEl.innerText = `${doc.category || 'Documento Oficial'} · ${doc.size} · Versión ${doc.date} · Ley No. 5038`;
+    }
+
+    if (contentEl) {
+      const fileName = (doc.file || '').split('/').pop();
+      contentEl.innerHTML = `
+        <div style="background: #F8FAFC; border: 1px solid var(--linen); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 44px; height: 44px; border-radius: 10px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800;">
+              PDF
+            </div>
+            <div>
+              <div style="font-size: 14px; font-weight: 800; color: var(--ink);">${doc.name}</div>
+              <div style="font-size: 11.5px; color: var(--dust); margin-top: 2px;">
+                ${doc.desc || 'Modelo y expediente oficial certificado de la Torre Residencial Jardines del Cerro IV.'}
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="${doc.file}" download="${fileName}" class="btn-primary" style="padding: 7px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;" onclick="window.app.showToast('Descargando archivo oficial...');">
+              ⬇ Descargar PDF
+            </a>
+            <a href="${doc.file}" target="_blank" rel="noopener noreferrer" class="btn-outline" style="padding: 7px 14px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;">
+              ↗ Abrir en Nueva Pestaña
+            </a>
+          </div>
+        </div>
+
+        <!-- Visor PDF embebido -->
+        <div style="border: 1px solid var(--linen); border-radius: 8px; overflow: hidden; background: #525659; box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);">
+          <iframe src="${doc.file}" style="width: 100%; height: 520px; border: none; display: block;" title="${doc.name}"></iframe>
+        </div>
+      `;
+    }
+
+    if (modal) modal.style.display = 'flex';
   }
 
   async approveRegistrationRequest(reqId) {

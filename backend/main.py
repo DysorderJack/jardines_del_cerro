@@ -46,8 +46,13 @@ def on_startup():
     finally:
         db.close()
 
-# 5. Montar almacenamiento de archivos subidos (Contratos Notariados PDF)
+# 5. Montar almacenamiento de archivos subidos y documentos legales oficiales
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+DOCS_DIR = os.path.join(os.path.dirname(__file__), "docs")
+if not os.path.exists(DOCS_DIR):
+    os.makedirs(DOCS_DIR, exist_ok=True)
+app.mount("/docs", StaticFiles(directory=DOCS_DIR), name="docs")
 
 # 6. Registrar Routers de la API
 app.include_router(auth_router)
