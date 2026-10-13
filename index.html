@@ -1468,6 +1468,44 @@
   </div>
 
   <!-- =========================================================================
+       MODAL: HISTORIAL DE CONVERSACIONES IA (ADMIN & RESIDENTE)
+       ========================================================================= -->
+  <div id="ai-history-modal" onclick="if(event.target === this) window.app.closeAIHistoryModal();" style="position: fixed; inset: 0; z-index: 270; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 680px; max-height: 85vh; display: flex; flex-direction: column; position: relative; box-shadow: var(--shadow-xl); overflow: hidden;">
+      
+      <!-- Modal Header -->
+      <div style="padding: 20px 24px; border-bottom: 1px solid var(--linen); display: flex; align-items: center; justify-content: space-between; background: var(--surface);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(201, 167, 112, 0.2); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            📜
+          </div>
+          <div>
+            <h3 id="ai-history-modal-title" style="font-size: 17px; font-weight: 800; color: var(--ink);">Historial de Conversaciones IA</h3>
+            <div id="ai-history-modal-subtitle" style="font-size: 12px; color: var(--dust);">Sesiones archivadas y consultas previas</div>
+          </div>
+        </div>
+        <button onclick="window.app.closeAIHistoryModal();" style="color: var(--dust); font-size: 18px; padding: 4px 8px; border-radius: 6px; cursor: pointer;" title="Cerrar">✕</button>
+      </div>
+
+      <!-- Modal Body (List of sessions) -->
+      <div id="ai-history-modal-body" style="padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px; background: #FAFAF9;">
+        <!-- Dynamic content: list of session cards or empty state -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="padding: 14px 24px; border-top: 1px solid var(--linen); display: flex; justify-content: space-between; align-items: center; background: var(--white);">
+        <button type="button" class="btn-outline" style="color: #DC2626; border-color: #FCA5A5; font-size: 12px; padding: 6px 14px;" onclick="window.app.clearAllAIHistory();">
+          🗑️ Vaciar Historial
+        </button>
+        <button type="button" class="btn-primary" style="padding: 8px 20px; font-size: 12.5px;" onclick="window.app.closeAIHistoryModal();">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
        FLOATING AI ASSISTANT CHAT WIDGET
        ========================================================================= -->
   <button class="ai-chat-btn" id="ai-chat-toggle-btn" onclick="window.app.toggleAIChat();" title="Asistente Virtual">

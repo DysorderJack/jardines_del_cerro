@@ -9,6 +9,9 @@ class JardinesApp {
     this.storageKeyUsers = 'jc_registered_users_v2';
     this.storageKeyAdmin = 'jc_admin_data_v2';
     this.storageKeyUnits = 'jc_units_data_v2';
+    this.storageKeyAdminAIChat = 'jc_admin_ai_chat_v2';
+    this.storageKeyResidentChatPrefix = 'jc_resident_ai_chat_v2_';
+    this.activeHistoryContext = 'admin'; // 'admin' | 'resident'
 
     // Carga con recuperación reactiva
     this.registeredUsers = this.loadStorage(this.storageKeyUsers, REGISTERED_USERS_DATA);
@@ -117,6 +120,354 @@ class JardinesApp {
     this.saveStorage(this.storageKeyUsers, this.registeredUsers);
     this.saveStorage(this.storageKeyAdmin, this.adminData);
     this.saveStorage(this.storageKeyUnits, this.units);
+  }
+
+  /* =========================================================================
+     Gestión y Persistencia de Chats IA (Admin y Residentes)
+     ========================================================================= */
+  escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  getCurrentTimeString() {
+    const d = new Date();
+    return d.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+
+  getCurrentDateString() {
+    const d = new Date();
+    return d.toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  getDefaultAdminGreetingMessage() {
+    return {
+      id: 'msg-init-admin',
+      role: 'assistant',
+      html: `¡Saludos, Administrador! 🏛️ Soy su <strong>Copiloto Ejecutivo de Inteligencia Artificial</strong> para la Torre Residencial Jardines del Cerro IV impulsado por <strong>Google Gemini</strong>. Cuento con acceso directo al libro contable, nómina de residentes, historial de mantenimiento del generador Cummins de 150 kVA y ascensor Otis, así como a las normativas de la Ley 5038 de Condominios y Ley 155-17. ¿Qué gestión gerencial o legal desea coordinar hoy?`,
+      timestamp: this.getCurrentTimeString(),
+      date: this.getCurrentDateString()
+    };
+  }
+
+  getDefaultResidentGreetingMessage(user) {
+    const uName = user ? user.name : 'Residente';
+    const uUnit = user ? user.unit : '301';
+    return {
+      id: `msg-init-res-${uUnit}`,
+      role: 'assistant',
+      html: `¡Hola, ${uName}! 👋 Soy tu asistente privado de la Torre Residencial Jardines del Cerro IV impulsado por <strong>Google Gemini</strong>. Tengo acceso verificado a tu cuenta de la <strong>Unidad ${uUnit}</strong>. Puedo responderte sobre tu saldo de cuotas, comprobantes con NCF fiscal, actas de asambleas, poder de voto o normativas de convivencia. ¿Qué deseas consultar hoy?`,
+      timestamp: this.getCurrentTimeString(),
+      date: this.getCurrentDateString()
+    };
+  }
+
+  getAdminAIChat() {
+    let chat = this.loadStorage(this.storageKeyAdminAIChat, null);
+    if (!chat || !Array.isArray(chat.current) || chat.current.length === 0) {
+      chat = {
+        current: [this.getDefaultAdminGreetingMessage()],
+        sessions: (chat && Array.isArray(chat.sessions)) ? chat.sessions : []
+      };
+      this.saveAdminAIChat(chat);
+    }
+    if (!Array.isArray(chat.sessions)) chat.sessions = [];
+    return chat;
+  }
+
+  saveAdminAIChat(chatData) {
+    this.saveStorage(this.storageKeyAdminAIChat, chatData);
+  }
+
+  getResidentAIChatKey(user) {
+    const keyPart = user ? (user.id || user.unit || 'residente') : 'default';
+    return `${this.storageKeyResidentChatPrefix}${keyPart}`;
+  }
+
+  getResidentAIChat(user) {
+    const key = this.getResidentAIChatKey(user);
+    let chat = this.loadStorage(key, null);
+    if (!chat || !Array.isArray(chat.current) || chat.current.length === 0) {
+      chat = {
+        current: [this.getDefaultResidentGreetingMessage(user)],
+        sessions: (chat && Array.isArray(chat.sessions)) ? chat.sessions : []
+      };
+      this.saveResidentAIChat(user, chat);
+    }
+    if (!Array.isArray(chat.sessions)) chat.sessions = [];
+    return chat;
+  }
+
+  saveResidentAIChat(user, chatData) {
+    const key = this.getResidentAIChatKey(user);
+    this.saveStorage(key, chatData);
+  }
+
+  renderMessageBubbleHtml(msg) {
+    if (!msg) return '';
+    if (msg.role === 'user') {
+      return `
+        <div class="chat-bubble user" style="align-self: flex-end; margin-left: auto; max-width: 85%;">
+          <div>${this.escapeHtml(msg.text || '')}</div>
+          <div style="font-size: 10px; opacity: 0.75; text-align: right; margin-top: 4px;">${msg.timestamp || ''}</div>
+        </div>
+      `;
+    } else {
+      const content = msg.html ? msg.html : this.formatAIMarkdown(msg.text || '');
+      return `
+        <div class="chat-bubble assistant" style="align-self: flex-start; max-width: 88%;">
+          <div>${content}</div>
+          <div style="font-size: 10px; opacity: 0.65; margin-top: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span>Gemini AI</span>
+            <span>${msg.timestamp || ''}</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  renderAdminAIMessagesHtml() {
+    const chat = this.getAdminAIChat();
+    if (!chat.current || chat.current.length === 0) {
+      chat.current = [this.getDefaultAdminGreetingMessage()];
+      this.saveAdminAIChat(chat);
+    }
+    return chat.current.map(m => this.renderMessageBubbleHtml(m)).join('');
+  }
+
+  renderResidentAIMessagesHtml(user) {
+    const chat = this.getResidentAIChat(user);
+    if (!chat.current || chat.current.length === 0) {
+      chat.current = [this.getDefaultResidentGreetingMessage(user)];
+      this.saveResidentAIChat(user, chat);
+    }
+    return chat.current.map(m => this.renderMessageBubbleHtml(m)).join('');
+  }
+
+  /* =========================================================================
+     Acciones de Historial y Gestión de Sesiones IA
+     ========================================================================= */
+  startNewAdminAIChat() {
+    const chat = this.getAdminAIChat();
+    const userMessages = chat.current.filter(m => m.role === 'user');
+    if (userMessages.length > 0) {
+      const firstUserMsg = userMessages[0].text || 'Consulta gerencial';
+      const title = firstUserMsg.length > 55 ? firstUserMsg.substring(0, 52) + '...' : firstUserMsg;
+      const lastAssistantMsg = [...chat.current].reverse().find(m => m.role === 'assistant');
+      const snippet = lastAssistantMsg ? (lastAssistantMsg.text || lastAssistantMsg.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+      const preview = snippet.length > 120 ? snippet.substring(0, 117) + '...' : (snippet || 'Sesión con consultas gerenciales y legales.');
+
+      const session = {
+        id: 'sess-admin-' + Date.now(),
+        title: title,
+        date: `${this.getCurrentDateString()} · ${this.getCurrentTimeString()}`,
+        messageCount: chat.current.length,
+        preview: preview,
+        messages: JSON.parse(JSON.stringify(chat.current))
+      };
+      chat.sessions.unshift(session);
+    }
+    chat.current = [this.getDefaultAdminGreetingMessage()];
+    this.saveAdminAIChat(chat);
+    this.showToast('Conversación previa guardada en el historial. Nueva sesión iniciada.');
+    this.renderAdminTabContent();
+  }
+
+  clearAdminAIChat() {
+    if (!confirm('¿Deseas reiniciar la conversación activa del Copiloto IA? (El historial archivado se mantendrá guardado)')) return;
+    const chat = this.getAdminAIChat();
+    chat.current = [this.getDefaultAdminGreetingMessage()];
+    this.saveAdminAIChat(chat);
+    this.showToast('Conversación activa reiniciada.');
+    this.renderAdminTabContent();
+  }
+
+  openAdminAIChatHistory() {
+    this.activeHistoryContext = 'admin';
+    const modal = document.getElementById('ai-history-modal');
+    const titleEl = document.getElementById('ai-history-modal-title');
+    const subTitleEl = document.getElementById('ai-history-modal-subtitle');
+    if (titleEl) titleEl.innerText = 'Historial · Copiloto IA Ejecutivo (Administración)';
+    if (subTitleEl) subTitleEl.innerText = 'Sesiones archivadas de consultas gerenciales, morosidad, normativas y telemetría';
+    this.renderAIHistoryModalBody();
+    if (modal) modal.style.display = 'flex';
+  }
+
+  startNewResidentAIChat() {
+    const user = this.currentUser || this.registeredUsers[0];
+    const chat = this.getResidentAIChat(user);
+    const userMessages = chat.current.filter(m => m.role === 'user');
+    if (userMessages.length > 0) {
+      const firstUserMsg = userMessages[0].text || 'Consulta condominal';
+      const title = firstUserMsg.length > 55 ? firstUserMsg.substring(0, 52) + '...' : firstUserMsg;
+      const lastAssistantMsg = [...chat.current].reverse().find(m => m.role === 'assistant');
+      const snippet = lastAssistantMsg ? (lastAssistantMsg.text || lastAssistantMsg.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+      const preview = snippet.length > 120 ? snippet.substring(0, 117) + '...' : (snippet || 'Sesión con consultas de residente.');
+
+      const session = {
+        id: `sess-res-${user ? user.unit : '0'}-` + Date.now(),
+        title: title,
+        date: `${this.getCurrentDateString()} · ${this.getCurrentTimeString()}`,
+        messageCount: chat.current.length,
+        preview: preview,
+        messages: JSON.parse(JSON.stringify(chat.current))
+      };
+      chat.sessions.unshift(session);
+    }
+    chat.current = [this.getDefaultResidentGreetingMessage(user)];
+    this.saveResidentAIChat(user, chat);
+    this.showToast('Conversación previa guardada en el historial. Nueva sesión iniciada.');
+    this.renderOwnerTabContent();
+  }
+
+  clearResidentAIChat() {
+    if (!confirm('¿Deseas reiniciar la conversación activa de tu Asistente Privado? (El historial archivado se mantendrá guardado)')) return;
+    const user = this.currentUser || this.registeredUsers[0];
+    const chat = this.getResidentAIChat(user);
+    chat.current = [this.getDefaultResidentGreetingMessage(user)];
+    this.saveResidentAIChat(user, chat);
+    this.showToast('Conversación activa reiniciada.');
+    this.renderOwnerTabContent();
+  }
+
+  openResidentAIChatHistory() {
+    this.activeHistoryContext = 'resident';
+    const user = this.currentUser || this.registeredUsers[0];
+    const modal = document.getElementById('ai-history-modal');
+    const titleEl = document.getElementById('ai-history-modal-title');
+    const subTitleEl = document.getElementById('ai-history-modal-subtitle');
+    if (titleEl) titleEl.innerText = `Historial · Asistente Privado (Unidad ${user ? user.unit : '301'})`;
+    if (subTitleEl) subTitleEl.innerText = `Sesiones archivadas de estados de cuenta, comprobantes NCF y asambleas`;
+    this.renderAIHistoryModalBody();
+    if (modal) modal.style.display = 'flex';
+  }
+
+  closeAIHistoryModal() {
+    const modal = document.getElementById('ai-history-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  renderAIHistoryModalBody() {
+    const body = document.getElementById('ai-history-modal-body');
+    if (!body) return;
+
+    let sessions = [];
+    if (this.activeHistoryContext === 'admin') {
+      const chat = this.getAdminAIChat();
+      sessions = chat.sessions || [];
+    } else {
+      const user = this.currentUser || this.registeredUsers[0];
+      const chat = this.getResidentAIChat(user);
+      sessions = chat.sessions || [];
+    }
+
+    if (sessions.length === 0) {
+      body.innerHTML = `
+        <div style="text-align: center; padding: 48px 20px; color: var(--dust);">
+          <div style="font-size: 42px; margin-bottom: 12px;">📜</div>
+          <div style="font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 6px;">No hay sesiones archivadas</div>
+          <div style="font-size: 12.5px; max-width: 420px; margin: 0 auto; line-height: 1.5;">
+            Tus conversaciones activas permanecen en pantalla aunque cambies de pestaña dentro del sistema. Al hacer clic en <strong>"💬 Nueva Sesión"</strong>, la conversación previa se guardará aquí automáticamente.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    body.innerHTML = sessions.map((sess, idx) => `
+      <div style="background: var(--white); border: 1px solid var(--linen); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+          <div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.35;">
+              ${this.escapeHtml(sess.title)}
+            </div>
+            <div style="font-size: 11px; color: var(--dust); margin-top: 3px; display: flex; align-items: center; gap: 8px;">
+              <span>📅 ${sess.date}</span>
+              <span>•</span>
+              <span>💬 ${sess.messageCount} mensajes</span>
+            </div>
+          </div>
+          <span class="badge badge-accent" style="font-size: 10px; white-space: nowrap;">Sesión #${sessions.length - idx}</span>
+        </div>
+
+        <div style="font-size: 12px; color: #4B5563; line-height: 1.5; background: #F8FAFC; padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid var(--accent);">
+          ${this.escapeHtml(sess.preview)}
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn-outline" style="font-size: 11.5px; padding: 6px 12px; color: #DC2626; border-color: #FCA5A5;" onclick="window.app.deleteArchivedAIChat('${sess.id}');" title="Eliminar del historial">
+            🗑️ Eliminar
+          </button>
+          <button type="button" class="btn-primary" style="font-size: 11.5px; padding: 6px 16px; display: flex; align-items: center; gap: 6px;" onclick="window.app.loadArchivedAIChat('${sess.id}');" title="Cargar y continuar esta conversación en la ventana principal de chat">
+            📂 Cargar en Chat
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  loadArchivedAIChat(sessionId) {
+    if (this.activeHistoryContext === 'admin') {
+      const chat = this.getAdminAIChat();
+      const session = (chat.sessions || []).find(s => s.id === sessionId);
+      if (!session) return;
+      chat.current = JSON.parse(JSON.stringify(session.messages));
+      this.saveAdminAIChat(chat);
+      this.closeAIHistoryModal();
+      this.showToast('Sesión restaurada en la ventana activa del Copiloto IA.');
+      this.renderAdminTabContent();
+    } else {
+      const user = this.currentUser || this.registeredUsers[0];
+      const chat = this.getResidentAIChat(user);
+      const session = (chat.sessions || []).find(s => s.id === sessionId);
+      if (!session) return;
+      chat.current = JSON.parse(JSON.stringify(session.messages));
+      this.saveResidentAIChat(user, chat);
+      this.closeAIHistoryModal();
+      this.showToast('Sesión restaurada en la ventana activa de tu Asistente Privado.');
+      this.renderOwnerTabContent();
+    }
+  }
+
+  deleteArchivedAIChat(sessionId) {
+    if (!confirm('¿Deseas eliminar esta sesión archivada del historial?')) return;
+    if (this.activeHistoryContext === 'admin') {
+      const chat = this.getAdminAIChat();
+      chat.sessions = (chat.sessions || []).filter(s => s.id !== sessionId);
+      this.saveAdminAIChat(chat);
+      this.renderAdminTabContent();
+    } else {
+      const user = this.currentUser || this.registeredUsers[0];
+      const chat = this.getResidentAIChat(user);
+      chat.sessions = (chat.sessions || []).filter(s => s.id !== sessionId);
+      this.saveResidentAIChat(user, chat);
+      this.renderOwnerTabContent();
+    }
+    this.renderAIHistoryModalBody();
+    this.showToast('Sesión eliminada del historial.');
+  }
+
+  clearAllAIHistory() {
+    if (!confirm('¿Estás seguro de que deseas vaciar todo el historial de conversaciones archivadas? Esta acción no se puede deshacer.')) return;
+    if (this.activeHistoryContext === 'admin') {
+      const chat = this.getAdminAIChat();
+      chat.sessions = [];
+      this.saveAdminAIChat(chat);
+      this.renderAdminTabContent();
+    } else {
+      const user = this.currentUser || this.registeredUsers[0];
+      const chat = this.getResidentAIChat(user);
+      chat.sessions = [];
+      this.saveResidentAIChat(user, chat);
+      this.renderOwnerTabContent();
+    }
+    this.renderAIHistoryModalBody();
+    this.showToast('Historial de conversaciones vaciado completamente.');
   }
 
   init() {
@@ -2307,6 +2658,8 @@ class JardinesApp {
         plan: "Plan Residente Convivencia & DGII",
         paypalSubId: `I-PAYPAL-SUB-${user.unit || '301'}`
       };
+      const residentChat = this.getResidentAIChat(user);
+      const residentSessionCount = (residentChat.sessions || []).length;
 
       panel.innerHTML = `
         <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
@@ -2328,7 +2681,7 @@ class JardinesApp {
         <!-- Ventana de Chat Inteligente Privado -->
         <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); overflow: hidden; display: flex; flex-direction: column; height: 580px;">
           <!-- Encabezado del Chat -->
-          <div style="padding: 16px 20px; background: var(--surface); border-bottom: 1px solid var(--linen); display: flex; align-items: center; justify-content: space-between;">
+          <div style="padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--linen); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 32px; height: 32px; border-radius: 8px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">
                 IA
@@ -2338,14 +2691,23 @@ class JardinesApp {
                 <div style="font-size: 11px; color: #047857; font-weight: 600;">● Conectado a Google Gemini (gemini-3.8-flash) · Contabilidad, actas y DGII</div>
               </div>
             </div>
-            <span class="badge badge-accent" style="font-size: 10px;">Contexto Residente</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button type="button" class="btn-outline" style="padding: 5px 10px; font-size: 11px; display: flex; align-items: center; gap: 5px;" onclick="window.app.startNewResidentAIChat();" title="Archivar la sesión actual e iniciar una nueva">
+                💬 Nueva Sesión
+              </button>
+              <button type="button" class="btn-outline" style="padding: 5px 10px; font-size: 11px; display: flex; align-items: center; gap: 5px;" onclick="window.app.openResidentAIChatHistory();" title="Ver historial de sesiones archivadas">
+                📜 Historial (${residentSessionCount})
+              </button>
+              <button type="button" class="btn-outline" style="padding: 5px 8px; font-size: 11px; color: #DC2626; border-color: #FCA5A5;" onclick="window.app.clearResidentAIChat();" title="Limpiar conversación actual">
+                🗑️
+              </button>
+              <span class="badge badge-accent" style="font-size: 10px;">Contexto Residente</span>
+            </div>
           </div>
 
           <!-- Contenedor de Mensajes -->
           <div id="resident-ai-messages-container" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; background: #FCFAF7;">
-            <div class="chat-bubble assistant" style="max-width: 85%;">
-              ¡Hola, ${user.name}! 👋 Soy tu asistente privado de la Torre Residencial Jardines del Cerro IV impulsado por <strong>Google Gemini</strong>. Tengo acceso verificado a tu cuenta de la <strong>Unidad ${user.unit}</strong>. Puedo responderte sobre tu saldo de cuotas, comprobantes con NCF fiscal, actas de asambleas, poder de voto o normativas de convivencia. ¿Qué deseas consultar hoy?
-            </div>
+            ${this.renderResidentAIMessagesHtml(user)}
           </div>
 
           <!-- Chips de Sugerencias -->
@@ -2379,6 +2741,11 @@ class JardinesApp {
           </div>
         </div>
       `;
+
+      setTimeout(() => {
+        const container = document.getElementById('resident-ai-messages-container');
+        if (container) container.scrollTop = container.scrollHeight;
+      }, 50);
     } else if (this.activeOwnerTab === 'suscripcion_ia') {
       // Pestaña de Membresía / Suscripción PayPal
       const sub = user.aiSubscription || { active: false };
@@ -2737,11 +3104,22 @@ class JardinesApp {
     const text = input.value.trim();
     if (!text) return;
 
-    // Agregar mensaje del usuario
+    const user = this.currentUser || this.registeredUsers[0];
+    const chat = this.getResidentAIChat(user);
+    const userMsg = {
+      id: 'msg-' + Date.now(),
+      role: 'user',
+      text: text,
+      timestamp: this.getCurrentTimeString(),
+      date: this.getCurrentDateString()
+    };
+    chat.current.push(userMsg);
+    this.saveResidentAIChat(user, chat);
+
+    // Agregar mensaje del usuario al DOM
     const userBubble = document.createElement('div');
-    userBubble.className = 'chat-bubble user';
-    userBubble.innerText = text;
-    container.appendChild(userBubble);
+    userBubble.innerHTML = this.renderMessageBubbleHtml(userMsg);
+    container.appendChild(userBubble.firstElementChild || userBubble);
     input.value = '';
     container.scrollTop = container.scrollHeight;
 
@@ -2754,7 +3132,6 @@ class JardinesApp {
     container.scrollTop = container.scrollHeight;
 
     let responseHtml = null;
-    const user = this.currentUser || this.registeredUsers[0];
 
     // 1. Intentar llamar a Google Gemini vía Backend FastAPI
     if (window.apiClient) {
@@ -2774,11 +3151,20 @@ class JardinesApp {
     }
 
     typingBubble.remove();
+
+    const assistantMsg = {
+      id: 'msg-' + Date.now(),
+      role: 'assistant',
+      html: responseHtml,
+      timestamp: this.getCurrentTimeString(),
+      date: this.getCurrentDateString()
+    };
+    chat.current.push(assistantMsg);
+    this.saveResidentAIChat(user, chat);
+
     const assistantBubble = document.createElement('div');
-    assistantBubble.className = 'chat-bubble assistant';
-    assistantBubble.style.maxWidth = '85%';
-    assistantBubble.innerHTML = responseHtml;
-    container.appendChild(assistantBubble);
+    assistantBubble.innerHTML = this.renderMessageBubbleHtml(assistantMsg);
+    container.appendChild(assistantBubble.firstElementChild || assistantBubble);
     container.scrollTop = container.scrollHeight;
   }
 
@@ -3374,6 +3760,8 @@ class JardinesApp {
         plan: "Suite Mensual IA Administrador Pro",
         paypalSubId: "I-ADMIN-CERRO-PRO"
       };
+      const adminChat = this.getAdminAIChat();
+      const adminSessionCount = (adminChat.sessions || []).length;
 
       panel.innerHTML = `
         <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
@@ -3400,7 +3788,7 @@ class JardinesApp {
         <!-- Ventana de Chat Inteligente Ejecutivo -->
         <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); overflow: hidden; display: flex; flex-direction: column; height: 580px;">
           <!-- Encabezado del Chat -->
-          <div style="padding: 16px 20px; background: #1E293B; color: #fff; display: flex; align-items: center; justify-content: space-between;">
+          <div style="padding: 14px 20px; background: #1E293B; color: #fff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: var(--ink); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">
                 IA
@@ -3410,14 +3798,23 @@ class JardinesApp {
                 <div style="font-size: 11px; color: #34D399; font-weight: 600;">● Conectado a Google Gemini (gemini-3.8-flash) · Contabilidad, padrón, Ley 5038 y telemetría de equipos</div>
               </div>
             </div>
-            <span class="badge badge-accent" style="font-size: 10px;">Contexto Administrador</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button type="button" style="background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="window.app.startNewAdminAIChat();" title="Archivar la sesión actual e iniciar una nueva">
+                💬 Nueva Sesión
+              </button>
+              <button type="button" style="background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="window.app.openAdminAIChatHistory();" title="Ver historial de sesiones archivadas">
+                📜 Historial (${adminSessionCount})
+              </button>
+              <button type="button" style="background: rgba(220,38,38,0.2); color: #FCA5A5; border: 1px solid rgba(220,38,38,0.4); border-radius: 6px; padding: 5px 8px; font-size: 11px; cursor: pointer;" onclick="window.app.clearAdminAIChat();" title="Limpiar conversación actual">
+                🗑️
+              </button>
+              <span class="badge badge-accent" style="font-size: 10px;">Contexto Administrador</span>
+            </div>
           </div>
 
           <!-- Contenedor de Mensajes -->
           <div id="admin-ai-messages-container" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; background: #F8FAFC;">
-            <div class="chat-bubble assistant" style="max-width: 85%;">
-              ¡Saludos, Administrador! 🏛️ Soy su <strong>Copiloto Ejecutivo de Inteligencia Artificial</strong> para la Torre Residencial Jardines del Cerro IV impulsado por <strong>Google Gemini</strong>. Cuento con acceso directo al libro contable, nómina de residentes, historial de mantenimiento del generador Cummins de 150 kVA y ascensor Otis, así como a las normativas de la Ley 5038 de Condominios y Ley 155-17. ¿Qué gestión gerencial o legal desea coordinar hoy?
-            </div>
+            ${this.renderAdminAIMessagesHtml()}
           </div>
 
           <!-- Chips de Sugerencias -->
@@ -3451,6 +3848,11 @@ class JardinesApp {
           </div>
         </div>
       `;
+
+      setTimeout(() => {
+        const container = document.getElementById('admin-ai-messages-container');
+        if (container) container.scrollTop = container.scrollHeight;
+      }, 50);
     } else if (this.activeAdminTab === 'suscripcion_admin') {
       const sub = this.adminData.aiSubscription || { active: false };
 
@@ -4545,11 +4947,21 @@ class JardinesApp {
     const text = input.value.trim();
     if (!text) return;
 
-    // Agregar mensaje del administrador
+    const chat = this.getAdminAIChat();
+    const userMsg = {
+      id: 'msg-' + Date.now(),
+      role: 'user',
+      text: text,
+      timestamp: this.getCurrentTimeString(),
+      date: this.getCurrentDateString()
+    };
+    chat.current.push(userMsg);
+    this.saveAdminAIChat(chat);
+
+    // Agregar mensaje del administrador al DOM
     const userBubble = document.createElement('div');
-    userBubble.className = 'chat-bubble user';
-    userBubble.innerText = text;
-    container.appendChild(userBubble);
+    userBubble.innerHTML = this.renderMessageBubbleHtml(userMsg);
+    container.appendChild(userBubble.firstElementChild || userBubble);
     input.value = '';
     container.scrollTop = container.scrollHeight;
 
@@ -4581,11 +4993,20 @@ class JardinesApp {
     }
 
     typingBubble.remove();
+
+    const assistantMsg = {
+      id: 'msg-' + Date.now(),
+      role: 'assistant',
+      html: responseHtml,
+      timestamp: this.getCurrentTimeString(),
+      date: this.getCurrentDateString()
+    };
+    chat.current.push(assistantMsg);
+    this.saveAdminAIChat(chat);
+
     const assistantBubble = document.createElement('div');
-    assistantBubble.className = 'chat-bubble assistant';
-    assistantBubble.style.maxWidth = '88%';
-    assistantBubble.innerHTML = responseHtml;
-    container.appendChild(assistantBubble);
+    assistantBubble.innerHTML = this.renderMessageBubbleHtml(assistantMsg);
+    container.appendChild(assistantBubble.firstElementChild || assistantBubble);
     container.scrollTop = container.scrollHeight;
   }
 
