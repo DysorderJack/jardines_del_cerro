@@ -4456,22 +4456,59 @@ class JardinesApp {
       const res = await window.apiClient.testAIConnection();
       if (res && res.success) {
         alert(`¡Conexión Exitosa con Google Gemini! 🎉\n\nProveedor: ${res.provider}\nModelo: ${res.model}\n\nDetalles del servidor:\n${res.message}`);
-      } else {
-        const errorMsg = (res && res.error) ? res.error : 'No se pudo conectar al servicio de Gemini.';
-        const keyPrompt = prompt(`Diagnóstico de Gemini API:\n\n${errorMsg}\n\n¿Deseas probar con una clave de Google Gemini API directamente? Ingrésala aquí (o agrégala como GEMINI_API_KEY en backend/.env o en las variables de Render):`);
-        if (keyPrompt && keyPrompt.trim()) {
-          this.showToast('Probando clave con Google Gemini...');
-          const res2 = await window.apiClient.testAIConnection(keyPrompt.trim());
-          if (res2 && res2.success) {
-            alert(`¡Clave Válida! 🎉\n\nGoogle Gemini respondió correctamente:\n${res2.message}\n\nRecuerda guardarla en backend/.env o en Render como GEMINI_API_KEY.`);
-          } else {
-            alert(`Error al validar la clave:\n\n${res2.error || 'Clave inválida o sin permisos'}`);
-          }
+        return;
+      }
+      const errorMsg = (res && res.error) ? res.error : 'No se pudo conectar al servicio de Gemini.';
+      const keyPrompt = prompt(`Diagnóstico de Gemini API:\n\n${errorMsg}\n\n¿Deseas probar con una clave de Google Gemini API directamente? Ingrésala aquí (o agrégala como GEMINI_API_KEY en backend/.env o en las variables de Render):`);
+      if (keyPrompt && keyPrompt.trim()) {
+        const cleanKey = keyPrompt.trim();
+        this.showToast('Probando clave con Google Gemini...');
+        let res2 = await window.apiClient.testAIConnection(cleanKey);
+        if (!res2 || !res2.success) {
+          res2 = await this.testGeminiDirectlyFromBrowser(cleanKey);
+        }
+        if (res2 && res2.success) {
+          alert(`¡Clave Válida! 🎉\n\nGoogle Gemini respondió correctamente:\n${res2.message}\n\nRecuerda guardarla en las Variables de Entorno de Render como GEMINI_API_KEY.`);
+        } else {
+          alert(`Error al validar la clave:\n\n${res2.error || 'Clave inválida o sin permisos en Google'}`);
         }
       }
     } else {
       alert("El cliente API del backend no está disponible.");
     }
+  }
+
+  async testGeminiDirectlyFromBrowser(key) {
+    const models = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+    let lastErr = 'Fallo de conexión';
+    for (const m of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'Por favor responde unicamente: CONECTADO' }] }]
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'OK';
+          return {
+            success: true,
+            provider: 'Google Gemini (Navegador Directo)',
+            model: m,
+            message: `¡Conexión verificada directamente con Google Gemini (${m})! Respuesta: ${reply}`
+          };
+        } else {
+          const errData = await res.json().catch(() => null);
+          lastErr = errData?.error?.message || `HTTP ${res.status}`;
+        }
+      } catch (e) {
+        lastErr = e.message;
+      }
+    }
+    return { success: false, error: lastErr };
   }
 
   /* =========================================================================

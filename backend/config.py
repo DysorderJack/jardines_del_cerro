@@ -38,7 +38,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Google Gemini API
 GEMINI_API_KEY = get_clean_env("GEMINI_API_KEY", "")
-GEMINI_MODEL = get_clean_env("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = get_clean_env("GEMINI_MODEL", "gemini-3.8-flash")
 
 # PayPal REST API (Sandbox por defecto / Live para producción)
 PAYPAL_MODE = get_clean_env("PAYPAL_MODE", "sandbox")  # 'sandbox' o 'live'
