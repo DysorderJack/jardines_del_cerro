@@ -1391,12 +1391,12 @@
       <button onclick="window.app.closeEmailNotificationModal();" style="position: absolute; top: 20px; right: 20px; color: var(--dust); font-size: 18px;" title="Cerrar">✕</button>
 
       <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--linen); padding-bottom: 12px;">
-        <div style="width: 36px; height: 36px; border-radius: 8px; background: #E0E7FF; color: #4338CA; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+        <div id="email-modal-icon" style="width: 36px; height: 36px; border-radius: 8px; background: #E0E7FF; color: #4338CA; display: flex; align-items: center; justify-content: center; font-size: 18px;">
           ✉️
         </div>
         <div>
-          <h3 style="font-size: 16px; font-weight: 800; color: var(--ink);">Notificación Oficial por Correo Electrónico</h3>
-          <div style="font-size: 12px; color: var(--dust);">Despacho automático de credenciales y decisión de auditoría</div>
+          <h3 id="email-modal-title" style="font-size: 16px; font-weight: 800; color: var(--ink);">Notificación Oficial por Correo Electrónico</h3>
+          <div id="email-modal-subtitle" style="font-size: 12px; color: var(--dust);">Despacho automático de credenciales y decisión de auditoría</div>
         </div>
       </div>
 

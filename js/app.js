@@ -5012,166 +5012,222 @@ class JardinesApp {
   closeEmailNotificationModal() {
     const modal = document.getElementById('email-notification-modal');
     if (modal) modal.style.display = 'none';
+
+    // Restaurar cabecera predeterminada del modal
+    const modalTitle = document.getElementById('email-modal-title');
+    const modalSubtitle = document.getElementById('email-modal-subtitle');
+    const modalIcon = document.getElementById('email-modal-icon');
+    if (modalTitle) modalTitle.innerText = 'Notificación Oficial por Correo Electrónico';
+    if (modalSubtitle) modalSubtitle.innerText = 'Despacho automático de credenciales y decisión de auditoría';
+    if (modalIcon) {
+      modalIcon.innerText = '✉️';
+      modalIcon.style.background = '#E0E7FF';
+      modalIcon.style.color = '#4338CA';
+    }
   }
 
-  showVisitEmailNotificationModal(visit, backendResult = null) {
+  showVisitEmailNotificationModal(visit, backendResult = null, isAdminView = false) {
     const modal = document.getElementById('email-notification-modal');
     const container = document.getElementById('email-notification-content');
     if (!modal || !container) return;
 
     const emailStatus = backendResult && backendResult.email_notification;
     const sentReal = emailStatus && emailStatus.sent_real_smtp;
-    const smtpError = emailStatus && emailStatus.error;
     const adminEmail = (emailStatus && emailStatus.recipient) || 'admin@jardinesdelcerro.do';
 
-    const cleanPhone = (visit.phone || '').replace(/\D/g, '');
-    const waUrl = cleanPhone 
-      ? `https://wa.me/1${cleanPhone}?text=${encodeURIComponent(`Hola ${visit.visitor}, le contactamos desde la administración de Torre Residencial Jardines del Cerro IV en relación a su cita agendada para el ${visit.date} a las ${visit.time}.`)}`
-      : '#';
+    const cleanVisitorPhone = (visit.phone || '').replace(/\D/g, '');
+    const modalTitle = document.getElementById('email-modal-title');
+    const modalSubtitle = document.getElementById('email-modal-subtitle');
+    const modalIcon = document.getElementById('email-modal-icon');
 
-    const mailSubject = `📅 Notificación de Cita Agendada — ${visit.visitor} (${visit.unit})`;
-    const mailBody = encodeURIComponent(
-      `Estimado Administrador,\n\nSe ha recibido una nueva cita de visita en el portal web:\n\n` +
-      `• Visitante: ${visit.visitor}\n` +
-      `• Teléfono: ${visit.phone}\n` +
-      `• Correo: ${visit.email}\n` +
-      `• Unidad de Interés: ${visit.unit}\n` +
-      `• Fecha: ${visit.date}\n` +
-      `• Horario: ${visit.time}\n` +
-      `• Modalidad: ${visit.mode}\n` +
-      `• Notas: ${visit.notes}\n\n` +
-      `Estado: Pendiente de Confirmación en el Sistema Administrativo.\n\n` +
-      `Torre Residencial Jardines del Cerro IV`
-    );
-    const mailtoLink = `mailto:${encodeURIComponent(adminEmail)}?subject=${encodeURIComponent(mailSubject)}&body=${mailBody}`;
+    if (!isAdminView) {
+      // =====================================================================
+      // VISTA PARA EL CLIENTE / PROSPECTO INTERESADO
+      // (NO contiene botones ni enlaces al panel administrativo)
+      // =====================================================================
+      if (modalTitle) modalTitle.innerText = '¡Cita de Visita Solicitada con Éxito!';
+      if (modalSubtitle) modalSubtitle.innerText = 'Expediente registrado y notificado formalmente a la administración';
+      if (modalIcon) {
+        modalIcon.innerText = '🎉';
+        modalIcon.style.background = '#ECFDF5';
+        modalIcon.style.color = '#059669';
+      }
 
-    container.innerHTML = `
-      <!-- Diagnóstico de Envío en Tiempo Real -->
-      ${sentReal ? `
-        <div style="background: #ECFDF5; border: 1.5px solid #059669; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="font-size: 26px;">✅</div>
+      const towerWhatsApp = '18095550199';
+      const clientWaMsg = encodeURIComponent(
+        `Hola, acabo de agendar una cita en la página web para conocer la ${visit.unit} el ${visit.date} a las ${visit.time}. Mi nombre es ${visit.visitor}.`
+      );
+      const clientWaUrl = `https://wa.me/${towerWhatsApp}?text=${clientWaMsg}`;
+
+      container.innerHTML = `
+        <!-- Banner de Confirmación para el Cliente -->
+        <div style="background: #ECFDF5; border: 1.5px solid #059669; border-radius: var(--radius-md, 8px); padding: 16px 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="font-size: 32px; line-height: 1;">✅</div>
             <div>
-              <div style="font-size: 13.5px; font-weight: 800; color: #065F46;">
-                ¡Correo Oficial Despachado al Administrador!
+              <div style="font-size: 15px; font-weight: 800; color: #065F46;">
+                ¡Solicitud Registrada & Notificación Despachada!
               </div>
-              <div style="font-size: 12px; color: #047857;">
-                El servidor despachó exitosamente la notificación oficial a: <strong>${adminEmail}</strong>
-              </div>
-            </div>
-          </div>
-          <span class="badge badge-success" style="font-size: 11px;">Entregado a Inbox Admin</span>
-        </div>
-      ` : smtpError ? `
-        <div style="background: #FFFBEB; border: 1.5px solid #F59E0B; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: flex-start; gap: 10px;">
-            <div style="font-size: 24px; line-height: 1;">⚠️</div>
-            <div style="flex: 1;">
-              <div style="font-size: 13.5px; font-weight: 800; color: #92400E; margin-bottom: 4px;">
-                Respuesta del Servidor de Correo
-              </div>
-              <div style="font-size: 12px; color: #78350F; line-height: 1.5; font-family: monospace; background: rgba(0,0,0,0.05); padding: 6px 10px; border-radius: 6px;">
-                ${smtpError}
-              </div>
-              <div style="font-size: 11.5px; color: #92400E; margin-top: 8px;">
-                ℹ La cita quedó <strong>100% registrada en el Sistema Administrativo</strong>. También puedes hacer clic en <em>"Enviar Manualmente por Correo"</em> para despachar la copia de inmediato.
+              <div style="font-size: 12.5px; color: #047857; margin-top: 2px;">
+                La administración de la torre ha recibido un correo oficial con todos los datos de tu reserva para coordinar tu atención.
               </div>
             </div>
           </div>
+          <span class="badge badge-success" style="font-size: 11px; padding: 4px 10px;">Solicitud Exitosa</span>
         </div>
-      ` : `
+
+        <!-- Comprobante Oficial de Reserva para el Cliente -->
+        <div style="background: var(--white, #ffffff); border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
+          <!-- Cabecera del Comprobante -->
+          <div style="background: #0E1614; color: #ffffff; padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #C9A770;">Torre Residencial Jardines del Cerro IV</div>
+              <div style="font-size: 16px; font-weight: 800; color: #ffffff; margin-top: 2px;">Comprobante de Reserva de Cita</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 11px; color: rgba(255,255,255,0.7);">Código de Reserva</div>
+              <div style="font-size: 14px; font-weight: 800; color: #C9A770; font-family: monospace;">${visit.id}</div>
+            </div>
+          </div>
+
+          <!-- Cuerpo con los Datos de la Reserva -->
+          <div style="padding: 22px; font-size: 13.5px; line-height: 1.7; color: #1C1917;">
+            <p style="margin-top: 0; color: #44403C;">
+              Estimado(a) <strong>${visit.visitor}</strong>, tu cita ha sido registrada formalmente en el sistema oficial del condominio con los siguientes datos:
+            </p>
+
+            <div style="background: #FAF5EE; border: 1px solid #E7E5E4; border-left: 3px solid #C9A770; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 13px; line-height: 1.8;">
+              <div>🏢 <strong>Unidad de Interés:</strong> <span class="badge badge-primary" style="font-size: 11px; padding: 2px 8px;">${visit.unit}</span></div>
+              <div>📅 <strong>Fecha Solicitada:</strong> <strong>${visit.date}</strong></div>
+              <div>⏰ <strong>Horario:</strong> <strong>${visit.time}</strong></div>
+              <div>📍 <strong>Modalidad:</strong> <strong>${visit.mode}</strong></div>
+              <div>📞 <strong>Teléfono de Contacto:</strong> ${visit.phone}</div>
+              ${visit.email && visit.email !== 'Sin correo' ? `<div>✉️ <strong>Correo Electrónico:</strong> ${visit.email}</div>` : ''}
+              ${visit.notes && visit.notes !== 'Sin notas especiales o requerimientos' ? `<div>📝 <strong>Tus Comentarios:</strong> <em style="color: #44403C;">"${visit.notes}"</em></div>` : ''}
+              <div>🟡 <strong>Estado Actual:</strong> <span class="badge badge-warning" style="font-size: 10px;">Pendiente de Confirmación</span></div>
+            </div>
+
+            <div style="background: #EFF6FF; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #1E40AF;">
+              ℹ <strong>¿Qué sucederá ahora?</strong><br>
+              Nuestro equipo comercial y administrativo revisará la agenda y se comunicará contigo vía WhatsApp o llamada para confirmar tu recepción en la torre o enviarte el enlace interactivo si elegiste videollamada.
+            </div>
+
+            <div style="margin-top: 20px; padding-top: 14px; border-top: 1px dashed var(--linen, #E7E5E4); font-size: 11.5px; color: var(--dust, #78716C); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <strong>Oficina de Ventas & Administración</strong><br>
+                Mao, Valverde, República Dominicana · Tel: (809) 555-0199
+              </div>
+              <div style="text-align: right;">
+                <strong>Notificación Despachada a la Administración</strong><br>
+                &lt;${adminEmail}&gt;
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de Acción para el Cliente (TOTALMENTE SEGUROS, SIN ENLACES A LA ADMINISTRACIÓN) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+          <a href="${clientWaUrl}" target="_blank" class="btn-primary" style="background: #059669; border-color: #059669; color: #ffffff; padding: 10px 18px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <span>💬</span> Contactar a Ventas por WhatsApp
+          </a>
+          <button type="button" class="btn-outline" style="padding: 10px 18px; font-size: 13px;" onclick="window.app.closeEmailNotificationModal();">
+            Entendido, Cerrar
+          </button>
+        </div>
+      `;
+    } else {
+      // =====================================================================
+      // VISTA PARA EL ADMINISTRADOR (Auditoría dentro del portal administrativo)
+      // =====================================================================
+      if (modalTitle) modalTitle.innerText = 'Auditoría de Cita — Correo Notificado al Administrador';
+      if (modalSubtitle) modalSubtitle.innerText = 'Dossier oficial de la cita remitido al buzón administrativo';
+      if (modalIcon) {
+        modalIcon.innerText = '✉️';
+        modalIcon.style.background = '#E0E7FF';
+        modalIcon.style.color = '#4338CA';
+      }
+
+      const adminWaText = encodeURIComponent(`Hola ${visit.visitor}, le contactamos desde la administración de Torre Jardines del Cerro IV en relación a su cita del ${visit.date} a las ${visit.time}.`);
+      const adminWaUrl = cleanVisitorPhone ? `https://wa.me/1${cleanVisitorPhone}?text=${adminWaText}` : null;
+
+      container.innerHTML = `
+        <!-- Diagnóstico de Envío para el Administrador -->
         <div style="background: #EFF6FF; border: 1.5px solid #3B82F6; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <div style="font-size: 24px;">📧</div>
             <div>
               <div style="font-size: 13.5px; font-weight: 800; color: #1E40AF;">
-                Notificación Oficial de Cita Agendada
+                Notificación Oficial Recibida por la Administración
               </div>
               <div style="font-size: 12px; color: #1D4ED8;">
-                Destinatario Administrativo: <strong>${adminEmail}</strong> · Registrado en el Sistema
+                Buzón receptor: <strong>${adminEmail}</strong> · Código: <code>${visit.id}</code>
               </div>
             </div>
           </div>
-          <span class="badge badge-warning" style="font-size: 11px;">Pendiente en Agenda Admin</span>
-        </div>
-      `}
-
-      <!-- Tarjeta de Vista Previa del Correo Oficial -->
-      <div style="background: var(--white, #ffffff); border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-        <!-- Barra de Cabecera del Correo -->
-        <div style="background: #FAF5EE; padding: 12px 18px; border-bottom: 1px solid var(--linen, #E7E5E4); font-size: 12px; color: var(--dust, #78716C);">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-            <div><strong>De:</strong> Sistema Web Torre Jardines del Cerro IV &lt;notificaciones@jardinesdelcerro.com&gt;</div>
-            <div><strong>Fecha:</strong> ${visit.emailNotificationDate || new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-          </div>
-          <div style="margin-bottom: 4px;"><strong>Para:</strong> Administración General &lt;${adminEmail}&gt;</div>
-          <div><strong>Asunto:</strong> <span style="font-weight: 700; color: var(--ink, #1C1917);">📅 Nueva Cita Agendada — ${visit.visitor} para ${visit.unit} (${visit.date} · ${visit.time})</span></div>
+          <span class="badge ${visit.status === 'Confirmada' ? 'badge-success' : 'badge-warning'}" style="font-size: 11px;">${visit.status}</span>
         </div>
 
-        <!-- Cuerpo del Correo -->
-        <div style="padding: 24px; font-size: 13.5px; line-height: 1.7; color: #1C1917;">
-          <div style="text-align: center; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--linen, #E7E5E4);">
-            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--accent, #C9A770);">Torre Residencial Jardines del Cerro IV</div>
-            <div style="font-size: 17px; font-weight: 800; color: #0E1614; margin-top: 4px;">
-              Notificación para Administración: Nueva Cita Comercial Registrada
+        <!-- Tarjeta de Vista Previa del Correo Recibido por Admin -->
+        <div style="background: var(--white, #ffffff); border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+          <!-- Cabecera del Correo -->
+          <div style="background: #FAF5EE; padding: 12px 18px; border-bottom: 1px solid var(--linen, #E7E5E4); font-size: 12px; color: var(--dust, #78716C);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <div><strong>De:</strong> Sistema Web Torre Jardines del Cerro IV &lt;notificaciones@jardinesdelcerro.com&gt;</div>
+              <div><strong>Fecha:</strong> ${visit.emailNotificationDate || new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
             </div>
-            <div style="font-size: 12px; color: var(--dust, #78716C);">Mao, Valverde, República Dominicana</div>
+            <div style="margin-bottom: 4px;"><strong>Para:</strong> Administración General &lt;${adminEmail}&gt;</div>
+            <div><strong>Asunto:</strong> <span style="font-weight: 700; color: var(--ink, #1C1917);">📅 Nueva Cita Agendada — ${visit.visitor} para ${visit.unit} (${visit.date} · ${visit.time})</span></div>
           </div>
 
-          <p>Estimado(a) <strong>Administrador(a)</strong>,</p>
-
-          <p>Se ha radicado una nueva solicitud de cita a través de la plataforma web comercial. El expediente ha sido incorporado a la <strong>Agenda de Visitas del Sistema Administrativo</strong> con los siguientes datos:</p>
-
-          <div style="background: #FAF5EE; border: 1px solid #E7E5E4; border-left: 3px solid #0284C7; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 12.5px; line-height: 1.8;">
-            <div>• <strong>Código de Cita:</strong> <code>${visit.id}</code></div>
-            <div>• <strong>Nombre del Visitante:</strong> <strong>${visit.visitor}</strong></div>
-            <div>• <strong>Teléfono de Contacto:</strong> <a href="tel:${visit.phone}" style="color: #0284C7; font-weight: 700; text-decoration: none;">${visit.phone}</a> ${cleanPhone ? `&nbsp;(<a href="${waUrl}" target="_blank" style="color: #059669; font-weight: 700; text-decoration: none;">💬 WhatsApp Directo</a>)` : ''}</div>
-            <div>• <strong>Correo Electrónico:</strong> <a href="mailto:${visit.email}" style="color: #0284C7; text-decoration: none;">${visit.email}</a></div>
-            <div>• <strong>Unidad de Interés:</strong> <span class="badge badge-primary" style="font-size: 11px; padding: 2px 8px;">${visit.unit}</span></div>
-            <div>• <strong>Fecha Solicitada:</strong> 📅 <strong>${visit.date}</strong></div>
-            <div>• <strong>Horario de Atención:</strong> ⏰ <strong>${visit.time}</strong></div>
-            <div>• <strong>Modalidad:</strong> <strong>${visit.mode}</strong></div>
-            <div>• <strong>Comentarios / Notas Especiales:</strong> <em style="color: #44403C;">"${visit.notes}"</em></div>
-            <div>• <strong>Estado en el Sistema:</strong> <span class="badge ${visit.status === 'Confirmada' ? 'badge-success' : 'badge-warning'}" style="font-size: 10px;">${visit.status}</span></div>
-          </div>
-
-          <div style="background: #EFF6FF; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #1E40AF; margin-top: 14px;">
-            💡 <strong>Gestión desde el Portal:</strong> Puede confirmar la cita, enviar recordatorios por WhatsApp o modificar la disponibilidad directamente desde la pestaña <strong>Agenda de Visitas</strong> del panel administrativo.
-          </div>
-
-          <div style="margin-top: 24px; padding-top: 14px; border-top: 1px dashed var(--linen, #E7E5E4); font-size: 11.5px; color: var(--dust, #78716C); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-            <div>
-              <strong>Gestión Inmobiliaria Condominal</strong><br>
-              Inversionisto S.R.L. · Tel: (809) 555-0199
+          <!-- Cuerpo del Correo -->
+          <div style="padding: 24px; font-size: 13.5px; line-height: 1.7; color: #1C1917;">
+            <div style="text-align: center; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--linen, #E7E5E4);">
+              <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--accent, #C9A770);">Torre Residencial Jardines del Cerro IV</div>
+              <div style="font-size: 17px; font-weight: 800; color: #0E1614; margin-top: 4px;">
+                Notificación Oficial: Cita Comercial Registrada
+              </div>
+              <div style="font-size: 12px; color: var(--dust, #78716C);">Mao, Valverde, República Dominicana</div>
             </div>
-            <div style="text-align: right;">
-              <strong>Torre Jardines del Cerro IV</strong><br>
-              Mao, Valverde, República Dominicana
+
+            <p>Estimado(a) <strong>Administrador(a)</strong>,</p>
+
+            <p>Se ha radicado una nueva solicitud de cita a través de la plataforma web comercial con los siguientes datos:</p>
+
+            <div style="background: #FAF5EE; border: 1px solid #E7E5E4; border-left: 3px solid #0284C7; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 12.5px; line-height: 1.8;">
+              <div>• <strong>Código de Cita:</strong> <code>${visit.id}</code></div>
+              <div>• <strong>Nombre del Visitante:</strong> <strong>${visit.visitor}</strong></div>
+              <div>• <strong>Teléfono de Contacto:</strong> <a href="tel:${visit.phone}" style="color: #0284C7; font-weight: 700; text-decoration: none;">${visit.phone}</a></div>
+              <div>• <strong>Correo Electrónico:</strong> <a href="mailto:${visit.email}" style="color: #0284C7; text-decoration: none;">${visit.email}</a></div>
+              <div>• <strong>Unidad de Interés:</strong> <span class="badge badge-primary" style="font-size: 11px; padding: 2px 8px;">${visit.unit}</span></div>
+              <div>• <strong>Fecha Solicitada:</strong> 📅 <strong>${visit.date}</strong></div>
+              <div>• <strong>Horario de Atención:</strong> ⏰ <strong>${visit.time}</strong></div>
+              <div>• <strong>Modalidad:</strong> <strong>${visit.mode}</strong></div>
+              <div>• <strong>Comentarios / Notas Especiales:</strong> <em style="color: #44403C;">"${visit.notes}"</em></div>
+              <div>• <strong>Estado en el Sistema:</strong> <span class="badge ${visit.status === 'Confirmada' ? 'badge-success' : 'badge-warning'}" style="font-size: 10px;">${visit.status}</span></div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Botones de Acción -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" class="btn-primary" style="background: #0E1614; color: #C9A770; border: 1px solid #C9A770;" onclick="window.app.closeEmailNotificationModal(); window.app.setView('admin'); window.app.setAdminTab('visitas');">
-            <span>🏛️</span> Ir a la Agenda Administrativa
+        <!-- Botones de Acción para el Administrador -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            ${adminWaUrl ? `
+              <a href="${adminWaUrl}" target="_blank" class="btn-primary" style="background: #059669; border-color: #059669; color: #ffffff; padding: 9px 15px; font-size: 12.5px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <span>💬</span> Contactar al Visitante por WhatsApp
+              </a>
+            ` : ''}
+            ${visit.status !== 'Confirmada' ? `
+              <button type="button" class="btn-outline" style="padding: 9px 15px; font-size: 12.5px; color: #047857; border-color: #059669;" onclick="window.app.confirmVisit('${visit.id}'); window.app.closeEmailNotificationModal();">
+                ✓ Confirmar Cita Ahora
+              </button>
+            ` : ''}
+          </div>
+          <button type="button" class="btn-outline" style="padding: 9px 15px; font-size: 12.5px;" onclick="window.app.closeEmailNotificationModal();">
+            Cerrar Visor
           </button>
-          ${cleanPhone ? `
-            <a href="${waUrl}" target="_blank" class="btn-outline" style="padding: 8px 12px; font-size: 12px; text-decoration: none; color: #059669; border-color: #059669; display: inline-flex; align-items: center; gap: 6px;">
-              <span>💬</span> WhatsApp
-            </a>
-          ` : ''}
-          <a href="${mailtoLink}" class="btn-outline" style="padding: 8px 12px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-            <span>↗</span> Enviar por Mi Correo
-          </a>
         </div>
-        <button type="button" class="btn-outline" onclick="window.app.closeEmailNotificationModal();">
-          Cerrar Notificación
-        </button>
-      </div>
-    `;
+      `;
+    }
 
     modal.style.display = 'flex';
   }
@@ -5180,9 +5236,10 @@ class JardinesApp {
     if (!this.adminData || !this.adminData.visits) return;
     const visit = this.adminData.visits.find(v => v.id === visitId);
     if (visit) {
-      this.showVisitEmailNotificationModal(visit);
+      this.showVisitEmailNotificationModal(visit, null, true);
     }
   }
+
 
 
   /* =========================================================================
