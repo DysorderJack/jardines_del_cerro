@@ -20,6 +20,7 @@ def get_ai_status():
         "provider": "Google Gemini (Google AI Studio)"
     }
 
+@router.get("/test-connection")
 @router.post("/test-connection")
 def test_ai_connection(api_key: str = None):
     """Prueba la conexión real con la API de Google Gemini en vivo."""
