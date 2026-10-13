@@ -117,3 +117,21 @@ class ActivityLog(Base):
     time = Column(String(50), default="Hace un momento")
     activity_type = Column(String(30), default="system")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class Visit(Base):
+    __tablename__ = "visits"
+
+    id = Column(String(50), primary_key=True, index=True)
+    visitor = Column(String(120), nullable=False)
+    phone = Column(String(50), nullable=False)
+    email = Column(String(120), nullable=True)
+    unit = Column(String(50), nullable=False)
+    date = Column(String(50), nullable=False)
+    time = Column(String(50), nullable=False)
+    mode = Column(String(50), default="Presencial en Mao")
+    notes = Column(Text, nullable=True)
+    status = Column(String(30), default="Pendiente")
+    email_notified = Column(Boolean, default=True)
+    email_notification_date = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+

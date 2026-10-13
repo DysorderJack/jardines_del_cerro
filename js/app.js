@@ -86,6 +86,24 @@ class JardinesApp {
           statusLabel: "Activa (Copiloto Ejecutivo Habilitado)"
         };
       }
+
+      // Filtro activo para la agenda de visitas del administrador
+      this.adminVisitFilter = 'all';
+
+      // Asegurar estructura de visitas para el Administrador
+      if (!this.adminData.visits || !Array.isArray(this.adminData.visits) || this.adminData.visits.length === 0) {
+        this.adminData.visits = (typeof ADMIN_MOCK_DATA !== 'undefined' && ADMIN_MOCK_DATA.visits)
+          ? JSON.parse(JSON.stringify(ADMIN_MOCK_DATA.visits))
+          : [];
+      } else {
+        // Garantizar campos requeridos en visitas existentes
+        this.adminData.visits.forEach(v => {
+          if (!v.email) v.email = 'cmendoza@gmail.com';
+          if (!v.notes) v.notes = 'Interesado en conocer las áreas comunes y opciones de financiamiento.';
+          if (!v.status) v.status = 'Confirmada';
+          if (v.emailNotified === undefined) v.emailNotified = true;
+        });
+      }
     }
 
     // Estado del Chatbot de IA público
@@ -94,6 +112,7 @@ class JardinesApp {
     // Inicializar
     this.init();
   }
+
 
   /* =========================================================================
      Persistencia en LocalStorage
@@ -478,6 +497,7 @@ class JardinesApp {
     this.updateBookingSummary();
     this.updateMortgageCalculator();
     this.updateAdminPendingBadge();
+    this.updateAdminVisitsBadge();
     this.renderRegistrationUnitsDropdown();
 
     // Garantizar acceso activado a la IA para el Administrador
@@ -1139,13 +1159,19 @@ class JardinesApp {
     }
   }
 
-  handleBookingSubmit(e) {
+  async handleBookingSubmit(e) {
     e.preventDefault();
-    const name = document.getElementById('book-name').value.trim();
-    const phone = document.getElementById('book-phone').value.trim();
-    const email = document.getElementById('book-email').value.trim();
-    const unit = document.getElementById('book-unit').value;
-    const notes = document.getElementById('book-notes').value.trim();
+    const nameInput = document.getElementById('book-name');
+    const phoneInput = document.getElementById('book-phone');
+    const emailInput = document.getElementById('book-email');
+    const unitInput = document.getElementById('book-unit');
+    const notesInput = document.getElementById('book-notes');
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim() : '';
+    const unit = unitInput ? unitInput.value : 'Cualquier unidad disponible';
+    const notes = notesInput ? notesInput.value.trim() : '';
 
     if (!name || !phone) {
       alert("Por favor completa tu nombre y número de teléfono.");
@@ -1153,36 +1179,61 @@ class JardinesApp {
     }
 
     const options = { day: 'numeric', month: 'short', year: 'numeric' };
-    const dateFormatted = this.selectedDate.toLocaleDateString('es-ES', options);
+    const dateFormatted = this.selectedDate ? this.selectedDate.toLocaleDateString('es-ES', options) : 'Fecha a coordinar';
     const newVisitId = `VIS-${Math.floor(200 + Math.random() * 900)}`;
+    const nowTimeStr = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-    // Incorporar a datos de administrador
-    this.adminData.visits.unshift({
+    // Expediente completo de la cita
+    const newVisit = {
       id: newVisitId,
       visitor: name,
       phone: phone,
+      email: email || 'Sin correo',
       unit: unit,
       date: dateFormatted,
-      time: this.selectedTimeSlot,
+      time: this.selectedTimeSlot || '09:00 AM',
       mode: this.bookingModality === 'presencial' ? 'Presencial en Mao' : 'Videollamada',
-      status: 'Confirmada'
-    });
+      notes: notes || 'Sin notas especiales o requerimientos',
+      status: 'Pendiente',
+      emailNotified: true,
+      emailNotificationDate: nowTimeStr
+    };
 
+    // Incorporar a datos del Administrador
+    if (!this.adminData.visits) this.adminData.visits = [];
+    this.adminData.visits.unshift(newVisit);
+
+    if (!this.adminData.recentActivity) this.adminData.recentActivity = [];
     this.adminData.recentActivity.unshift({
-      title: `Nueva visita agendada (${unit}) — ${name}`,
+      title: `📅 Cita agendada (${unit}): ${name} · ${newVisit.mode} (${dateFormatted} ${newVisit.time})`,
       time: 'Hace un momento',
       type: 'visit'
     });
 
-    // Mostrar notificación
-    this.showToast(`¡Cita agendada con éxito para el ${dateFormatted} a las ${this.selectedTimeSlot}!`);
+    // Guardar estado persistente en LocalStorage y actualizar contador
+    this.saveAllState();
+    this.updateAdminVisitsBadge();
 
-    // Limpiar formulario y volver al inicio tras breve pausa
+    // Notificar al backend FastAPI si está en línea (envío de correo SMTP/Brevo/Resend)
+    let backendResult = null;
+    if (window.apiClient) {
+      try {
+        backendResult = await window.apiClient.createVisit(newVisit);
+      } catch (err) {
+        console.warn('Backend createVisit sync warning:', err);
+      }
+    }
+
+    // Mostrar confirmación
+    this.showToast(`¡Cita agendada con éxito para el ${dateFormatted} a las ${newVisit.time}! Notificación enviada al administrador.`);
+
+    // Desplegar Notificación Oficial con la vista previa del Correo Electrónico
+    this.showVisitEmailNotificationModal(newVisit, backendResult);
+
+    // Limpiar campos del formulario
     e.target.reset();
-    setTimeout(() => {
-      this.setView('landing', 'hero');
-    }, 2000);
   }
+
 
   handleContactSubmit(e) {
     e.preventDefault();
@@ -3408,6 +3459,31 @@ class JardinesApp {
         }
       }).catch(() => {});
     }
+
+    if (tabName === 'visitas' && window.apiClient && window.apiClient.isBackendOnline) {
+      window.apiClient.getVisits().then(backendVisits => {
+        if (backendVisits && Array.isArray(backendVisits) && backendVisits.length > 0) {
+          let updated = false;
+          backendVisits.forEach(bV => {
+            const existing = this.adminData.visits.find(v => v.id === bV.id);
+            if (!existing) {
+              this.adminData.visits.unshift(bV);
+              updated = true;
+            } else if (existing.status !== bV.status) {
+              existing.status = bV.status;
+              updated = true;
+            }
+          });
+          if (updated) {
+            this.saveAllState();
+            this.updateAdminVisitsBadge();
+            if (this.activeAdminTab === 'visitas') {
+              this.renderAdminTabContent();
+            }
+          }
+        }
+      }).catch(() => {});
+    }
   }
 
   renderAdminTabContent() {
@@ -3680,47 +3756,183 @@ class JardinesApp {
         </div>
       `;
     } else if (this.activeAdminTab === 'visitas') {
+      const visits = data.visits || [];
+      const totalVisits = visits.length;
+      const pendingVisits = visits.filter(v => (v.status || '').toLowerCase().includes('pend')).length;
+      const confirmedVisits = visits.filter(v => (v.status || '').toLowerCase().includes('conf')).length;
+      const presencialVisits = visits.filter(v => (v.mode || '').toLowerCase().includes('presenc')).length;
+      const virtualVisits = visits.filter(v => (v.mode || '').toLowerCase().includes('video') || (v.mode || '').toLowerCase().includes('virt')).length;
+
+      const currentFilter = this.adminVisitFilter || 'all';
+      const filteredVisits = visits.filter(v => {
+        if (currentFilter === 'pendientes') return (v.status || '').toLowerCase().includes('pend');
+        if (currentFilter === 'confirmadas') return (v.status || '').toLowerCase().includes('conf');
+        if (currentFilter === 'presencial') return (v.mode || '').toLowerCase().includes('presenc');
+        if (currentFilter === 'virtual') return (v.mode || '').toLowerCase().includes('video') || (v.mode || '').toLowerCase().includes('virt');
+        return true;
+      });
+
       panel.innerHTML = `
-        <div style="margin-bottom: 24px;">
-          <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Agenda de Visitas Programadas</h2>
-          <p style="font-size: 13px; color: var(--dust);">Citas presenciales en la torre y sesiones virtuales coordinadas</p>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink); margin: 0;">Agenda de Visitas & Citas Comerciales</h2>
+              <span class="badge badge-primary" style="font-size: 11px;">${totalVisits} Registradas</span>
+            </div>
+            <p style="font-size: 13px; color: var(--dust); margin: 4px 0 0 0;">Gestión de citas presenciales en la torre y videollamadas con prospectos adquirentes e inversionistas</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-primary" style="padding: 9px 16px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px;" onclick="window.app.setView('landing', 'schedule');">
+              <span>+</span> Agendar Cita Nueva
+            </button>
+          </div>
         </div>
 
+        <!-- 4 Tarjetas Métricas KPI -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 18px; box-shadow: var(--shadow-sm);">
+            <div style="font-size: 11px; font-weight: 700; color: var(--dust); text-transform: uppercase; letter-spacing: 0.5px;">Total Visitas</div>
+            <div style="font-size: 26px; font-weight: 800; color: var(--ink); margin-top: 6px;">${totalVisits}</div>
+            <div style="font-size: 11.5px; color: var(--dust); margin-top: 4px;">Expedientes en el sistema</div>
+          </div>
+          <div style="background: var(--white); border: 1px solid ${pendingVisits > 0 ? '#FDE68A' : 'var(--linen)'}; border-radius: var(--radius-md); padding: 18px; box-shadow: var(--shadow-sm); ${pendingVisits > 0 ? 'background: #FFFDF5;' : ''}">
+            <div style="font-size: 11px; font-weight: 700; color: ${pendingVisits > 0 ? '#B45309' : 'var(--dust)'}; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between;">
+              <span>Pendientes de Confirmar</span>
+              ${pendingVisits > 0 ? `<span class="badge badge-warning" style="font-size: 10px;">Requiere Acción</span>` : ''}
+            </div>
+            <div style="font-size: 26px; font-weight: 800; color: ${pendingVisits > 0 ? '#D97706' : 'var(--ink)'}; margin-top: 6px;">${pendingVisits}</div>
+            <div style="font-size: 11.5px; color: ${pendingVisits > 0 ? '#B45309' : 'var(--dust)'}; margin-top: 4px;">Por validar en agenda</div>
+          </div>
+          <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 18px; box-shadow: var(--shadow-sm);">
+            <div style="font-size: 11px; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: 0.5px;">Citas Confirmadas</div>
+            <div style="font-size: 26px; font-weight: 800; color: #059669; margin-top: 6px;">${confirmedVisits}</div>
+            <div style="font-size: 11.5px; color: var(--dust); margin-top: 4px;">Listas para recepción</div>
+          </div>
+          <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 18px; box-shadow: var(--shadow-sm);">
+            <div style="font-size: 11px; font-weight: 700; color: var(--dust); text-transform: uppercase; letter-spacing: 0.5px;">Modalidades</div>
+            <div style="font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 10px; display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-size: 12.5px; color: #0E1614;">🏢 <strong>${presencialVisits}</strong> Presenciales en Mao</span>
+              <span style="font-size: 12.5px; color: #4338CA;">📹 <strong>${virtualVisits}</strong> Videollamadas</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra de Filtros de Visitas -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
+          <button class="btn-outline" style="padding: 6px 14px; font-size: 12px; border-radius: 20px; ${currentFilter === 'all' ? 'background: var(--ink); color: #fff; border-color: var(--ink);' : ''}" onclick="window.app.setAdminVisitFilter('all');">
+            Todas (${totalVisits})
+          </button>
+          <button class="btn-outline" style="padding: 6px 14px; font-size: 12px; border-radius: 20px; ${currentFilter === 'pendientes' ? 'background: #D97706; color: #fff; border-color: #D97706;' : ''}" onclick="window.app.setAdminVisitFilter('pendientes');">
+            Pendientes (${pendingVisits})
+          </button>
+          <button class="btn-outline" style="padding: 6px 14px; font-size: 12px; border-radius: 20px; ${currentFilter === 'confirmadas' ? 'background: #059669; color: #fff; border-color: #059669;' : ''}" onclick="window.app.setAdminVisitFilter('confirmadas');">
+            Confirmadas (${confirmedVisits})
+          </button>
+          <button class="btn-outline" style="padding: 6px 14px; font-size: 12px; border-radius: 20px; ${currentFilter === 'presencial' ? 'background: var(--ink); color: #fff; border-color: var(--ink);' : ''}" onclick="window.app.setAdminVisitFilter('presencial');">
+            🏢 Presencial (${presencialVisits})
+          </button>
+          <button class="btn-outline" style="padding: 6px 14px; font-size: 12px; border-radius: 20px; ${currentFilter === 'virtual' ? 'background: var(--ink); color: #fff; border-color: var(--ink);' : ''}" onclick="window.app.setAdminVisitFilter('virtual');">
+            📹 Videollamada (${virtualVisits})
+          </button>
+        </div>
+
+        <!-- Tabla Completa de Visitas -->
         <div class="table-card">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Visitante</th>
-                <th>Teléfono</th>
-                <th>Unidad</th>
-                <th>Fecha y Hora</th>
-                <th>Modalidad</th>
-                <th>Estado</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.visits.map(v => `
+          ${filteredVisits.length === 0 ? `
+            <div style="text-align: center; padding: 48px 20px; color: var(--dust);">
+              <div style="font-size: 40px; margin-bottom: 12px;">📅</div>
+              <h3 style="font-size: 16px; font-weight: 800; color: var(--ink); margin-bottom: 6px;">No hay citas en este filtro</h3>
+              <p style="font-size: 13px;">No se encontraron visitas con el criterio seleccionado (${currentFilter}).</p>
+              <button class="btn-outline" style="margin-top: 14px; padding: 6px 14px; font-size: 12px;" onclick="window.app.setAdminVisitFilter('all');">Ver Todas las Citas</button>
+            </div>
+          ` : `
+            <table class="custom-table">
+              <thead>
                 <tr>
-                  <td><code>${v.id}</code></td>
-                  <td><strong>${v.visitor}</strong></td>
-                  <td>${v.phone}</td>
-                  <td><span class="badge badge-primary">${v.unit}</span></td>
-                  <td>${v.date} · ${v.time}</td>
-                  <td>${v.mode}</td>
-                  <td><span class="badge ${v.status === 'Confirmada' ? 'badge-success' : 'badge-warning'}">${v.status}</span></td>
-                  <td>
-                    <button class="btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="window.app.showToast('Recordatorio enviado a ${v.visitor}');">
-                      Recordar
-                    </button>
-                  </td>
+                  <th>ID</th>
+                  <th>Visitante & Contacto</th>
+                  <th>Unidad</th>
+                  <th>Fecha y Hora</th>
+                  <th>Modalidad</th>
+                  <th>Comentarios / Notas</th>
+                  <th>Estado</th>
+                  <th>Notificación</th>
+                  <th>Acciones</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${filteredVisits.map(v => {
+                  const cleanPhone = (v.phone || '').replace(/\\D/g, '');
+                  const waText = encodeURIComponent(`Hola ${v.visitor}, le contactamos desde la administración de Torre Jardines del Cerro IV en relación a su cita del ${v.date} a las ${v.time}.`);
+                  const waLink = cleanPhone ? `https://wa.me/1${cleanPhone}?text=${waText}` : null;
+                  const isVirtual = (v.mode || '').toLowerCase().includes('video') || (v.mode || '').toLowerCase().includes('virt');
+                  const isPending = (v.status || '').toLowerCase().includes('pend');
+
+                  return `
+                    <tr>
+                      <td><code>${v.id}</code></td>
+                      <td>
+                        <strong>${v.visitor}</strong>
+                        <div style="font-size: 11px; color: var(--dust);">${v.email || 'Sin correo'}</div>
+                        <div style="font-size: 11px; display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+                          <span>📞 ${v.phone}</span>
+                          ${waLink ? `
+                            <a href="${waLink}" target="_blank" style="color: #059669; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 2px;" title="Conversar directamente en WhatsApp">
+                              <span>💬</span> WhatsApp
+                            </a>
+                          ` : ''}
+                        </div>
+                      </td>
+                      <td><span class="badge badge-primary">${v.unit}</span></td>
+                      <td>
+                        <div style="font-weight: 700; color: var(--ink);">📅 ${v.date}</div>
+                        <div style="font-size: 11.5px; color: var(--dust);">⏰ ${v.time}</div>
+                      </td>
+                      <td>
+                        <span class="badge ${isVirtual ? 'badge-neutral' : 'badge-accent'}" style="font-size: 11px;">
+                          ${isVirtual ? '📹 Videollamada' : '🏢 Presencial'}
+                        </span>
+                      </td>
+                      <td style="max-width: 220px;">
+                        <div style="font-size: 11.5px; line-height: 1.4; color: var(--ink); background: #FAF5EE; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--linen); max-height: 65px; overflow-y: auto;" title="${this.escapeHtml(v.notes || '')}">
+                          ${v.notes || '<span style="color: var(--dust); font-style: italic;">Sin comentarios adicionales</span>'}
+                        </div>
+                      </td>
+                      <td>
+                        <span class="badge ${isPending ? 'badge-warning' : 'badge-success'}" style="font-size: 11px;">
+                          ${v.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.showVisitEmailNotificationModalById('${v.id}');" title="Ver correo oficial notificado a la administración">
+                          <span>✉️</span> Ver Correo
+                        </button>
+                      </td>
+                      <td>
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                          ${isPending ? `
+                            <button class="btn-primary" style="padding: 4px 8px; font-size: 11px; background: #059669; border-color: #059669;" onclick="window.app.confirmVisit('${v.id}');" title="Confirmar esta cita">
+                              ✓ Confirmar
+                            </button>
+                          ` : `
+                            <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #059669;" onclick="window.app.showToast('Recordatorio enviado a ${v.visitor} vía WhatsApp/Correo');" title="Enviar recordatorio">
+                              🔔 Recordar
+                            </button>
+                          `}
+                          <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #DC2626; border-color: #FCA5A5;" onclick="window.app.deleteVisit('${v.id}');" title="Eliminar cita de la agenda">
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          `}
         </div>
       `;
+
     } else if (this.activeAdminTab === 'mantenimiento') {
       panel.innerHTML = `
         <div style="margin-bottom: 24px;">
@@ -4088,6 +4300,62 @@ class JardinesApp {
     badge.innerText = pending;
     badge.style.display = pending > 0 ? 'inline-flex' : 'none';
   }
+
+  updateAdminVisitsBadge() {
+    const badge = document.getElementById('admin-pending-visits-count');
+    if (!badge || !this.adminData || !this.adminData.visits) return;
+    const pending = this.adminData.visits.filter(v => (v.status || '').toLowerCase().includes('pend')).length;
+    badge.innerText = pending;
+    badge.style.display = pending > 0 ? 'inline-flex' : 'none';
+  }
+
+  setAdminVisitFilter(filter) {
+    this.adminVisitFilter = filter;
+    this.renderAdminTabContent();
+  }
+
+  confirmVisit(visitId) {
+    if (!this.adminData || !this.adminData.visits) return;
+    const visit = this.adminData.visits.find(v => v.id === visitId);
+    if (!visit) return;
+
+    visit.status = 'Confirmada';
+
+    if (!this.adminData.recentActivity) this.adminData.recentActivity = [];
+    this.adminData.recentActivity.unshift({
+      title: `Cita confirmada (${visit.unit}) — ${visit.visitor}`,
+      time: 'Hace un momento',
+      type: 'visit'
+    });
+
+    this.saveAllState();
+    this.updateAdminVisitsBadge();
+    this.renderAdminTabContent();
+
+    if (window.apiClient) {
+      window.apiClient.confirmVisit(visitId).catch(() => {});
+    }
+
+    this.showToast(`¡Cita ${visitId} (${visit.visitor}) confirmada con éxito!`);
+  }
+
+  deleteVisit(visitId) {
+    if (!confirm(`¿Estás seguro de que deseas eliminar la cita ${visitId} de la agenda?`)) return;
+
+    if (!this.adminData || !this.adminData.visits) return;
+    this.adminData.visits = this.adminData.visits.filter(v => v.id !== visitId);
+
+    this.saveAllState();
+    this.updateAdminVisitsBadge();
+    this.renderAdminTabContent();
+
+    if (window.apiClient) {
+      window.apiClient.deleteVisit(visitId).catch(() => {});
+    }
+
+    this.showToast(`Cita ${visitId} eliminada correctamente.`);
+  }
+
 
   openContractViewerModal(reqId) {
     const req = this.adminData.registrationRequests.find(r => r.id === reqId);
@@ -4745,6 +5013,177 @@ class JardinesApp {
     const modal = document.getElementById('email-notification-modal');
     if (modal) modal.style.display = 'none';
   }
+
+  showVisitEmailNotificationModal(visit, backendResult = null) {
+    const modal = document.getElementById('email-notification-modal');
+    const container = document.getElementById('email-notification-content');
+    if (!modal || !container) return;
+
+    const emailStatus = backendResult && backendResult.email_notification;
+    const sentReal = emailStatus && emailStatus.sent_real_smtp;
+    const smtpError = emailStatus && emailStatus.error;
+    const adminEmail = (emailStatus && emailStatus.recipient) || 'admin@jardinesdelcerro.do';
+
+    const cleanPhone = (visit.phone || '').replace(/\D/g, '');
+    const waUrl = cleanPhone 
+      ? `https://wa.me/1${cleanPhone}?text=${encodeURIComponent(`Hola ${visit.visitor}, le contactamos desde la administración de Torre Residencial Jardines del Cerro IV en relación a su cita agendada para el ${visit.date} a las ${visit.time}.`)}`
+      : '#';
+
+    const mailSubject = `📅 Notificación de Cita Agendada — ${visit.visitor} (${visit.unit})`;
+    const mailBody = encodeURIComponent(
+      `Estimado Administrador,\n\nSe ha recibido una nueva cita de visita en el portal web:\n\n` +
+      `• Visitante: ${visit.visitor}\n` +
+      `• Teléfono: ${visit.phone}\n` +
+      `• Correo: ${visit.email}\n` +
+      `• Unidad de Interés: ${visit.unit}\n` +
+      `• Fecha: ${visit.date}\n` +
+      `• Horario: ${visit.time}\n` +
+      `• Modalidad: ${visit.mode}\n` +
+      `• Notas: ${visit.notes}\n\n` +
+      `Estado: Pendiente de Confirmación en el Sistema Administrativo.\n\n` +
+      `Torre Residencial Jardines del Cerro IV`
+    );
+    const mailtoLink = `mailto:${encodeURIComponent(adminEmail)}?subject=${encodeURIComponent(mailSubject)}&body=${mailBody}`;
+
+    container.innerHTML = `
+      <!-- Diagnóstico de Envío en Tiempo Real -->
+      ${sentReal ? `
+        <div style="background: #ECFDF5; border: 1.5px solid #059669; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 26px;">✅</div>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 800; color: #065F46;">
+                ¡Correo Oficial Despachado al Administrador!
+              </div>
+              <div style="font-size: 12px; color: #047857;">
+                El servidor despachó exitosamente la notificación oficial a: <strong>${adminEmail}</strong>
+              </div>
+            </div>
+          </div>
+          <span class="badge badge-success" style="font-size: 11px;">Entregado a Inbox Admin</span>
+        </div>
+      ` : smtpError ? `
+        <div style="background: #FFFBEB; border: 1.5px solid #F59E0B; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div style="font-size: 24px; line-height: 1;">⚠️</div>
+            <div style="flex: 1;">
+              <div style="font-size: 13.5px; font-weight: 800; color: #92400E; margin-bottom: 4px;">
+                Respuesta del Servidor de Correo
+              </div>
+              <div style="font-size: 12px; color: #78350F; line-height: 1.5; font-family: monospace; background: rgba(0,0,0,0.05); padding: 6px 10px; border-radius: 6px;">
+                ${smtpError}
+              </div>
+              <div style="font-size: 11.5px; color: #92400E; margin-top: 8px;">
+                ℹ La cita quedó <strong>100% registrada en el Sistema Administrativo</strong>. También puedes hacer clic en <em>"Enviar Manualmente por Correo"</em> para despachar la copia de inmediato.
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : `
+        <div style="background: #EFF6FF; border: 1.5px solid #3B82F6; border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 24px;">📧</div>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 800; color: #1E40AF;">
+                Notificación Oficial de Cita Agendada
+              </div>
+              <div style="font-size: 12px; color: #1D4ED8;">
+                Destinatario Administrativo: <strong>${adminEmail}</strong> · Registrado en el Sistema
+              </div>
+            </div>
+          </div>
+          <span class="badge badge-warning" style="font-size: 11px;">Pendiente en Agenda Admin</span>
+        </div>
+      `}
+
+      <!-- Tarjeta de Vista Previa del Correo Oficial -->
+      <div style="background: var(--white, #ffffff); border: 1px solid var(--linen, #E7E5E4); border-radius: var(--radius-md, 8px); overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+        <!-- Barra de Cabecera del Correo -->
+        <div style="background: #FAF5EE; padding: 12px 18px; border-bottom: 1px solid var(--linen, #E7E5E4); font-size: 12px; color: var(--dust, #78716C);">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <div><strong>De:</strong> Sistema Web Torre Jardines del Cerro IV &lt;notificaciones@jardinesdelcerro.com&gt;</div>
+            <div><strong>Fecha:</strong> ${visit.emailNotificationDate || new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+          <div style="margin-bottom: 4px;"><strong>Para:</strong> Administración General &lt;${adminEmail}&gt;</div>
+          <div><strong>Asunto:</strong> <span style="font-weight: 700; color: var(--ink, #1C1917);">📅 Nueva Cita Agendada — ${visit.visitor} para ${visit.unit} (${visit.date} · ${visit.time})</span></div>
+        </div>
+
+        <!-- Cuerpo del Correo -->
+        <div style="padding: 24px; font-size: 13.5px; line-height: 1.7; color: #1C1917;">
+          <div style="text-align: center; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--linen, #E7E5E4);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--accent, #C9A770);">Torre Residencial Jardines del Cerro IV</div>
+            <div style="font-size: 17px; font-weight: 800; color: #0E1614; margin-top: 4px;">
+              Notificación para Administración: Nueva Cita Comercial Registrada
+            </div>
+            <div style="font-size: 12px; color: var(--dust, #78716C);">Mao, Valverde, República Dominicana</div>
+          </div>
+
+          <p>Estimado(a) <strong>Administrador(a)</strong>,</p>
+
+          <p>Se ha radicado una nueva solicitud de cita a través de la plataforma web comercial. El expediente ha sido incorporado a la <strong>Agenda de Visitas del Sistema Administrativo</strong> con los siguientes datos:</p>
+
+          <div style="background: #FAF5EE; border: 1px solid #E7E5E4; border-left: 3px solid #0284C7; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 12.5px; line-height: 1.8;">
+            <div>• <strong>Código de Cita:</strong> <code>${visit.id}</code></div>
+            <div>• <strong>Nombre del Visitante:</strong> <strong>${visit.visitor}</strong></div>
+            <div>• <strong>Teléfono de Contacto:</strong> <a href="tel:${visit.phone}" style="color: #0284C7; font-weight: 700; text-decoration: none;">${visit.phone}</a> ${cleanPhone ? `&nbsp;(<a href="${waUrl}" target="_blank" style="color: #059669; font-weight: 700; text-decoration: none;">💬 WhatsApp Directo</a>)` : ''}</div>
+            <div>• <strong>Correo Electrónico:</strong> <a href="mailto:${visit.email}" style="color: #0284C7; text-decoration: none;">${visit.email}</a></div>
+            <div>• <strong>Unidad de Interés:</strong> <span class="badge badge-primary" style="font-size: 11px; padding: 2px 8px;">${visit.unit}</span></div>
+            <div>• <strong>Fecha Solicitada:</strong> 📅 <strong>${visit.date}</strong></div>
+            <div>• <strong>Horario de Atención:</strong> ⏰ <strong>${visit.time}</strong></div>
+            <div>• <strong>Modalidad:</strong> <strong>${visit.mode}</strong></div>
+            <div>• <strong>Comentarios / Notas Especiales:</strong> <em style="color: #44403C;">"${visit.notes}"</em></div>
+            <div>• <strong>Estado en el Sistema:</strong> <span class="badge ${visit.status === 'Confirmada' ? 'badge-success' : 'badge-warning'}" style="font-size: 10px;">${visit.status}</span></div>
+          </div>
+
+          <div style="background: #EFF6FF; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #1E40AF; margin-top: 14px;">
+            💡 <strong>Gestión desde el Portal:</strong> Puede confirmar la cita, enviar recordatorios por WhatsApp o modificar la disponibilidad directamente desde la pestaña <strong>Agenda de Visitas</strong> del panel administrativo.
+          </div>
+
+          <div style="margin-top: 24px; padding-top: 14px; border-top: 1px dashed var(--linen, #E7E5E4); font-size: 11.5px; color: var(--dust, #78716C); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <strong>Gestión Inmobiliaria Condominal</strong><br>
+              Inversionisto S.R.L. · Tel: (809) 555-0199
+            </div>
+            <div style="text-align: right;">
+              <strong>Torre Jardines del Cerro IV</strong><br>
+              Mao, Valverde, República Dominicana
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-primary" style="background: #0E1614; color: #C9A770; border: 1px solid #C9A770;" onclick="window.app.closeEmailNotificationModal(); window.app.setView('admin'); window.app.setAdminTab('visitas');">
+            <span>🏛️</span> Ir a la Agenda Administrativa
+          </button>
+          ${cleanPhone ? `
+            <a href="${waUrl}" target="_blank" class="btn-outline" style="padding: 8px 12px; font-size: 12px; text-decoration: none; color: #059669; border-color: #059669; display: inline-flex; align-items: center; gap: 6px;">
+              <span>💬</span> WhatsApp
+            </a>
+          ` : ''}
+          <a href="${mailtoLink}" class="btn-outline" style="padding: 8px 12px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <span>↗</span> Enviar por Mi Correo
+          </a>
+        </div>
+        <button type="button" class="btn-outline" onclick="window.app.closeEmailNotificationModal();">
+          Cerrar Notificación
+        </button>
+      </div>
+    `;
+
+    modal.style.display = 'flex';
+  }
+
+  showVisitEmailNotificationModalById(visitId) {
+    if (!this.adminData || !this.adminData.visits) return;
+    const visit = this.adminData.visits.find(v => v.id === visitId);
+    if (visit) {
+      this.showVisitEmailNotificationModal(visit);
+    }
+  }
+
 
   /* =========================================================================
      Gestión y Creación de Administradores

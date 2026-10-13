@@ -443,9 +443,48 @@ const ADMIN_MOCK_DATA = {
     { unit: "PH-1001", name: "—", phone: "—", condition: "Disponible", aliquot: "8.15%", status: "Libre" }
   ],
   visits: [
-    { id: "VIS-201", visitor: "Carlos Mendoza", phone: "(809) 555-1284", unit: "PH-901", date: "30 Sep 2026", time: "10:00 AM", mode: "Presencial en Mao", status: "Confirmada" },
-    { id: "VIS-202", visitor: "Dra. Laura Batista", phone: "(809) 555-8931", unit: "Unidad 101", date: "01 Oct 2026", time: "03:30 PM", mode: "Videollamada", status: "Confirmada" },
-    { id: "VIS-203", visitor: "Juan Carlos Ortiz", phone: "(809) 555-9914", unit: "Unidad 301", date: "03 Oct 2026", time: "11:00 AM", mode: "Presencial en Mao", status: "Pendiente" }
+    { 
+      id: "VIS-201", 
+      visitor: "Carlos Mendoza", 
+      phone: "(809) 555-1284", 
+      email: "cmendoza@gmail.com",
+      unit: "PH-901", 
+      date: "30 Sep 2026", 
+      time: "10:00 AM", 
+      mode: "Presencial en Mao", 
+      notes: "Interesado en opciones de financiamiento y compra de parqueos adicionales.",
+      status: "Confirmada",
+      emailNotified: true,
+      emailNotificationDate: "29 Sep 2026 04:15 PM"
+    },
+    { 
+      id: "VIS-202", 
+      visitor: "Dra. Laura Batista", 
+      phone: "(809) 555-8931", 
+      email: "lbatista@claro.net.do",
+      unit: "Unidad 101", 
+      date: "01 Oct 2026", 
+      time: "03:30 PM", 
+      mode: "Videollamada", 
+      notes: "Coordinar videollamada para revisar contrato de alquiler y amenidades de la torre.",
+      status: "Confirmada",
+      emailNotified: true,
+      emailNotificationDate: "30 Sep 2026 11:20 AM"
+    },
+    { 
+      id: "VIS-203", 
+      visitor: "Juan Carlos Ortiz", 
+      phone: "(809) 555-9914", 
+      email: "jcortiz@gmail.com",
+      unit: "Unidad 301", 
+      date: "03 Oct 2026", 
+      time: "11:00 AM", 
+      mode: "Presencial en Mao", 
+      notes: "Visita presencial con la familia para conocer el Rooftop, piscina y distribución del apartamento.",
+      status: "Pendiente",
+      emailNotified: true,
+      emailNotificationDate: "02 Oct 2026 09:30 AM"
+    }
   ],
   maintenance: [
     { id: "MNT-501", unit: "Áreas Comunes", category: "Electromecánico", desc: "Mantenimiento preventivo mensual del generador 150 kVA", date: "02 Oct", tech: "ElectroPower Dominicana", status: "Programado" },

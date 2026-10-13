@@ -17,6 +17,7 @@ from routes.paypal_routes import router as paypal_router
 from routes.ai_routes import router as ai_router
 from routes.maintenance_routes import router as maintenance_router
 from routes.assembly_routes import router as assembly_router
+from routes.visit_routes import router as visit_router
 
 # 1. Crear tablas en la base de datos
 Base.metadata.create_all(bind=engine)
@@ -47,12 +48,15 @@ def on_startup():
         db.close()
 
 # 5. Montar almacenamiento de archivos subidos y documentos legales oficiales
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "docs")
 if not os.path.exists(DOCS_DIR):
     os.makedirs(DOCS_DIR, exist_ok=True)
 app.mount("/docs", StaticFiles(directory=DOCS_DIR), name="docs")
+
 
 # 6. Registrar Routers de la API
 app.include_router(auth_router)
@@ -62,6 +66,8 @@ app.include_router(paypal_router)
 app.include_router(ai_router)
 app.include_router(maintenance_router)
 app.include_router(assembly_router)
+app.include_router(visit_router)
+
 
 # 7. Endpoints de Estado y Chequeo de Salud
 @app.get("/health")

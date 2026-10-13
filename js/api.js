@@ -269,7 +269,62 @@ class ApiClient {
       return { success: false, error: 'No se pudo contactar con el servidor' };
     }
   }
+
+  // Agenda de Visitas & Citas
+  async createVisit(payload) {
+    try {
+      const res = await fetch(`${this.baseUrl}/visits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        this.isBackendOnline = true;
+        return await res.json();
+      }
+      return null;
+    } catch (e) {
+      console.warn('Fallo al sincronizar cita con backend:', e);
+      return null;
+    }
+  }
+
+  async getVisits() {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/visits`);
+      if (res.ok) return await res.json();
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async confirmVisit(visitId) {
+    try {
+      const res = await fetch(`${this.baseUrl}/visits/${encodeURIComponent(visitId)}/confirm`, {
+        method: 'POST'
+      });
+      if (res.ok) return await res.json();
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async deleteVisit(visitId) {
+    try {
+      const res = await fetch(`${this.baseUrl}/visits/${encodeURIComponent(visitId)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) return await res.json();
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }
 
 // Instancia global del cliente de API
 window.apiClient = new ApiClient();
+

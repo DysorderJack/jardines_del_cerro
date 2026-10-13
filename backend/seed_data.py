@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy.orm import Session
-from models import User, Unit, RegistrationRequest, Payment, MaintenanceTicket, Subscription, ActivityLog
+from models import User, Unit, RegistrationRequest, Payment, MaintenanceTicket, Subscription, ActivityLog, Visit
 
 logger = logging.getLogger("seed_data")
 
@@ -153,5 +153,15 @@ def seed_database_if_empty(db: Session):
     for l in logs:
         db.add(l)
 
+    # 7. Visitas Agendadas
+    visits = [
+        Visit(id="VIS-201", visitor="Carlos Mendoza", phone="(809) 555-1284", email="cmendoza@gmail.com", unit="PH-901", date="30 Sep 2026", time="10:00 AM", mode="Presencial en Mao", notes="Interesado en opciones de financiamiento y compra de parqueos adicionales.", status="Confirmada", email_notified=True, email_notification_date="29 Sep 2026 04:15 PM"),
+        Visit(id="VIS-202", visitor="Dra. Laura Batista", phone="(809) 555-8931", email="lbatista@claro.net.do", unit="Unidad 101", date="01 Oct 2026", time="03:30 PM", mode="Videollamada", notes="Coordinar videollamada para revisar contrato de alquiler y amenidades de la torre.", status="Confirmada", email_notified=True, email_notification_date="30 Sep 2026 11:20 AM"),
+        Visit(id="VIS-203", visitor="Juan Carlos Ortiz", phone="(809) 555-9914", email="jcortiz@gmail.com", unit="Unidad 301", date="03 Oct 2026", time="11:00 AM", mode="Presencial en Mao", notes="Visita presencial con la familia para conocer el Rooftop, piscina y distribución del apartamento.", status="Pendiente", email_notified=True, email_notification_date="02 Oct 2026 09:30 AM")
+    ]
+    for v in visits:
+        db.add(v)
+
     db.commit()
     logger.info("Base de datos inicializada exitosamente.")
+

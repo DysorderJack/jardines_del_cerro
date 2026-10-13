@@ -91,3 +91,32 @@ class AdminCreate(BaseModel):
     phone: Optional[str] = None
     password: str
 
+# Visit Schemas
+class VisitCreate(BaseModel):
+    visitor: str
+    phone: str
+    email: Optional[str] = None
+    unit: str
+    date: str
+    time: str
+    mode: Optional[str] = "Presencial en Mao"
+    notes: Optional[str] = None
+
+class VisitResponse(BaseModel):
+    id: str
+    visitor: str
+    phone: str
+    email: Optional[str] = None
+    unit: str
+    date: str
+    time: str
+    mode: str
+    notes: Optional[str] = None
+    status: str
+    email_notified: bool = True
+    email_notification_date: Optional[str] = None
+
+class VisitUpdateStatus(BaseModel):
+    status: str # 'Confirmada', 'Pendiente', 'Cancelada'
+
+

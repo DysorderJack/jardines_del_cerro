@@ -401,3 +401,195 @@ def send_registration_decision_email(
         },
         "preview": plain_text[:200].strip()
     }
+
+def send_visit_notification_email(
+    visitor_name: str,
+    visitor_phone: str,
+    visitor_email: str,
+    unit: str,
+    visit_date: str,
+    visit_time: str,
+    mode: str,
+    notes: str,
+    visit_id: str,
+    admin_recipient: str = None
+) -> dict:
+    """
+    Envía una notificación oficial por correo electrónico a la Administración de la Torre
+    cuando un visitante o prospecto agenda una cita en el portal web.
+    """
+    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = resolve_smtp_config()
+    
+    # Destinatario de administración
+    admin_email = (
+        admin_recipient
+        or get_clean_env("ADMIN_NOTIFICATION_EMAIL", "")
+        or smtp_user
+        or "admin@jardinesdelcerro.do"
+    )
+
+    clean_phone = "".join([c for c in (visitor_phone or "") if c.isdigit()])
+    wa_link = f"https://wa.me/1{clean_phone}" if clean_phone else "#"
+    
+    subject = f"📅 Nueva Cita Agendada — {visitor_name} para {unit} ({visit_date} · {visit_time})"
+    status_title = "Nueva Cita de Visita Registrada"
+    status_color = "#0284C7"
+    badge_text = "NUEVA CITA PENDIENTE DE ATENCIÓN"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #F5F5F4; color: #1C1917; }}
+        .email-container {{ max-width: 620px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }}
+        .header {{ background: #0E1614; padding: 32px 24px; text-align: center; color: #ffffff; }}
+        .header h1 {{ font-size: 20px; font-weight: 800; margin: 0; letter-spacing: 0.5px; color: #C9A770; }}
+        .header p {{ font-size: 12px; color: rgba(255,255,255,0.7); margin: 6px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }}
+        .body {{ padding: 32px 28px; }}
+        .badge {{ display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; background: {status_color}15; color: {status_color}; margin-bottom: 16px; border: 1px solid {status_color}40; }}
+        .title {{ font-size: 20px; font-weight: 800; color: #1C1917; margin: 0 0 16px 0; }}
+        .details-box {{ background: #FAF5EE; border: 1px solid #E7E5E4; border-radius: 8px; padding: 18px; margin: 20px 0; font-size: 13px; line-height: 1.7; }}
+        .cta-btn {{ display: inline-block; background: #0E1614; color: #C9A770 !important; padding: 12px 26px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 13.5px; margin: 20px 0; text-align: center; border: 1px solid #C9A770; }}
+        .footer {{ background: #FAFAF9; padding: 20px; text-align: center; font-size: 11.5px; color: #78716C; border-top: 1px solid #E7E5E4; }}
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="header">
+          <h1>TORRE RESIDENCIAL JARDINES DEL CERRO IV</h1>
+          <p>Portal Administrativo & Gestión Condominal · Mao, Valverde</p>
+        </div>
+        <div class="body">
+          <span class="badge">{badge_text}</span>
+          <h2 class="title">{status_title}</h2>
+          <p style="font-size: 14px; line-height: 1.6; color: #44403C;">
+            Estimado Administrador,
+          </p>
+          <p style="font-size: 13.5px; line-height: 1.6; color: #44403C;">
+            Se ha radicado una nueva cita en el portal web para conocer las unidades residenciales de la torre. 
+            El expediente ha sido registrado en la base de datos administrativa para su seguimiento:
+          </p>
+          <div class="details-box">
+            <strong style="color: #0E1614; font-size: 14px;">Expediente de la Cita:</strong><br>
+            • <strong>ID de Cita:</strong> <code style="background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;">{visit_id}</code><br>
+            • <strong>Visitante:</strong> <strong>{visitor_name}</strong><br>
+            • <strong>Teléfono de Contacto:</strong> <a href="tel:{visitor_phone}" style="color: #0284C7; text-decoration: none; font-weight: 600;">{visitor_phone}</a> (<a href="{wa_link}" target="_blank" style="color: #059669; font-weight: 700;">Abrir WhatsApp</a>)<br>
+            • <strong>Correo Electrónico:</strong> <a href="mailto:{visitor_email}" style="color: #0284C7; text-decoration: none;">{visitor_email}</a><br>
+            • <strong>Unidad de Interés:</strong> <span style="background: #E0E7FF; color: #4338CA; padding: 2px 8px; border-radius: 4px; font-weight: 700;">{unit}</span><br>
+            • <strong>Fecha y Horario:</strong> 📅 <strong>{visit_date}</strong> a las ⏰ <strong>{visit_time}</strong><br>
+            • <strong>Modalidad:</strong> {mode}<br>
+            • <strong>Notas / Comentarios del Cliente:</strong> <em>"{notes}"</em><br>
+            • <strong>Estado:</strong> <span style="background: #FEF3C7; color: #92400E; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Pendiente de Confirmación</span>
+          </div>
+          <div style="text-align: center;">
+            <a href="{FRONTEND_URL}#admin" class="cta-btn">Ir a la Agenda Administrativa en el Portal</a>
+          </div>
+        </div>
+        <div class="footer">
+          Torre Residencial Jardines del Cerro IV &copy; 2026.<br>
+          Notificación automática de gestión comercial generada por el sistema web.
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    plain_text = f"""
+    TORRE RESIDENCIAL JARDINES DEL CERRO IV
+    NOTIFICACIÓN DE NUEVA CITA PARA LA ADMINISTRACIÓN
+
+    ID de Cita: {visit_id}
+    Visitante: {visitor_name}
+    Teléfono: {visitor_phone}
+    Correo: {visitor_email}
+    Unidad de Interés: {unit}
+    Fecha: {visit_date} - Horario: {visit_time}
+    Modalidad: {mode}
+    Notas del Cliente: {notes}
+    Estado: Pendiente de Confirmación
+
+    Gestionar en el portal administrativo: {FRONTEND_URL}#admin
+    """
+
+    sent_real = False
+    error_msg = None
+
+    brevo_api_key = get_clean_env("BREVO_API_KEY", "")
+    brevo_sender = get_clean_env("BREVO_SENDER_EMAIL", "") or smtp_user or "dysordergames@gmail.com"
+    resend_api_key = get_clean_env("RESEND_API_KEY", "")
+
+    if brevo_api_key:
+        brevo_ok, brevo_err = send_via_brevo_api(
+            api_key=brevo_api_key,
+            sender_email=brevo_sender,
+            to_email=admin_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=plain_text
+        )
+        if brevo_ok:
+            sent_real = True
+            logger.info(f"✓ Notificación de cita enviada a {admin_email} vía Brevo API.")
+        else:
+            error_msg = brevo_err
+
+    elif resend_api_key:
+        resend_ok, resend_err = send_via_resend_api(
+            api_key=resend_api_key,
+            to_email=admin_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=plain_text
+        )
+        if resend_ok:
+            sent_real = True
+            logger.info(f"✓ Notificación de cita enviada a {admin_email} vía Resend API.")
+        else:
+            error_msg = resend_err
+
+    elif smtp_host and smtp_user and smtp_pass:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            sender_email = smtp_user if ("@gmail.com" in smtp_user.lower()) else (smtp_from or smtp_user)
+            msg["From"] = f"Torre Residencial Jardines del Cerro IV <{sender_email}>"
+            msg["To"] = admin_email
+
+            msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+            if smtp_port == 465:
+                with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=12) as server:
+                    server.login(smtp_user, smtp_pass)
+                    server.sendmail(sender_email, [admin_email], msg.as_string())
+            else:
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=12) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                    server.login(smtp_user, smtp_pass)
+                    server.sendmail(sender_email, [admin_email], msg.as_string())
+
+            sent_real = True
+            logger.info(f"✓ Notificación de cita enviada a {admin_email} vía SMTP.")
+        except Exception as e:
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            logger.warning(f"Error al enviar notificación de cita vía SMTP ({error_msg}).")
+    else:
+        error_msg = "SMTP no configurado en este entorno. Correo simulado en log."
+        logger.info(f"ℹ Notificación de cita simulada para {admin_email}.")
+
+    return {
+        "success": True,
+        "sent_real_smtp": sent_real,
+        "recipient": admin_email,
+        "visitor_name": visitor_name,
+        "subject": subject,
+        "visit_id": visit_id,
+        "unit": unit,
+        "error": error_msg,
+        "preview": plain_text[:200].strip()
+    }
+
