@@ -43,10 +43,17 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         else:
             raise HTTPException(status_code=401, detail="Contraseña incorrecta de administrador.")
 
-    # Búsqueda de residente en base de datos
+    # Búsqueda de residente en base de datos (por email, documento exacto o normalizado)
+    doc_digits = re.sub(r"\D", "", doc)
     user = db.query(User).filter(
         (User.document_id == doc) | (User.email.ilike(doc))
     ).first()
+
+    if not user and doc_digits:
+        for u in db.query(User).all():
+            if u.document_id and re.sub(r"\D", "", u.document_id) == doc_digits:
+                user = u
+                break
 
     if not user:
         raise HTTPException(status_code=404, detail="Usuario o cédula no encontrada en el padrón.")

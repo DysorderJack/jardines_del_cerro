@@ -88,6 +88,12 @@ def request_decision(req_id: str, decision: RegistrationDecision, db: Session = 
             user = db.query(User).filter(
                 (User.document_id == req.document_id) | (User.email == req.email)
             ).first()
+            if not user and req.document_id:
+                req_digits = re.sub(r"\D", "", req.document_id)
+                for u in db.query(User).all():
+                    if u.document_id and re.sub(r"\D", "", u.document_id) == req_digits:
+                        user = u
+                        break
             if user:
                 user.status = "approved"
 
@@ -104,6 +110,12 @@ def request_decision(req_id: str, decision: RegistrationDecision, db: Session = 
                 activity_type="user"
             ))
             db.commit()
+        else:
+            # Si no hay req en DB pero sí recipient_email
+            user = db.query(User).filter(User.email.ilike(recipient_email)).first()
+            if user:
+                user.status = "approved"
+                db.commit()
 
         # Enviar notificación oficial por correo electrónico
         email_res = send_registration_decision_email(

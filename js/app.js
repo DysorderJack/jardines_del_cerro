@@ -1536,6 +1536,8 @@ class JardinesApp {
       }
     }
 
+    const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
+
     const newRequest = {
       id: newReqId,
       date: today,
@@ -1549,99 +1551,107 @@ class JardinesApp {
       contractFile: contractFileName,
       contractDate: today,
       status: 'pending',
+      password: pass,
       notes: `Solicitud de ingreso formal radicada desde el portal web con contrato adjunto (${file.name}).`
     };
 
     const processComplete = (dataUrl = null, fileType = null, fileSize = null) => {
-      if (dataUrl) {
-        newRequest.contractDataUrl = dataUrl;
-        newRequest.contractFileType = fileType;
-        newRequest.contractFileSize = fileSize;
-      }
-
-      // 1. Agregar solicitud pendiente en el panel de administración (Puntos 16.3 & 16.4)
-      this.adminData.registrationRequests.unshift(newRequest);
-
-      // 2. Registrar usuario en padrón con estado "pending" y su contraseña segura
-      const now = new Date();
-      const currentMonthYear = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-      const capitalizedMonth = currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1);
-      const todayShort = now.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
-
-      const newUser = {
-        id: `usr-${unit.toLowerCase()}-${Date.now()}`,
-        name: name,
-        documentId: docId,
-        email: email,
-        unit: unit,
-        role: role,
-        roleLabel: role === 'owner' ? 'Propietario Residente' : 'Inquilino Arrendatario',
-        aliquot: role === 'owner' ? '4.65%' : 'N/A (Inquilino)',
-        password: pass,
-        status: 'pending',
-        avatar: initials,
-        aiSubscription: {
-          active: false,
-          plan: null,
-          priceUsd: null,
-          paypalSubId: null,
-          subscribedAt: null,
-          renewalDate: null,
-          statusLabel: 'Inactiva (Requiere Suscripción)'
-        },
-        accountData: {
-          unit: unit,
-          type: `Apartamento · Unidad ${unit}`,
-          resident: role === 'owner' ? 'Propietario Titular' : 'Inquilino Arrendatario',
-          sqm: 120,
-          bedrooms: 3,
-          bathrooms: 2,
-          status: 'Al día',
-          statusNote: role === 'owner' ? `Propietario Titular · Unidad ${unit}` : `Inquilino Arrendatario · Unidad ${unit}`,
-          nextFee: `15 ${todayShort}`,
-          nextFeeNote: 'Cuota de mantenimiento mensual',
-          activeRequests: 0,
-          activities: (this.ownerData && this.ownerData.activities) ? JSON.parse(JSON.stringify(this.ownerData.activities)) : [],
-          cuotas: [
-            {
-              period: capitalizedMonth,
-              due: `15 ${todayShort}`,
-              amount: 'RD$ 6,500.00',
-              status: 'Pendiente',
-              badge: 'badge-warning'
-            }
-          ],
-          pagos: [], // Totalmente limpio: CERO pagos previos para nuevos residentes
-          tickets: [], // Totalmente limpio: CERO solicitudes previas
-          documentos: (this.ownerData && this.ownerData.documentos) ? JSON.parse(JSON.stringify(this.ownerData.documentos)) : []
+      try {
+        if (dataUrl) {
+          newRequest.contractDataUrl = dataUrl;
+          newRequest.contractFileType = fileType;
+          newRequest.contractFileSize = fileSize;
         }
-      };
 
-      this.registeredUsers.push(newUser);
-      this.saveAllState();
-      this.updateAdminPendingBadge();
+        // 1. Agregar solicitud pendiente en el panel de administración (Puntos 16.3 & 16.4)
+        this.adminData.registrationRequests.unshift(newRequest);
 
-      // 3. Notificar y mostrar alerta de cuenta en revisión
-      this.switchResidentAuthTab('login');
-      const pendingAlert = document.getElementById('resident-pending-alert');
-      if (pendingAlert) {
-        pendingAlert.style.display = 'block';
-        pendingAlert.innerHTML = `
-          ⏳ <strong>Solicitud Radicada (${newReqId}):</strong> Tu expediente y contrato notariado (<code>${contractFileName}</code>) han sido remitidos al Administrador de Jardines del Cerro IV para su auditoría y aprobación. Una vez verificado, podrás iniciar sesión con tu clave segura.
-        `;
-      }
+        // 2. Registrar usuario en padrón con estado "pending" y su contraseña segura
+        const now = new Date();
+        const currentMonthYear = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        const capitalizedMonth = currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1);
+        const todayShort = now.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
 
-      const userInput = document.getElementById('resident-login-user');
-      if (userInput) userInput.value = email;
+        const newUser = {
+          id: `usr-${unit.toLowerCase()}-${Date.now()}`,
+          name: name,
+          documentId: docId,
+          email: email,
+          phone: phone,
+          unit: unit,
+          role: role,
+          roleLabel: role === 'owner' ? 'Propietario Residente' : 'Inquilino Arrendatario',
+          aliquot: role === 'owner' ? '4.65%' : 'N/A (Inquilino)',
+          password: pass,
+          status: 'pending',
+          avatar: initials,
+          aiSubscription: {
+            active: false,
+            plan: null,
+            priceUsd: null,
+            paypalSubId: null,
+            subscribedAt: null,
+            renewalDate: null,
+            statusLabel: 'Inactiva (Requiere Suscripción)'
+          },
+          accountData: {
+            unit: unit,
+            type: `Apartamento · Unidad ${unit}`,
+            resident: role === 'owner' ? 'Propietario Titular' : 'Inquilino Arrendatario',
+            sqm: 120,
+            bedrooms: 3,
+            bathrooms: 2,
+            status: 'Al día',
+            statusNote: role === 'owner' ? `Propietario Titular · Unidad ${unit}` : `Inquilino Arrendatario · Unidad ${unit}`,
+            nextFee: `15 ${todayShort}`,
+            nextFeeNote: 'Cuota de mantenimiento mensual',
+            activeRequests: 0,
+            activities: [],
+            cuotas: [
+              {
+                period: capitalizedMonth,
+                due: `15 ${todayShort}`,
+                amount: 'RD$ 6,500.00',
+                status: 'Pendiente',
+                badge: 'badge-warning'
+              }
+            ],
+            pagos: [],
+            tickets: [],
+            documentos: []
+          }
+        };
 
-      this.showToast(`¡Solicitud ${newReqId} radicada! El archivo '${contractFileName}' fue cargado exitosamente.`);
-      e.target.reset();
-      this.clearContractFile();
-      this.validatePasswordStrength();
+        this.registeredUsers.push(newUser);
+        this.saveAllState();
+        this.updateAdminPendingBadge();
 
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalBtnHtml;
+        // 3. Notificar y mostrar alerta de cuenta en revisión
+        this.switchResidentAuthTab('login');
+        const pendingAlert = document.getElementById('resident-pending-alert');
+        if (pendingAlert) {
+          pendingAlert.style.display = 'block';
+          pendingAlert.innerHTML = `
+            ⏳ <strong>Solicitud Radicada (${newReqId}):</strong> Tu expediente y contrato notariado (<code>${contractFileName}</code>) han sido remitidos al Administrador de Jardines del Cerro IV para su auditoría y aprobación. Una vez verificado, podrás iniciar sesión con tu clave segura.
+          `;
+        }
+
+        const userInput = document.getElementById('resident-login-user');
+        if (userInput) userInput.value = email;
+
+        this.showToast(`¡Solicitud ${newReqId} radicada! El archivo '${contractFileName}' fue cargado exitosamente.`);
+        const formEl = document.getElementById('resident-register-form');
+        if (formEl) formEl.reset();
+        this.clearContractFile();
+        this.validatePasswordStrength();
+      } catch (procErr) {
+        console.error('Error procesando registro:', procErr);
+        showError('Ocurrió un error al procesar la solicitud en el explorador.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+        }
       }
     };
 
@@ -1657,21 +1667,137 @@ class JardinesApp {
     reader.readAsDataURL(file);
   }
 
-  loginResident(e) {
+  async loginResident(e) {
     if (e) e.preventDefault();
-    const userInput = document.getElementById('resident-login-user').value.trim().toLowerCase();
-    const passInput = document.getElementById('resident-login-pass').value.trim();
-    const roleInput = document.getElementById('resident-login-role').value;
+    const userInput = (document.getElementById('resident-login-user') || {}).value?.trim() || '';
+    const passInput = (document.getElementById('resident-login-pass') || {}).value?.trim() || '';
     const pendingAlert = document.getElementById('resident-pending-alert');
 
-    // Buscar usuario en el padrón
+    if (!userInput || !passInput) {
+      alert("Por favor ingresa tu número de cédula o correo electrónico y tu contraseña de acceso.");
+      return;
+    }
+
+    const normInput = this.normalizeDoc(userInput);
+    const cleanEmail = userInput.toLowerCase();
+
+    // 1. Intentar autenticación con Backend en vivo (FastAPI / Render)
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        const res = await window.apiClient.login(userInput, passInput);
+        if (res && res.success && res.user) {
+          // Usuario autenticado exitosamente en el backend
+          let localUser = this.registeredUsers.find(u =>
+            (u.documentId && this.normalizeDoc(u.documentId) === this.normalizeDoc(res.user.document_id)) ||
+            (u.email && u.email.toLowerCase() === (res.user.email || '').toLowerCase())
+          );
+
+          if (localUser) {
+            localUser.status = 'approved';
+            localUser.password = passInput;
+            if (res.user.role) localUser.role = res.user.role;
+            if (res.user.unit) localUser.unit = res.user.unit;
+            if (res.user.name) localUser.name = res.user.name;
+          } else {
+            const now = new Date();
+            const currentMonthYear = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+            const capitalizedMonth = currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1);
+            const todayShort = now.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+            const initials = res.user.avatar || (res.user.name || '').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
+            localUser = {
+              id: res.user.id || `usr-${(res.user.unit || '101').toLowerCase()}-${Date.now()}`,
+              name: res.user.name,
+              documentId: res.user.document_id,
+              email: res.user.email,
+              phone: res.user.phone || '',
+              unit: res.user.unit || '101',
+              role: res.user.role || 'owner',
+              roleLabel: res.user.role_label || (res.user.role === 'owner' ? 'Propietario Residente' : 'Inquilino Arrendatario'),
+              aliquot: res.user.aliquot || '4.65%',
+              password: passInput,
+              status: 'approved',
+              avatar: initials,
+              aiSubscription: {
+                active: false,
+                plan: null,
+                priceUsd: null,
+                paypalSubId: null,
+                subscribedAt: null,
+                renewalDate: null,
+                statusLabel: 'Inactiva (Requiere Suscripción)'
+              },
+              accountData: {
+                unit: res.user.unit,
+                type: `Apartamento · Unidad ${res.user.unit}`,
+                resident: res.user.role === 'owner' ? 'Propietario Titular' : 'Inquilino Arrendatario',
+                sqm: 120,
+                bedrooms: 3,
+                bathrooms: 2,
+                status: 'Al día',
+                statusNote: `${res.user.role_label || 'Residente'} · Unidad ${res.user.unit}`,
+                nextFee: `15 ${todayShort}`,
+                nextFeeNote: 'Cuota de mantenimiento mensual',
+                activeRequests: 0,
+                activities: [],
+                cuotas: [
+                  {
+                    period: capitalizedMonth,
+                    due: `15 ${todayShort}`,
+                    amount: 'RD$ 6,500.00',
+                    status: 'Pendiente',
+                    badge: 'badge-warning'
+                  }
+                ],
+                pagos: [],
+                tickets: [],
+                documentos: []
+              }
+            };
+            this.registeredUsers.push(localUser);
+          }
+
+          this.currentUser = localUser;
+          this.isOwnerLoggedIn = true;
+          this.saveAllState();
+          if (pendingAlert) pendingAlert.style.display = 'none';
+
+          this.updateResidentSidebar();
+          this.renderOwnerState();
+          this.showToast(`Bienvenido a tu portal, ${localUser.name}`);
+          return;
+        } else if (res && res.detail) {
+          if (res.detail.includes('esperando aprobación') || res.detail.includes('pending')) {
+            if (pendingAlert) {
+              pendingAlert.style.display = 'block';
+              pendingAlert.innerHTML = `
+                ⏳ <strong>Cuenta Pendiente de Aprobación:</strong> Tu solicitud y contrato notariado están siendo auditados por la administración. Una vez aprobado el acceso, podrás ingresar con tu clave segura.
+              `;
+            }
+            this.showToast("Cuenta en proceso de auditoría notarial.");
+            return;
+          } else if (res.detail.includes('Contraseña incorrecta')) {
+            alert("Contraseña incorrecta. Verifique su contraseña segura de acceso.");
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Fallo en intento de login backend:', err);
+      }
+    }
+
+    // 2. Autenticación Local / Modo de Respaldo Offline
     const user = this.registeredUsers.find(u =>
-      (u.email.toLowerCase() === userInput || u.documentId.toLowerCase() === userInput) &&
-      u.password === passInput
+      (u.email && u.email.toLowerCase() === cleanEmail) ||
+      (u.documentId && this.normalizeDoc(u.documentId) === normInput)
     );
 
     if (!user) {
-      alert("Credenciales incorrectas. Verifique su correo/cédula y contraseña de acceso.");
+      alert("Credenciales no encontradas en el padrón. Verifique su cédula o correo electrónico, o regístrese si aún no ha formalizado su expediente.");
+      return;
+    }
+
+    if (user.password !== passInput) {
+      alert("Contraseña incorrecta. Verifique la contraseña segura que ingresó al registrarse.");
       return;
     }
 
@@ -3716,24 +3842,34 @@ class JardinesApp {
     req.status = 'approved';
 
     // 1. Activar usuario en el padrón de usuarios registrados
+    const reqNormDoc = this.normalizeDoc(req.documentId);
     const user = this.registeredUsers.find(u =>
-      u.documentId === req.documentId || u.email.toLowerCase() === req.email.toLowerCase()
+      (u.documentId && this.normalizeDoc(u.documentId) === reqNormDoc) ||
+      (u.email && u.email.toLowerCase() === (req.email || '').toLowerCase())
     );
 
     if (user) {
       user.status = 'approved';
+      if (req.password) {
+        user.password = req.password;
+      }
     } else {
-      const initials = req.applicantName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
+      const initials = (req.applicantName || 'US').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'US';
+      const now = new Date();
+      const currentMonthYear = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+      const capitalizedMonth = currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1);
+      const todayShort = now.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
       this.registeredUsers.push({
-        id: `usr-${req.unit}-${Date.now()}`,
+        id: `usr-${(req.unit || '101').toString().toLowerCase()}-${Date.now()}`,
         name: req.applicantName,
         documentId: req.documentId,
         email: req.email,
+        phone: req.phone || '',
         unit: req.unit,
-        role: req.roleRequested,
+        role: req.roleRequested || 'owner',
         roleLabel: req.roleRequested === 'owner' ? 'Propietario Residente' : 'Inquilino Arrendatario',
         aliquot: req.roleRequested === 'owner' ? '4.65%' : 'N/A (Inquilino)',
-        password: '1234',
+        password: req.password || '1234',
         status: 'approved',
         avatar: initials,
         aiSubscription: {
@@ -3744,6 +3880,32 @@ class JardinesApp {
           subscribedAt: null,
           renewalDate: null,
           statusLabel: 'Inactiva (Requiere Suscripción)'
+        },
+        accountData: {
+          unit: req.unit,
+          type: `Apartamento · Unidad ${req.unit}`,
+          resident: req.roleRequested === 'owner' ? 'Propietario Titular' : 'Inquilino Arrendatario',
+          sqm: 120,
+          bedrooms: 3,
+          bathrooms: 2,
+          status: 'Al día',
+          statusNote: req.roleRequested === 'owner' ? `Propietario Titular · Unidad ${req.unit}` : `Inquilino Arrendatario · Unidad ${req.unit}`,
+          nextFee: `15 ${todayShort}`,
+          nextFeeNote: 'Cuota de mantenimiento mensual',
+          activeRequests: 0,
+          activities: [],
+          cuotas: [
+            {
+              period: capitalizedMonth,
+              due: `15 ${todayShort}`,
+              amount: 'RD$ 6,500.00',
+              status: 'Pendiente',
+              badge: 'badge-warning'
+            }
+          ],
+          pagos: [],
+          tickets: [],
+          documentos: []
         }
       });
     }
