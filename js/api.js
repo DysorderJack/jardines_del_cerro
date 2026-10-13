@@ -212,22 +212,41 @@ class ApiClient {
 
   // Inteligencia Artificial (Google Gemini)
   async chatAI(prompt, contextType = 'public', userId = null, unit = null) {
-    if (!this.isBackendOnline) return null;
-    try {
-      const res = await fetch(`${this.baseUrl}/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          context_type: contextType,
-          user_id: userId,
-          unit: unit
-        })
-      });
-      return await res.json();
-    } catch (e) {
-      return null;
+    const candidateUrls = [];
+    if (this.isBackendOnline && this.baseUrl) {
+      candidateUrls.push(this.baseUrl);
     }
+    if (!candidateUrls.includes(this.remoteApi)) {
+      candidateUrls.push(this.remoteApi);
+    }
+    if (this.baseUrl && !candidateUrls.includes(this.baseUrl)) {
+      candidateUrls.push(this.baseUrl);
+    }
+
+    for (const base of candidateUrls) {
+      try {
+        const res = await fetch(`${base}/ai/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            context_type: contextType,
+            user_id: userId,
+            unit: unit
+          }),
+          signal: AbortSignal.timeout(25000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          this.isBackendOnline = true;
+          this.baseUrl = base;
+          return data;
+        }
+      } catch (e) {
+        // Continuar con el siguiente endpoint candidato
+      }
+    }
+    return null;
   }
 
   async getAIStatus() {

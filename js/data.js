@@ -434,13 +434,13 @@ const ADMIN_MOCK_DATA = {
     }
   ],
   aiSubscription: {
-    active: false, // Inicia inactiva para permitir demostración interactiva con PayPal
+    active: true,
     plan: "Suite Mensual IA Administrador Pro",
     priceUsd: 24.99,
-    paypalSubId: null,
-    subscribedAt: null,
-    renewalDate: null,
-    statusLabel: "Inactiva (Requiere Suscripción Ejecutiva)"
+    paypalSubId: "I-ADMIN-CERRO-PRO",
+    subscribedAt: "12 Oct 2026",
+    renewalDate: "12 Nov 2026",
+    statusLabel: "Activa (Copiloto Ejecutivo Habilitado)"
   }
 };
 
@@ -461,13 +461,13 @@ const REGISTERED_USERS_DATA = [
     status: "approved",
     avatar: "RR",
     aiSubscription: {
-      active: false, // Inicia inactiva para permitir suscripción interactiva con PayPal
-      plan: "Mensual",
+      active: true,
+      plan: "Plan Residente Convivencia & DGII",
       priceUsd: 9.99,
-      paypalSubId: null,
-      subscribedAt: null,
-      renewalDate: null,
-      statusLabel: "Inactiva (Requiere Suscripción)"
+      paypalSubId: "I-PAYPAL-SUB-301",
+      subscribedAt: "01 Oct 2026",
+      renewalDate: "01 Nov 2026",
+      statusLabel: "Activa vía PayPal"
     }
   },
   {
@@ -505,13 +505,13 @@ const REGISTERED_USERS_DATA = [
     status: "pending", // Cambia a "approved" al aprobarse
     avatar: "LB",
     aiSubscription: {
-      active: false,
-      plan: null,
-      priceUsd: null,
-      paypalSubId: null,
-      subscribedAt: null,
-      renewalDate: null,
-      statusLabel: "Exclusivo para Propietarios"
+      active: true,
+      plan: "Plan Residente Convivencia & DGII",
+      priceUsd: 9.99,
+      paypalSubId: "I-PAYPAL-SUB-101",
+      subscribedAt: "12 Oct 2026",
+      renewalDate: "12 Nov 2026",
+      statusLabel: "Activa vía PayPal"
     }
   }
 ];

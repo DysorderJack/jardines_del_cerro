@@ -36,7 +36,8 @@ async def chat_ai(payload: AIChatPrompt, db: Session = Depends(get_db)):
     """
     extra_context = {}
 
-    # Validar suscripción activa para residente o admin (en producción sin API key)
+    # Estado de suscripción/membresía para residentes y administrador
+    has_active_sub = True
     if payload.context_type in ["resident", "admin"]:
         sub_query = db.query(Subscription).filter(
             Subscription.context == payload.context_type,
@@ -44,14 +45,8 @@ async def chat_ai(payload: AIChatPrompt, db: Session = Depends(get_db)):
         )
         if payload.context_type == "resident" and payload.user_id:
             sub_query = sub_query.filter(Subscription.user_id == payload.user_id)
-        
         active_sub = sub_query.first()
-        # Si la API Key de Gemini está configurada o se está en modo demostración/administración, se atiende la consulta
-        if not active_sub and not GEMINI_API_KEY:
-            raise HTTPException(
-                status_code=402,
-                detail=f"Acceso denegado: El módulo de IA para {payload.context_type} requiere una suscripción activa vía PayPal."
-            )
+        has_active_sub = bool(active_sub) or bool(GEMINI_API_KEY)
 
     # Recopilar contexto en tiempo real desde la base de datos
     if payload.context_type == "resident":
