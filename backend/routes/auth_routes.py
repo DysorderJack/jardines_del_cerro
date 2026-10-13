@@ -133,6 +133,28 @@ async def register(
                 detail=f"Ya existe una solicitud pendiente de aprobación para el correo '{clean_email}'."
             )
 
+    # 2.5 Validación: Unidad disponible (no ocupada por un residente aprobado)
+    clean_unit = unit.replace("Unidad", "").replace("unidad", "").strip()
+    occupied_resident = db.query(User).filter(
+        ((User.unit == unit) | (User.unit == clean_unit)) &
+        (User.status == "approved")
+    ).first()
+    if occupied_resident:
+        raise HTTPException(
+            status_code=400,
+            detail=f"La Unidad {unit} ya se encuentra ocupada por un residente activo. Por favor selecciona una unidad disponible."
+        )
+
+    occupied_unit = db.query(Unit).filter(
+        ((Unit.number == unit) | (Unit.number == clean_unit)) &
+        (Unit.status == "occupied")
+    ).first()
+    if occupied_unit:
+        raise HTTPException(
+            status_code=400,
+            detail=f"La Unidad {unit} ya se encuentra ocupada en el sistema. Por favor selecciona una unidad disponible."
+        )
+
     # 3. Validación obligatoria de subida física de contrato
     if not contract_file or not contract_file.filename or len(contract_file.filename.strip()) == 0:
         raise HTTPException(

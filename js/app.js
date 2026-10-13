@@ -125,6 +125,7 @@ class JardinesApp {
     this.updateBookingSummary();
     this.updateMortgageCalculator();
     this.updateAdminPendingBadge();
+    this.renderRegistrationUnitsDropdown();
 
     // Event listener para cerrar dropdowns al hacer clic fuera
     document.addEventListener('click', (e) => {
@@ -1081,6 +1082,7 @@ class JardinesApp {
       if (pendingAlert) pendingAlert.style.display = 'none';
       if (btnRegister) { btnRegister.className = 'btn-primary'; btnRegister.style.color = '#fff'; }
       if (btnLogin) { btnLogin.className = 'btn-outline'; btnLogin.style.color = 'var(--dust)'; btnLogin.style.border = 'none'; }
+      this.renderRegistrationUnitsDropdown();
     }
   }
 
@@ -1132,6 +1134,103 @@ class JardinesApp {
     const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
     const inAdmins = customAdmins.some(a => (a.email || '').toLowerCase() === clean);
     return inUsers || inReqs || inAdmins;
+  }
+
+  /* =========================================================================
+     Gestión Dinámica de Unidades Disponibles para Registro
+     ========================================================================= */
+  isUnitOccupied(unitNumber) {
+    const clean = (unitNumber || '').toString().replace('Unidad', '').replace('unidad', '').trim().toLowerCase();
+    if (!clean) return false;
+
+    // 1. Revisar si hay un usuario aprobado para esta unidad en el padrón
+    const hasApprovedUser = (this.registeredUsers || []).some(u => {
+      const uNum = (u.unit || '').toString().replace('Unidad', '').replace('unidad', '').trim().toLowerCase();
+      return uNum === clean && u.status === 'approved';
+    });
+    if (hasApprovedUser) return true;
+
+    // 2. Revisar inventario de unidades en catálogo
+    const invUnit = (this.units || []).find(u => {
+      const uNum = (u.number || '').toString().toLowerCase();
+      const uId = (u.id || '').toString().toLowerCase();
+      return uNum === clean || uId === clean || uId === `apt-${clean}` || uId === `ph-${clean}` || (u.id && u.id.endsWith(clean));
+    });
+    if (invUnit && invUnit.status === 'occupied') {
+      return true;
+    }
+
+    // 3. Revisar en el directorio de residentes del administrador
+    const resDir = ((this.adminData && this.adminData.residents) || []).find(r => {
+      const rNum = (r.unit || '').toString().replace('Unidad', '').replace('unidad', '').trim().toLowerCase();
+      return rNum === clean;
+    });
+    if (resDir && resDir.condition !== 'Disponible' && resDir.name !== '—' && !resDir.name.includes('Disponible')) {
+      return true;
+    }
+
+    // 4. Revisar si hay una solicitud aprobada para esta unidad
+    const hasApprovedReq = ((this.adminData && this.adminData.registrationRequests) || []).some(req => {
+      const reqNum = (req.unit || '').toString().replace('Unidad', '').replace('unidad', '').trim().toLowerCase();
+      return reqNum === clean && req.status === 'approved';
+    });
+    if (hasApprovedReq) return true;
+
+    return false;
+  }
+
+  renderRegistrationUnitsDropdown() {
+    const select = document.getElementById('reg-unit');
+    if (!select) return;
+
+    const previousVal = select.value;
+
+    // Catálogo base de unidades
+    const allUnits = (this.units && this.units.length > 0) ? this.units : [
+      { number: "101", typeName: "Apartamento", sqm: 120 },
+      { number: "201", typeName: "Apartamento", sqm: 120 },
+      { number: "301", typeName: "Apartamento", sqm: 120 },
+      { number: "501", typeName: "Apartamento", sqm: 120 },
+      { number: "PH-901", typeName: "Penthouse", sqm: 170 },
+      { number: "PH-1001", typeName: "Penthouse", sqm: 170 }
+    ];
+
+    // Filtrar solo las unidades que NO están ocupadas por un residente aprobado
+    const availableUnits = allUnits.filter(u => !this.isUnitOccupied(u.number));
+
+    select.innerHTML = '';
+
+    if (availableUnits.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.disabled = true;
+      opt.selected = true;
+      opt.textContent = '⚠️ No hay unidades residenciales disponibles (Todas asignadas)';
+      select.appendChild(opt);
+      select.disabled = true;
+    } else {
+      select.disabled = false;
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.disabled = true;
+      placeholder.textContent = 'Selecciona tu unidad residencial asignada...';
+      select.appendChild(placeholder);
+
+      availableUnits.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.number;
+        const prefix = (u.typeName && u.typeName.toLowerCase().includes('penthouse')) ? '' : 'Unidad ';
+        opt.textContent = `${prefix}${u.number} (${u.sqm || 120} m²)`;
+        select.appendChild(opt);
+      });
+
+      // Si el valor seleccionado previamente sigue estando disponible, mantenerlo; sino, placeholder
+      if (previousVal && availableUnits.some(u => u.number === previousVal)) {
+        select.value = previousVal;
+      } else {
+        placeholder.selected = true;
+      }
+    }
   }
 
   handleDocInput(input) {
@@ -1333,6 +1432,15 @@ class JardinesApp {
     const role = document.getElementById('reg-role').value;
     const pass = (document.getElementById('reg-pass') || {}).value || '';
     const passConfirm = (document.getElementById('reg-pass-confirm') || {}).value || '';
+
+    // 0. VALIDACIÓN: Unidad obligatoria y disponible
+    if (!unit || this.isUnitOccupied(unit)) {
+      showError('La unidad residencial seleccionada ya se encuentra ocupada por un residente aprobado. Por favor selecciona otra unidad de la lista.');
+      this.renderRegistrationUnitsDropdown();
+      const unitInput = document.getElementById('reg-unit');
+      if (unitInput) unitInput.focus();
+      return;
+    }
 
     // 1. VALIDACIÓN: Cédula única (Requisito 1)
     if (this.isDocumentIdTaken(docId)) {
@@ -3649,7 +3757,22 @@ class JardinesApp {
       resDir.status = 'Al día';
     }
 
-    // 3. Actividad reciente
+    // 3. Marcar la unidad como ocupada en el catálogo
+    const cleanUnit = (req.unit || '').toString().replace('Unidad', '').replace('unidad', '').trim();
+    const invUnit = (this.units || []).find(u =>
+      u.number === cleanUnit ||
+      u.number === req.unit ||
+      u.id === cleanUnit ||
+      u.id === `apt-${cleanUnit.toLowerCase()}` ||
+      u.id === `ph-${cleanUnit.toLowerCase()}` ||
+      (u.id && u.id.endsWith(cleanUnit.toLowerCase()))
+    );
+    if (invUnit) {
+      invUnit.status = 'occupied';
+      invUnit.statusLabel = 'Ocupado';
+    }
+
+    // 4. Actividad reciente
     this.adminData.recentActivity.unshift({
       title: `Solicitud aprobada: ${req.applicantName} habilitado en Unidad ${req.unit} (Correo enviado a ${req.email})`,
       time: 'Hace un momento',
@@ -3659,6 +3782,10 @@ class JardinesApp {
     this.saveAllState();
     this.updateAdminPendingBadge();
     this.renderAdminTabContent();
+    if (typeof this.renderUnits === 'function') {
+      this.renderUnits();
+    }
+    this.renderRegistrationUnitsDropdown();
     this.showToast(`Aprobando y despachando notificación oficial a ${req.email}...`);
 
     let backendResult = null;
@@ -3829,6 +3956,7 @@ class JardinesApp {
     if (typeof this.renderUnits === 'function') {
       this.renderUnits();
     }
+    this.renderRegistrationUnitsDropdown();
     this.showToast(`Residente "${targetName}" desvinculado y Unidad ${cleanUnit} liberada.`);
 
     // 7. Sincronizar con backend si está disponible
