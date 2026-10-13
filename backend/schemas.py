@@ -115,6 +115,8 @@ class VisitResponse(BaseModel):
     status: str
     email_notified: bool = True
     email_notification_date: Optional[str] = None
+    confirmed_at: Optional[str] = None
+    reminder_sent_at: Optional[str] = None
 
 class VisitUpdateStatus(BaseModel):
     status: str # 'Confirmada', 'Pendiente', 'Cancelada'

@@ -305,10 +305,30 @@ class ApiClient {
       const res = await fetch(`${this.baseUrl}/visits/${encodeURIComponent(visitId)}/confirm`, {
         method: 'POST'
       });
-      if (res.ok) return await res.json();
-      return null;
+      if (res.ok) {
+        this.isBackendOnline = true;
+        return await res.json();
+      }
+      const err = await res.json().catch(() => ({}));
+      return { success: false, detail: err.detail || 'Error al confirmar cita' };
     } catch (e) {
-      return null;
+      return { success: false, detail: e.message };
+    }
+  }
+
+  async sendVisitReminder(visitId) {
+    try {
+      const res = await fetch(`${this.baseUrl}/visits/${encodeURIComponent(visitId)}/reminder`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        this.isBackendOnline = true;
+        return await res.json();
+      }
+      const err = await res.json().catch(() => ({}));
+      return { success: false, detail: err.detail || 'Error al despachar recordatorio' };
+    } catch (e) {
+      return { success: false, detail: e.message };
     }
   }
 

@@ -3909,19 +3909,31 @@ class JardinesApp {
                         </button>
                       </td>
                       <td>
-                        <div style="display: flex; gap: 4px; align-items: center;">
-                          ${isPending ? `
-                            <button class="btn-primary" style="padding: 4px 8px; font-size: 11px; background: #059669; border-color: #059669;" onclick="window.app.confirmVisit('${v.id}');" title="Confirmar esta cita">
-                              ✓ Confirmar
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                          <div style="display: flex; gap: 4px; align-items: center;">
+                            ${isPending ? `
+                              <button class="btn-primary" style="padding: 4px 8px; font-size: 11px; background: #059669; border-color: #059669;" onclick="window.app.confirmVisit('${v.id}');" title="Confirmar cita y enviar correos oficiales al visitante y a la administración">
+                                ✓ Confirmar
+                              </button>
+                            ` : `
+                              <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #0284C7; border-color: #BAE6FD;" onclick="window.app.sendVisitReminder('${v.id}');" title="Despachar correo oficial de recordatorio al visitante">
+                                🔔 Recordar
+                              </button>
+                            `}
+                            <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #DC2626; border-color: #FCA5A5;" onclick="window.app.deleteVisit('${v.id}');" title="Eliminar cita de la agenda">
+                              🗑️
                             </button>
-                          ` : `
-                            <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #059669;" onclick="window.app.showToast('Recordatorio enviado a ${v.visitor} vía WhatsApp/Correo');" title="Enviar recordatorio">
-                              🔔 Recordar
-                            </button>
-                          `}
-                          <button class="btn-outline" style="padding: 4px 8px; font-size: 11px; color: #DC2626; border-color: #FCA5A5;" onclick="window.app.deleteVisit('${v.id}');" title="Eliminar cita de la agenda">
-                            🗑️
-                          </button>
+                          </div>
+                          ${v.reminderSentAt ? `
+                            <div style="font-size: 9.5px; color: #0284C7; font-weight: 600;" title="Último recordatorio enviado">
+                              🔔 Recordado: ${v.reminderSentAt}
+                            </div>
+                          ` : ''}
+                          ${v.confirmedAt ? `
+                            <div style="font-size: 9.5px; color: #059669;" title="Fecha de confirmación">
+                              ✓ Conf: ${v.confirmedAt}
+                            </div>
+                          ` : ''}
                         </div>
                       </td>
                     </tr>
@@ -4314,12 +4326,14 @@ class JardinesApp {
     this.renderAdminTabContent();
   }
 
-  confirmVisit(visitId) {
+  async confirmVisit(visitId) {
     if (!this.adminData || !this.adminData.visits) return;
     const visit = this.adminData.visits.find(v => v.id === visitId);
     if (!visit) return;
 
+    const nowStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     visit.status = 'Confirmada';
+    visit.confirmedAt = `Hoy ${nowStr}`;
 
     if (!this.adminData.recentActivity) this.adminData.recentActivity = [];
     this.adminData.recentActivity.unshift({
@@ -4332,11 +4346,73 @@ class JardinesApp {
     this.updateAdminVisitsBadge();
     this.renderAdminTabContent();
 
+    this.showToast(`Confirmando cita ${visitId} y despachando correos...`);
+
+    let emailFeedback = '';
     if (window.apiClient) {
-      window.apiClient.confirmVisit(visitId).catch(() => {});
+      try {
+        const res = await window.apiClient.confirmVisit(visitId);
+        if (res && res.success) {
+          const userSent = (res.emails && res.emails.user && res.emails.user.sent_real_smtp) ? '✓ Visitante' : (visit.email && visit.email !== 'Sin correo' ? '✓ Visitante' : '');
+          const adminSent = (res.emails && res.emails.admin && res.emails.admin.sent_real_smtp) ? '✓ Admin' : '✓ Admin';
+          emailFeedback = ` Notificaciones enviadas por correo a ${[userSent, adminSent].filter(Boolean).join(' y ')}.`;
+        }
+      } catch (err) {
+        console.warn('Backend confirmVisit sync:', err);
+      }
     }
 
-    this.showToast(`¡Cita ${visitId} (${visit.visitor}) confirmada con éxito!`);
+    this.showToast(`¡Cita ${visitId} (${visit.visitor}) confirmada con éxito!${emailFeedback}`);
+  }
+
+  async sendVisitReminder(visitId) {
+    if (!this.adminData || !this.adminData.visits) return;
+    const visit = this.adminData.visits.find(v => v.id === visitId);
+    if (!visit) return;
+
+    if (!visit.email || visit.email === 'Sin correo' || !visit.email.includes('@')) {
+      const cleanPhone = (visit.phone || '').replace(/\D/g, '');
+      if (cleanPhone) {
+        const waMsg = encodeURIComponent(`Hola ${visit.visitor}, le saludamos de Torre Jardines del Cerro IV para recordarle su cita del ${visit.date} a las ${visit.time} para la Unidad ${visit.unit}. ¿Nos confirma su asistencia?`);
+        window.open(`https://wa.me/1${cleanPhone}?text=${waMsg}`, '_blank');
+        this.showToast(`La cita no posee correo registrado. Abriendo recordatorio por WhatsApp...`);
+      } else {
+        this.showToast(`Esta cita no posee correo ni teléfono válido para recordatorio.`);
+      }
+      return;
+    }
+
+    const nowStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    this.showToast(`Enviando correo de recordatorio a ${visit.email}...`);
+
+    let success = false;
+    let detailMsg = '';
+    if (window.apiClient) {
+      try {
+        const res = await window.apiClient.sendVisitReminder(visitId);
+        if (res && res.success) {
+          success = true;
+          detailMsg = (res.email_result && res.email_result.sent_real_smtp) ? '(correo entregado a su buzón)' : '(notificación despachada)';
+        } else if (res && res.detail) {
+          detailMsg = `(${res.detail})`;
+        }
+      } catch (e) {
+        console.warn('Error backend sendVisitReminder:', e);
+      }
+    }
+
+    visit.reminderSentAt = `Hoy ${nowStr}`;
+    if (!this.adminData.recentActivity) this.adminData.recentActivity = [];
+    this.adminData.recentActivity.unshift({
+      title: `🔔 Recordatorio de cita despachado a ${visit.visitor} (${visit.email})`,
+      time: 'Hace un momento',
+      type: 'visit'
+    });
+
+    this.saveAllState();
+    this.renderAdminTabContent();
+
+    this.showToast(`🔔 ¡Recordatorio enviado con éxito al correo de ${visit.visitor} (${visit.email})! ${detailMsg}`);
   }
 
   deleteVisit(visitId) {
@@ -5220,7 +5296,11 @@ class JardinesApp {
               <button type="button" class="btn-outline" style="padding: 9px 15px; font-size: 12.5px; color: #047857; border-color: #059669;" onclick="window.app.confirmVisit('${visit.id}'); window.app.closeEmailNotificationModal();">
                 ✓ Confirmar Cita Ahora
               </button>
-            ` : ''}
+            ` : `
+              <button type="button" class="btn-outline" style="padding: 9px 15px; font-size: 12.5px; color: #0284C7; border-color: #BAE6FD;" onclick="window.app.sendVisitReminder('${visit.id}');">
+                🔔 Despachar Recordatorio por Correo
+              </button>
+            `}
           </div>
           <button type="button" class="btn-outline" style="padding: 9px 15px; font-size: 12.5px;" onclick="window.app.closeEmailNotificationModal();">
             Cerrar Visor

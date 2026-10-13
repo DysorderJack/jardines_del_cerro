@@ -133,5 +133,7 @@ class Visit(Base):
     status = Column(String(30), default="Pendiente")
     email_notified = Column(Boolean, default=True)
     email_notification_date = Column(String(50), nullable=True)
+    confirmed_at = Column(String(50), nullable=True)
+    reminder_sent_at = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

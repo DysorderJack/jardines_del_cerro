@@ -41,6 +41,19 @@ app.add_middleware(
 # 4. Sembrar datos iniciales al arrancar
 @app.on_event("startup")
 def on_startup():
+    # Asegurar que las nuevas columnas existan si la base de datos ya fue creada previamente
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            for col, col_type in [("confirmed_at", "VARCHAR(50)"), ("reminder_sent_at", "VARCHAR(50)")]:
+                try:
+                    conn.execute(text(f"ALTER TABLE visits ADD COLUMN {col} {col_type}"))
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     db = SessionLocal()
     try:
         seed_database_if_empty(db)
