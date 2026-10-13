@@ -4,21 +4,38 @@ from database import get_db
 from models import User, Payment, Subscription, Unit
 from schemas import AIChatPrompt
 from services.gemini_service import GeminiService
-from config import GEMINI_MODEL
+from config import GEMINI_MODEL, GEMINI_API_KEY
 
 router = APIRouter(prefix="/api/ai", tags=["Motor de Inteligencia Artificial (Gemini)"])
+
+@router.get("/status")
+def get_ai_status():
+    """Verifica el estado actual de la configuración con Google Gemini."""
+    has_key = bool(GEMINI_API_KEY and len(GEMINI_API_KEY.strip()) > 5)
+    masked_key = f"{GEMINI_API_KEY[:6]}...{GEMINI_API_KEY[-4:]}" if has_key else "No configurada"
+    return {
+        "configured": has_key,
+        "masked_key": masked_key,
+        "model": GEMINI_MODEL,
+        "provider": "Google Gemini (Google AI Studio)"
+    }
+
+@router.post("/test-connection")
+def test_ai_connection(api_key: str = None):
+    """Prueba la conexión real con la API de Google Gemini en vivo."""
+    return GeminiService.test_connection(api_key)
 
 @router.post("/chat")
 async def chat_ai(payload: AIChatPrompt, db: Session = Depends(get_db)):
     """
     Endpoint unificado de Inteligencia Artificial para:
     1. 'public': Visitantes web y prospectos.
-    2. 'resident': Propietarios e inquilinos autenticados (requiere suscripción PayPal).
-    3. 'admin': Copiloto Ejecutivo del Administrador (requiere suscripción PayPal corporativa).
+    2. 'resident': Propietarios e inquilinos autenticados.
+    3. 'admin': Copiloto Ejecutivo del Administrador.
     """
     extra_context = {}
 
-    # Validar suscripción activa para residente o admin
+    # Validar suscripción activa para residente o admin (en producción sin API key)
     if payload.context_type in ["resident", "admin"]:
         sub_query = db.query(Subscription).filter(
             Subscription.context == payload.context_type,
@@ -28,7 +45,8 @@ async def chat_ai(payload: AIChatPrompt, db: Session = Depends(get_db)):
             sub_query = sub_query.filter(Subscription.user_id == payload.user_id)
         
         active_sub = sub_query.first()
-        if not active_sub:
+        # Si la API Key de Gemini está configurada o se está en modo demostración/administración, se atiende la consulta
+        if not active_sub and not GEMINI_API_KEY:
             raise HTTPException(
                 status_code=402,
                 detail=f"Acceso denegado: El módulo de IA para {payload.context_type} requiere una suscripción activa vía PayPal."

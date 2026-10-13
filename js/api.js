@@ -229,6 +229,27 @@ class ApiClient {
       return null;
     }
   }
+
+  async getAIStatus() {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/ai/status`);
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async testAIConnection(apiKey = null) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const url = apiKey ? `${this.baseUrl}/ai/test-connection?api_key=${encodeURIComponent(apiKey)}` : `${this.baseUrl}/ai/test-connection`;
+      const res = await fetch(url, { method: 'POST' });
+      return await res.json();
+    } catch (e) {
+      return { success: false, error: 'No se pudo contactar con el servidor' };
+    }
+  }
 }
 
 // Instancia global del cliente de API

@@ -2749,7 +2749,7 @@ class JardinesApp {
     this.handleResidentAISubmit(new Event('submit'));
   }
 
-  handleResidentAISubmit(e) {
+  async handleResidentAISubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
     const input = document.getElementById('resident-ai-input-field');
     const container = document.getElementById('resident-ai-messages-container');
@@ -2770,20 +2770,37 @@ class JardinesApp {
     const typingBubble = document.createElement('div');
     typingBubble.className = 'chat-bubble assistant';
     typingBubble.style.opacity = '0.7';
-    typingBubble.innerText = 'Consultando base de datos privada...';
+    typingBubble.innerText = 'Consultando inteligencia artificial (Gemini)...';
     container.appendChild(typingBubble);
     container.scrollTop = container.scrollHeight;
 
-    setTimeout(() => {
-      typingBubble.remove();
-      const responseHtml = this.generateResidentAIResponse(text);
-      const assistantBubble = document.createElement('div');
-      assistantBubble.className = 'chat-bubble assistant';
-      assistantBubble.style.maxWidth = '85%';
-      assistantBubble.innerHTML = responseHtml;
-      container.appendChild(assistantBubble);
-      container.scrollTop = container.scrollHeight;
-    }, 600);
+    let responseHtml = null;
+    const user = this.currentUser || this.registeredUsers[0];
+
+    // 1. Intentar llamar a Google Gemini vía Backend FastAPI
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        const res = await window.apiClient.chatAI(text, 'resident', user ? user.id : null, user ? user.unit : '101');
+        if (res && res.success && res.response) {
+          responseHtml = res.response.replace(/\n/g, '<br>');
+        }
+      } catch (err) {
+        console.warn('Fallback a motor local de IA residente:', err);
+      }
+    }
+
+    // 2. Motor contextual local garantizado si el backend está offline o sin clave
+    if (!responseHtml) {
+      responseHtml = this.generateResidentAIResponse(text);
+    }
+
+    typingBubble.remove();
+    const assistantBubble = document.createElement('div');
+    assistantBubble.className = 'chat-bubble assistant';
+    assistantBubble.style.maxWidth = '85%';
+    assistantBubble.innerHTML = responseHtml;
+    container.appendChild(assistantBubble);
+    container.scrollTop = container.scrollHeight;
   }
 
   generateResidentAIResponse(userInput) {
@@ -3384,6 +3401,9 @@ class JardinesApp {
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                 <span class="badge badge-accent" style="font-size: 11px;">Módulo Corporativo Exclusivo</span>
                 <div style="display: flex; align-items: center; gap: 8px;">
+                  <button type="button" class="btn-outline" style="font-size: 11px; padding: 4px 10px;" onclick="window.app.promptTestGemini();" title="Probar conexión en vivo con Google Gemini">
+                    🤖 Probar Gemini API
+                  </button>
                   <span style="font-weight: 800; font-size: 15px; color: #003087;">PayPal <span style="color: #0079C1;">Subscriptions</span></span>
                   <span style="font-size: 11px; color: #047857; font-weight: 700; background: #ECFDF5; padding: 2px 8px; border-radius: 999px;">✓ Verificado</span>
                 </div>
@@ -3465,9 +3485,14 @@ class JardinesApp {
                 ID de Suscripción: <code>${sub.paypalSubId}</code> · Plan ${sub.plan || 'Suite Pro'}
               </p>
             </div>
-            <button class="btn-outline" style="padding: 6px 12px; font-size: 11px;" onclick="window.app.setAdminTab('suscripcion_admin');">
-              Administrar Suscripción PayPal
-            </button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-outline" style="padding: 6px 12px; font-size: 11px;" onclick="window.app.promptTestGemini();" title="Probar conexión en vivo con Google Gemini API">
+                🤖 Probar Gemini API
+              </button>
+              <button class="btn-outline" style="padding: 6px 12px; font-size: 11px;" onclick="window.app.setAdminTab('suscripcion_admin');">
+                Administrar Suscripción PayPal
+              </button>
+            </div>
           </div>
 
           <!-- Ventana de Chat Inteligente Ejecutivo -->
@@ -4425,6 +4450,30 @@ class JardinesApp {
     }
   }
 
+  async promptTestGemini() {
+    this.showToast('Verificando conexión con Google Gemini API...');
+    if (window.apiClient) {
+      const res = await window.apiClient.testAIConnection();
+      if (res && res.success) {
+        alert(`¡Conexión Exitosa con Google Gemini! 🎉\n\nProveedor: ${res.provider}\nModelo: ${res.model}\n\nDetalles del servidor:\n${res.message}`);
+      } else {
+        const errorMsg = (res && res.error) ? res.error : 'No se pudo conectar al servicio de Gemini.';
+        const keyPrompt = prompt(`Diagnóstico de Gemini API:\n\n${errorMsg}\n\n¿Deseas probar con una clave de Google Gemini API directamente? Ingrésala aquí (o agrégala como GEMINI_API_KEY en backend/.env o en las variables de Render):`);
+        if (keyPrompt && keyPrompt.trim()) {
+          this.showToast('Probando clave con Google Gemini...');
+          const res2 = await window.apiClient.testAIConnection(keyPrompt.trim());
+          if (res2 && res2.success) {
+            alert(`¡Clave Válida! 🎉\n\nGoogle Gemini respondió correctamente:\n${res2.message}\n\nRecuerda guardarla en backend/.env o en Render como GEMINI_API_KEY.`);
+          } else {
+            alert(`Error al validar la clave:\n\n${res2.error || 'Clave inválida o sin permisos'}`);
+          }
+        }
+      }
+    } else {
+      alert("El cliente API del backend no está disponible.");
+    }
+  }
+
   /* =========================================================================
      Chatbot de Asistente Virtual IA
      ========================================================================= */
@@ -4538,7 +4587,7 @@ class JardinesApp {
     this.handleAdminAISubmit(new Event('submit'));
   }
 
-  handleAdminAISubmit(e) {
+  async handleAdminAISubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
     const input = document.getElementById('admin-ai-input-field');
     const container = document.getElementById('admin-ai-messages-container');
@@ -4559,20 +4608,36 @@ class JardinesApp {
     const typingBubble = document.createElement('div');
     typingBubble.className = 'chat-bubble assistant';
     typingBubble.style.opacity = '0.7';
-    typingBubble.innerText = 'Analizando libros contables, actas de condominio y telemetría de equipos...';
+    typingBubble.innerText = 'Analizando con Copiloto IA Ejecutivo (Gemini)...';
     container.appendChild(typingBubble);
     container.scrollTop = container.scrollHeight;
 
-    setTimeout(() => {
-      typingBubble.remove();
-      const responseHtml = this.generateAdminAIResponse(text);
-      const assistantBubble = document.createElement('div');
-      assistantBubble.className = 'chat-bubble assistant';
-      assistantBubble.style.maxWidth = '88%';
-      assistantBubble.innerHTML = responseHtml;
-      container.appendChild(assistantBubble);
-      container.scrollTop = container.scrollHeight;
-    }, 600);
+    let responseHtml = null;
+
+    // 1. Intentar llamar a Google Gemini vía Backend FastAPI
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        const res = await window.apiClient.chatAI(text, 'admin');
+        if (res && res.success && res.response) {
+          responseHtml = res.response.replace(/\n/g, '<br>');
+        }
+      } catch (err) {
+        console.warn('Fallback a motor local de Copiloto IA admin:', err);
+      }
+    }
+
+    // 2. Motor contextual local garantizado si el backend está offline o sin clave
+    if (!responseHtml) {
+      responseHtml = this.generateAdminAIResponse(text);
+    }
+
+    typingBubble.remove();
+    const assistantBubble = document.createElement('div');
+    assistantBubble.className = 'chat-bubble assistant';
+    assistantBubble.style.maxWidth = '88%';
+    assistantBubble.innerHTML = responseHtml;
+    container.appendChild(assistantBubble);
+    container.scrollTop = container.scrollHeight;
   }
 
   generateAdminAIResponse(userInput) {

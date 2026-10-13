@@ -52,8 +52,8 @@ class GeminiService:
 
         # 1. Intentar llamar a Google Gemini si existe API Key
         if GEMINI_API_KEY:
+            # A. SDK Oficial google-genai
             try:
-                # Usar el SDK oficial google-genai
                 from google import genai
                 client = genai.Client(api_key=GEMINI_API_KEY)
                 response = client.models.generate_content(
@@ -64,10 +64,94 @@ class GeminiService:
                 if response and response.text:
                     return response.text
             except Exception as e:
-                logger.warning(f"Fallo llamada a Google Gemini API ({e}). Usando motor contextual local de respaldo.")
+                logger.warning(f"Fallo llamada SDK Google Gemini ({e}). Intentando vía REST API directa...")
+
+            # B. Llamada HTTP directa a Google Gemini REST API (máxima compatibilidad)
+            try:
+                import requests
+                model_name = GEMINI_MODEL or "gemini-2.0-flash"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
+                payload = {
+                    "contents": [{"parts": [{"text": augmented_prompt}]}],
+                    "systemInstruction": {"parts": [{"text": system_instruction}]}
+                }
+                res = requests.post(url, json=payload, timeout=20)
+                if res.ok:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0]:
+                        parts = candidates[0]["content"].get("parts", [])
+                        if parts and "text" in parts[0]:
+                            return parts[0]["text"]
+                else:
+                    logger.warning(f"Respuesta HTTP no exitosa de Gemini REST API: {res.status_code} - {res.text}")
+            except Exception as e_rest:
+                logger.warning(f"Fallo llamada HTTP REST a Gemini ({e_rest}). Usando motor contextual local.")
 
         # 2. Fallback contextual de alta fidelidad garantizado
         return cls._local_fallback(prompt, context_type, extra_context)
+
+    @classmethod
+    def test_connection(cls, api_key: str = None) -> dict:
+        """
+        Prueba la conectividad real con Google Gemini API y retorna un diagnóstico detallado.
+        """
+        key = (api_key or GEMINI_API_KEY or "").strip()
+        if not key:
+            return {
+                "success": False,
+                "error": "No se ha configurado ninguna GEMINI_API_KEY en el servidor (.env o variables de entorno de Render)."
+            }
+
+        model_name = GEMINI_MODEL or "gemini-2.0-flash"
+        
+        # 1. Probar con SDK
+        try:
+            from google import genai
+            client = genai.Client(api_key=key)
+            response = client.models.generate_content(
+                model=model_name,
+                contents="Por favor responde únicamente la palabra: CONECTADO"
+            )
+            if response and response.text:
+                return {
+                    "success": True,
+                    "provider": "Google Gemini (SDK)",
+                    "model": model_name,
+                    "message": f"Conexión exitosa con Google Gemini ({model_name}). Respuesta del modelo: {response.text.strip()}"
+                }
+        except Exception as e_sdk:
+            logger.info(f"Test SDK falló ({e_sdk}), probando REST directo...")
+
+        # 2. Probar con REST
+        try:
+            import requests
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+            payload = {
+                "contents": [{"parts": [{"text": "Por favor responde únicamente la palabra: CONECTADO"}]}]
+            }
+            res = requests.post(url, json=payload, timeout=12)
+            if res.ok:
+                data = res.json()
+                reply = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                return {
+                    "success": True,
+                    "provider": "Google Gemini (REST API)",
+                    "model": model_name,
+                    "message": f"Conexión exitosa con Google Gemini ({model_name}). Respuesta: {reply}"
+                }
+            else:
+                err_data = res.json() if res.headers.get("content-type", "").startswith("application/json") else {}
+                err_msg = err_data.get("error", {}).get("message", res.text)
+                return {
+                    "success": False,
+                    "error": f"Error reportado por Google Gemini ({res.status_code}): {err_msg}"
+                }
+        except Exception as e_rest:
+            return {
+                "success": False,
+                "error": f"No se pudo conectar a la API de Google Gemini: {str(e_rest)}"
+            }
 
     @classmethod
     def _local_fallback(cls, prompt: str, context_type: str, extra_context: dict = None) -> str:
