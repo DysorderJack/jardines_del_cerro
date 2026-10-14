@@ -36,15 +36,13 @@ async def chat_ai(payload: AIChatPrompt, db: Session = Depends(get_db)):
     """
     extra_context = {}
 
-    # Estado de suscripción/membresía para residentes y administrador
+    # Estado de suscripción/membresía (Residentes tienen acceso incluido; Administrador vía PayPal/Licencia)
     has_active_sub = True
-    if payload.context_type in ["resident", "admin"]:
+    if payload.context_type == "admin":
         sub_query = db.query(Subscription).filter(
-            Subscription.context == payload.context_type,
+            Subscription.context == "admin",
             Subscription.status == "active"
         )
-        if payload.context_type == "resident" and payload.user_id:
-            sub_query = sub_query.filter(Subscription.user_id == payload.user_id)
         active_sub = sub_query.first()
         has_active_sub = bool(active_sub) or bool(GEMINI_API_KEY)
 

@@ -555,14 +555,9 @@ const REGISTERED_USERS_DATA = [
     password: "1234",
     status: "approved",
     avatar: "RR",
-    aiSubscription: {
-      active: true,
-      plan: "Plan Residente Convivencia & DGII",
-      priceUsd: 9.99,
-      paypalSubId: "I-PAYPAL-SUB-301",
-      subscribedAt: "01 Oct 2026",
-      renewalDate: "01 Nov 2026",
-      statusLabel: "Activa vía PayPal"
+    aiAccess: {
+      enabled: true,
+      tier: "Servicio Residente Incluido"
     }
   },
   {
@@ -577,14 +572,9 @@ const REGISTERED_USERS_DATA = [
     password: "1234",
     status: "approved",
     avatar: "MT",
-    aiSubscription: {
-      active: true,
-      plan: "Anual",
-      priceUsd: 99.00,
-      paypalSubId: "I-PAYPAL-SUB-829104",
-      subscribedAt: "15 Sep 2026",
-      renewalDate: "15 Sep 2027",
-      statusLabel: "Activa vía PayPal"
+    aiAccess: {
+      enabled: true,
+      tier: "Servicio Residente Incluido"
     }
   },
   {
@@ -599,14 +589,9 @@ const REGISTERED_USERS_DATA = [
     password: "1234",
     status: "pending", // Cambia a "approved" al aprobarse
     avatar: "LB",
-    aiSubscription: {
-      active: true,
-      plan: "Plan Residente Convivencia & DGII",
-      priceUsd: 9.99,
-      paypalSubId: "I-PAYPAL-SUB-101",
-      subscribedAt: "12 Oct 2026",
-      renewalDate: "12 Nov 2026",
-      statusLabel: "Activa vía PayPal"
+    aiAccess: {
+      enabled: true,
+      tier: "Servicio Residente Incluido"
     }
   }
 ];

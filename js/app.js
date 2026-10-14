@@ -15,6 +15,24 @@ class JardinesApp {
 
     // Carga con recuperación reactiva
     this.registeredUsers = this.loadStorage(this.storageKeyUsers, REGISTERED_USERS_DATA);
+    
+    // Saneamiento de persistencia en localStorage: Eliminar suscripciones PayPal de residentes (exclusivo para Admin)
+    if (Array.isArray(this.registeredUsers)) {
+      let needsUsersSave = false;
+      this.registeredUsers.forEach(u => {
+        if (u.aiSubscription) {
+          delete u.aiSubscription;
+          needsUsersSave = true;
+        }
+        if (!u.aiAccess) {
+          u.aiAccess = { enabled: true, tier: "Servicio Residente Incluido" };
+          needsUsersSave = true;
+        }
+      });
+      if (needsUsersSave) {
+        this.saveStorage(this.storageKeyUsers, this.registeredUsers);
+      }
+    }
     this.adminData = this.loadStorage(this.storageKeyAdmin, ADMIN_MOCK_DATA);
     this.units = this.loadStorage(this.storageKeyUnits, UNITS_DATA);
     this.amenities = JSON.parse(JSON.stringify(AMENITIES_DATA));
@@ -67,11 +85,11 @@ class JardinesApp {
       paymentMethod: 'paypal'
     };
 
-    // Plan activo de suscripción PayPal para IA
-    this.activeAiPlan = (typeof AI_SUBSCRIPTION_PLANS !== 'undefined') ? AI_SUBSCRIPTION_PLANS[0] : null;
+    // Plan activo de suscripción PayPal para IA (exclusivo para Suite Administrador)
+    this.activeAiPlan = (typeof ADMIN_AI_SUBSCRIPTION_PLANS !== 'undefined') ? ADMIN_AI_SUBSCRIPTION_PLANS[0] : null;
 
-    // Contexto de pasarela PayPal ('resident' o 'admin')
-    this.subscriptionContext = 'resident';
+    // Contexto de pasarela PayPal ('admin')
+    this.subscriptionContext = 'admin';
 
     // Asegurar estructura de suscripción para el Administrador
     if (this.adminData) {
@@ -515,22 +533,18 @@ class JardinesApp {
       }
     }
 
-    // Garantizar acceso activado al Asistente Privado para los Residentes
+    // Garantizar que los residentes tengan acceso al Asistente Privado como beneficio incluido (sin PayPal)
     if (this.registeredUsers && Array.isArray(this.registeredUsers)) {
       this.registeredUsers.forEach(u => {
-        if (!u.aiSubscription || !u.aiSubscription.active) {
-          u.aiSubscription = {
-            active: true,
-            plan: "Plan Residente Convivencia & DGII",
-            priceUsd: 9.99,
-            paypalSubId: "I-PAYPAL-SUB-" + (u.unit || 'RES'),
-            subscribedAt: "12 Oct 2026",
-            renewalDate: "12 Nov 2026",
-            statusLabel: "Activa vía PayPal"
-          };
-        }
+        if (u.aiSubscription) delete u.aiSubscription;
+        u.aiAccess = { enabled: true, tier: "Servicio Residente Incluido" };
       });
     }
+    if (this.currentUser && this.currentUser.role !== 'admin') {
+      if (this.currentUser.aiSubscription) delete this.currentUser.aiSubscription;
+      this.currentUser.aiAccess = { enabled: true, tier: "Servicio Residente Incluido" };
+    }
+    this.cleanResidentPortalPayPalArtifacts();
 
     // Event listener para cerrar dropdowns al hacer clic fuera
     document.addEventListener('click', (e) => {
@@ -2021,14 +2035,9 @@ class JardinesApp {
           password: pass,
           status: 'pending',
           avatar: initials,
-          aiSubscription: {
-            active: false,
-            plan: null,
-            priceUsd: null,
-            paypalSubId: null,
-            subscribedAt: null,
-            renewalDate: null,
-            statusLabel: 'Inactiva (Requiere Suscripción)'
+          aiAccess: {
+            enabled: true,
+            tier: 'Servicio Residente Incluido'
           },
           accountData: {
             unit: unit,
@@ -2153,14 +2162,9 @@ class JardinesApp {
               password: passInput,
               status: 'approved',
               avatar: initials,
-              aiSubscription: {
-                active: true,
-                plan: "Plan Residente Convivencia & DGII",
-                priceUsd: 9.99,
-                paypalSubId: `I-RES-${res.user.unit || '101'}`,
-                subscribedAt: '12 Oct 2026',
-                renewalDate: '12 Nov 2026',
-                statusLabel: 'Activa vía PayPal'
+              aiAccess: {
+                enabled: true,
+                tier: 'Servicio Residente Incluido'
               },
               accountData: {
                 unit: res.user.unit,
@@ -2292,9 +2296,28 @@ class JardinesApp {
     }
   }
 
+  cleanResidentPortalPayPalArtifacts() {
+    if (this.activeOwnerTab === 'suscripcion_ia') {
+      this.activeOwnerTab = 'ia_assistant';
+    }
+    const oldSubBtn = document.querySelector('[data-owner-tab="suscripcion_ia"]');
+    if (oldSubBtn) {
+      oldSubBtn.remove();
+    }
+    const iaBtn = document.querySelector('[data-owner-tab="ia_assistant"]');
+    if (iaBtn) {
+      const badge = iaBtn.querySelector('.badge');
+      if (badge && badge.textContent.includes('PayPal')) {
+        badge.remove();
+      }
+    }
+  }
+
   renderOwnerState() {
     const loginCard = document.getElementById('owner-login-container');
     const dashboardLayout = document.getElementById('owner-dashboard-container');
+
+    this.cleanResidentPortalPayPalArtifacts();
 
     if (this.isOwnerLoggedIn) {
       if (loginCard) loginCard.style.display = 'none';
@@ -2308,10 +2331,16 @@ class JardinesApp {
   }
 
   setOwnerTab(tabName, btnElement) {
+    if (tabName === 'suscripcion_ia') {
+      tabName = 'ia_assistant';
+      btnElement = document.querySelector('[data-owner-tab="ia_assistant"]');
+    }
     this.activeOwnerTab = tabName;
     if (btnElement) {
       const parent = btnElement.parentElement;
-      parent.querySelectorAll('.portal-nav-btn').forEach(btn => btn.classList.remove('active'));
+      if (parent) {
+        parent.querySelectorAll('.portal-nav-btn').forEach(btn => btn.classList.remove('active'));
+      }
       btnElement.classList.add('active');
     }
     this.renderOwnerTabContent();
@@ -2373,6 +2402,8 @@ class JardinesApp {
   renderOwnerTabContent() {
     const panel = document.getElementById('owner-content-panel');
     if (!panel) return;
+
+    this.cleanResidentPortalPayPalArtifacts();
 
     const user = this.currentUser || this.registeredUsers[0];
     const data = this.getResidentAccountData(user);
@@ -2738,12 +2769,7 @@ class JardinesApp {
         </div>
       `;
     } else if (this.activeOwnerTab === 'ia_assistant') {
-      // Pestaña de Asistente IA Condominal (Punto 16.13)
-      const sub = user.aiSubscription || {
-        active: true,
-        plan: "Plan Residente Convivencia & DGII",
-        paypalSubId: `I-PAYPAL-SUB-${user.unit || '301'}`
-      };
+      // Pestaña de Asistente IA Condominal (Servicio Incluido para Residentes)
       const residentChat = this.getResidentAIChat(user);
       const residentSessionCount = (residentChat.sessions || []).length;
 
@@ -2752,16 +2778,13 @@ class JardinesApp {
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
               <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Asistente Inteligente Privado</h2>
-              <span class="badge badge-success">✓ En Línea · Google Gemini (gemini-3.8-flash)</span>
-              <span class="badge badge-neutral" style="font-size: 11px;">Plan ${sub.plan || 'Residente Premium'}</span>
+              <span class="badge badge-success">✓ En Línea · Google Gemini (gemini-2.0-flash)</span>
+              <span class="badge badge-primary" style="font-size: 11px;">Servicio Incluido para Residentes</span>
             </div>
             <p style="font-size: 12.5px; color: var(--dust); margin-top: 2px;">
-              ID de Suscripción: <code>${sub.paypalSubId || `I-RES-${user.unit}`}</code> · Conexión confidencial con la base de datos de tu unidad, contabilidad, comprobantes NCF y asambleas.
+              Acceso exclusivo y confidencial para la Unidad ${user.unit} · Consultas 24/7 sobre contabilidad, comprobantes NCF, asambleas y normativa condominal.
             </p>
           </div>
-          <button class="btn-outline" style="padding: 6px 12px; font-size: 11px;" onclick="window.app.setOwnerTab('suscripcion_ia');">
-            Administrar Suscripción PayPal
-          </button>
         </div>
 
         <!-- Ventana de Chat Inteligente Privado -->
@@ -2832,85 +2855,6 @@ class JardinesApp {
         const container = document.getElementById('resident-ai-messages-container');
         if (container) container.scrollTop = container.scrollHeight;
       }, 50);
-    } else if (this.activeOwnerTab === 'suscripcion_ia') {
-      // Pestaña de Membresía / Suscripción PayPal
-      const sub = user.aiSubscription || { active: false };
-
-      panel.innerHTML = `
-        <div style="margin-bottom: 24px;">
-          <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Membresía & Suscripción PayPal</h2>
-          <p style="font-size: 13px; color: var(--dust);">Gestión del servicio de Asistente de IA Condominal (Punto 16.13)</p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
-          <!-- Tarjeta de Estado Actual -->
-          <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 28px; box-shadow: var(--shadow-sm);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <span class="badge ${sub.active ? 'badge-success' : 'badge-warning'}">
-                ${sub.active ? 'Suscripción Activa' : 'Sin Suscripción'}
-              </span>
-              <span style="font-size: 12px; font-weight: 800; color: #003087;">PayPal Subscriptions</span>
-            </div>
-
-            <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--ink); margin-bottom: 8px;">
-              ${sub.active ? `Plan ${sub.plan} de IA` : 'Asistente IA Desactivado'}
-            </h3>
-
-            <div style="font-size: 13px; color: var(--dust); line-height: 1.5; margin-bottom: 20px;">
-              ${sub.active
-                ? `Tu cuenta está vinculada al servicio recurrente de PayPal. Tu próximo cargo programado será el <strong>${sub.renewalDate || 'Próximo mes'}</strong> por <strong>US$ ${sub.priceUsd}</strong>.`
-                : 'Activa tu membresía vía PayPal para acceder a consultas 24/7 sobre tus balances, NCFs, orden del día de asambleas y normativa condominal.'}
-            </div>
-
-            ${sub.active ? `
-              <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 12px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="color: var(--dust);">ID de Transacción:</span>
-                  <code>${sub.paypalSubId}</code>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="color: var(--dust);">Fecha de Alta:</span>
-                  <strong>${sub.subscribedAt || 'Hoy'}</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="color: var(--dust);">Renovación:</span>
-                  <strong>${sub.renewalDate || '30 días'}</strong>
-                </div>
-              </div>
-
-              <div style="display: flex; gap: 10px;">
-                <button class="btn-primary" onclick="window.app.setOwnerTab('ia_assistant');">
-                  Ir al Asistente IA
-                </button>
-                <button class="btn-outline" style="color: #DC2626; border-color: #F87171;" onclick="window.app.cancelPaypalSubscription();">
-                  Cancelar Suscripción
-                </button>
-              </div>
-            ` : `
-              <div style="display: flex; gap: 10px;">
-                <button class="btn-primary" style="background: #003087; border-color: #003087;" onclick="window.app.openPaypalSubscriptionModal('plan-monthly');">
-                  Activar Plan Mensual (US$ 9.99)
-                </button>
-                <button class="btn-accent" onclick="window.app.openPaypalSubscriptionModal('plan-annual');">
-                  Activar Plan Anual (US$ 99)
-                </button>
-              </div>
-            `}
-          </div>
-
-          <!-- Cobertura y Normativa Legal -->
-          <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 28px;">
-            <h4 style="font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 12px;">
-              Garantías del Servicio & Privacidad
-            </h4>
-            <ul style="font-size: 12.5px; color: var(--dust); list-style: none; display: flex; flex-direction: column; gap: 12px; line-height: 1.5;">
-              <li>🔒 <strong>Aislamiento de Datos:</strong> El asistente solo procesa la información contable y reglamentaria de tu unidad sin compartirla con terceros.</li>
-              <li>🏛️ <strong>Cumplimiento DGII:</strong> Toda consulta sobre comprobantes fiscales NCF concuerda con las normativas tributarias dominicanas.</li>
-              <li>⚡ <strong>Cancelación Inmediata:</strong> Puedes cancelar la recurrencia desde este panel o directamente desde tu cuenta de PayPal en cualquier momento.</li>
-            </ul>
-          </div>
-        </div>
-      `;
     }
   }
 
@@ -3000,35 +2944,10 @@ class JardinesApp {
   }
 
   /* =========================================================================
-     Pasarela PayPal para Suscripción de IA (Punto 16.13)
+     Pasarela PayPal para Suscripción de IA (Exclusivo para la Suite Administrador)
      ========================================================================= */
-  openPaypalSubscriptionModal(planId = 'plan-monthly') {
-    this.subscriptionContext = 'resident';
-    const plan = (typeof AI_SUBSCRIPTION_PLANS !== 'undefined')
-      ? (AI_SUBSCRIPTION_PLANS.find(p => p.id === planId) || AI_SUBSCRIPTION_PLANS[0])
-      : { id: 'plan-monthly', name: 'Plan Mensual IA', priceUsd: 9.99, period: 'Mensual' };
-
-    this.activeAiPlan = plan;
-
-    const modal = document.getElementById('paypal-subscription-modal');
-    const titleEl = document.getElementById('paypal-modal-plan-title');
-    const priceEl = document.getElementById('paypal-modal-plan-price');
-    const descEl = document.getElementById('paypal-modal-plan-desc');
-    const emailEl = document.getElementById('paypal-sub-email');
-
-    if (titleEl) titleEl.innerText = plan.name;
-    if (priceEl) {
-      priceEl.innerHTML = `US$ ${plan.priceUsd.toFixed(2)} <span style="font-size: 12px; font-weight: 500; color: var(--dust);">${plan.period === 'Mensual' ? '/ mes' : '/ año'}</span>`;
-    }
-    if (descEl) {
-      descEl.innerText = 'Activación inmediata de consultas 24/7 sobre estado de cuenta personal de la Unidad, facturación NCF DGII, normativas internas y recordatorios de asambleas.';
-    }
-    if (emailEl) {
-      const user = this.currentUser || this.registeredUsers[0];
-      emailEl.value = (user && user.email) ? user.email : 'ramona.ramos@gmail.com';
-    }
-
-    if (modal) modal.style.display = 'flex';
+  openPaypalSubscriptionModal(planId = 'admin-plan-monthly') {
+    return this.openAdminPaypalSubscriptionModal(planId);
   }
 
   openAdminPaypalSubscriptionModal(planId = 'admin-plan-monthly') {
@@ -3067,43 +2986,17 @@ class JardinesApp {
   handleProcessPaypalSubscription(e) {
     if (e) e.preventDefault();
 
-    // Caso Administrador
-    if (this.subscriptionContext === 'admin') {
-      const plan = this.activeAiPlan || { name: 'Suite IA Administrador Pro', period: 'Mensual', priceUsd: 24.99 };
-      const subId = `I-PAYPAL-ADM-${Math.floor(100000 + Math.random() * 900000)}`;
-      const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-      const renewalDays = plan.period === 'Anual' ? 365 : 30;
-      const renewal = new Date(Date.now() + renewalDays * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-
-      this.adminData.aiSubscription = {
-        active: true,
-        plan: plan.name,
-        period: plan.period,
-        priceUsd: plan.priceUsd,
-        paypalSubId: subId,
-        subscribedAt: today,
-        renewalDate: renewal,
-        statusLabel: 'Activa vía PayPal'
-      };
-
-      this.saveAllState();
-      this.closePaypalSubscriptionModal();
-      this.showToast(`¡Suscripción Ejecutiva PayPal autorizada (${subId})! Copiloto IA de Administración desbloqueado.`);
-      this.renderAdminTabContent();
-      return;
-    }
-
-    // Caso Residente
-    const user = this.currentUser || this.registeredUsers[0];
-    const plan = this.activeAiPlan || { period: 'Mensual', priceUsd: 9.99 };
-    const subId = `I-PAYPAL-SUB-${Math.floor(100000 + Math.random() * 900000)}`;
+    // La suscripción vía PayPal es exclusiva para la Suite del Administrador
+    const plan = this.activeAiPlan || { name: 'Suite IA Administrador Pro', period: 'Mensual', priceUsd: 24.99 };
+    const subId = `I-PAYPAL-ADM-${Math.floor(100000 + Math.random() * 900000)}`;
     const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
     const renewalDays = plan.period === 'Anual' ? 365 : 30;
     const renewal = new Date(Date.now() + renewalDays * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    user.aiSubscription = {
+    this.adminData.aiSubscription = {
       active: true,
-      plan: plan.period,
+      plan: plan.name,
+      period: plan.period,
       priceUsd: plan.priceUsd,
       paypalSubId: subId,
       subscribedAt: today,
@@ -3111,28 +3004,14 @@ class JardinesApp {
       statusLabel: 'Activa vía PayPal'
     };
 
-    // Actualizar en padrón
-    const userInList = this.registeredUsers.find(u => u.id === user.id);
-    if (userInList) userInList.aiSubscription = user.aiSubscription;
-
     this.saveAllState();
     this.closePaypalSubscriptionModal();
-    this.showToast(`¡Suscripción PayPal autorizada con éxito (${subId})! Asistente IA Condominal desbloqueado.`);
-    this.renderOwnerTabContent();
+    this.showToast(`¡Suscripción Ejecutiva PayPal autorizada (${subId})! Copiloto IA de Administración desbloqueado.`);
+    this.renderAdminTabContent();
   }
 
   cancelPaypalSubscription() {
-    const user = this.currentUser || this.registeredUsers[0];
-    if (confirm("¿Deseas cancelar la renovación de tu suscripción de IA vía PayPal?")) {
-      user.aiSubscription.active = false;
-      user.aiSubscription.statusLabel = 'Cancelada por el usuario';
-      const userInList = this.registeredUsers.find(u => u.id === user.id);
-      if (userInList) userInList.aiSubscription = user.aiSubscription;
-
-      this.saveAllState();
-      this.showToast("Suscripción de PayPal cancelada.");
-      this.renderOwnerTabContent();
-    }
+    this.cancelAdminPaypalSubscription();
   }
 
   cancelAdminPaypalSubscription() {

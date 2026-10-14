@@ -16,12 +16,20 @@ def get_paypal_config():
 @router.get("/subscriptions/{context}")
 def get_subscription_status(context: str, user_id: str = None, db: Session = Depends(get_db)):
     """
-    Retorna el estado de la suscripción de IA para el 'resident' o 'admin'.
+    Retorna el estado de la suscripción de IA.
+    Para 'resident', el asistente es un beneficio condominal incluido (sin PayPal).
+    Para 'admin', la Suite Ejecutiva gestiona suscripción vía PayPal.
     """
+    if context == "resident":
+        return {
+            "active": True,
+            "included": True,
+            "plan": "Servicio Residente Incluido",
+            "statusLabel": "Servicio Incluido para Residentes",
+            "context": "resident"
+        }
+
     query = db.query(Subscription).filter(Subscription.context == context)
-    if context == "resident" and user_id:
-        query = query.filter(Subscription.user_id == user_id)
-    
     sub = query.order_by(Subscription.created_at.desc()).first()
     if not sub or sub.status != "active":
         return {
