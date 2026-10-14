@@ -2986,6 +2986,9 @@ class JardinesApp {
     }
 
     if (modal) modal.style.display = 'flex';
+
+    // Inicializar los botones oficiales del SDK de PayPal
+    this.renderPayPalButtons();
   }
 
   closePaypalSubscriptionModal() {
@@ -2993,27 +2996,160 @@ class JardinesApp {
     if (modal) modal.style.display = 'none';
   }
 
-  handleProcessPaypalSubscription(e) {
-    if (e) e.preventDefault();
+  async renderPayPalButtons() {
+    const container = document.getElementById('paypal-button-container');
+    const loadingEl = document.getElementById('paypal-loading-indicator');
+    const errorEl = document.getElementById('paypal-sdk-error');
 
-    const plan = this.activeAiPlan || { name: 'Licencia SaaS Sistema Condominal Pro', period: 'Mensual', priceUsd: 24.99 };
-    const subId = `I-PAYPAL-SAAS-${Math.floor(100000 + Math.random() * 900000)}`;
+    if (!container) return;
+    container.innerHTML = '';
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.innerHTML = ''; }
+    if (loadingEl) loadingEl.style.display = 'block';
+
+    try {
+      // 1. Obtener Client ID desde el backend (o config de Render)
+      let clientId = 'sb'; // Default sandbox fallback
+      if (this.api) {
+        const config = await this.api.getPayPalConfig();
+        if (config && config.client_id && !config.client_id.startsWith('sb-dummy')) {
+          clientId = config.client_id;
+        }
+      }
+
+      // 2. Cargar el SDK Oficial de PayPal en el documento si aún no está presente
+      await this.loadPayPalSdkScript(clientId);
+
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      if (!window.paypal || !window.paypal.Buttons) {
+        throw new Error('El SDK oficial de PayPal no pudo inicializarse. Verifica que el Client ID colocado en Render sea válido para el entorno Sandbox.');
+      }
+
+      // 3. Renderizar botones interactivos oficiales de PayPal
+      window.paypal.Buttons({
+        style: {
+          layout: 'vertical',
+          color: 'gold',
+          shape: 'rect',
+          label: 'paypal',
+          height: 44
+        },
+        createOrder: (data, actions) => {
+          const currentPlan = this.activeAiPlan || { priceUsd: 24.99, name: 'Licencia SaaS Sistema Condominal' };
+          return actions.order.create({
+            purchase_units: [{
+              description: `Torre Residencial Jardines del Cerro IV - ${currentPlan.name}`,
+              amount: {
+                currency_code: 'USD',
+                value: currentPlan.priceUsd.toFixed(2)
+              }
+            }]
+          });
+        },
+        onApprove: async (data, actions) => {
+          if (loadingEl) {
+            loadingEl.style.display = 'block';
+            loadingEl.innerHTML = '<div style="margin: 0 auto 10px auto; width: 28px; height: 28px; border: 3px solid rgba(0,48,135,0.2); border-top-color: #003087; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>Verificando pago directamente con PayPal...';
+          }
+          try {
+            // Capturar la orden oficial autorizada en PayPal
+            const captureDetails = await actions.order.capture();
+            const orderId = captureDetails.id || data.orderID;
+            const payerEmail = captureDetails.payer?.email_address || (this.currentUser?.email) || 'gerencia@jardinesdelcerro.do';
+
+            // Validar en el Backend con Secret
+            let verified = true;
+            if (this.api && this.api.isBackendOnline) {
+              const verifyRes = await this.api.verifyPayPalOrder({
+                order_id: orderId,
+                plan_id: this.activeAiPlan.id,
+                plan_name: this.activeAiPlan.name,
+                period: this.activeAiPlan.period,
+                price_usd: this.activeAiPlan.priceUsd,
+                user_id: payerEmail,
+                context: 'admin'
+              });
+              if (!verifyRes || !verifyRes.success) {
+                verified = false;
+                throw new Error(verifyRes?.detail || 'La verificación con los servidores de PayPal fue rechazada.');
+              }
+            }
+
+            if (verified) {
+              this.activateAdminSubscriptionSuccess(orderId, payerEmail, this.activeAiPlan);
+            }
+          } catch (err) {
+            console.error('Error verificando pago PayPal:', err);
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (errorEl) {
+              errorEl.style.display = 'block';
+              errorEl.innerHTML = `❌ <strong>Error de Validación:</strong> ${err.message || 'No se pudo verificar la transacción con PayPal.'}`;
+            }
+          }
+        },
+        onError: (err) => {
+          console.error('PayPal Buttons Error:', err);
+          if (loadingEl) loadingEl.style.display = 'none';
+          if (errorEl) {
+            errorEl.style.display = 'block';
+            errorEl.innerHTML = `⚠️ <strong>Error en la pasarela de PayPal:</strong> ${err.message || 'No se pudo conectar con PayPal. Comprueba las credenciales en Render.'}`;
+          }
+        }
+      }).render('#paypal-button-container');
+
+    } catch (err) {
+      console.error('Error inicializando PayPal:', err);
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (errorEl) {
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `
+          <strong>⚠️ Configuración de PayPal requerida:</strong><br>
+          ${err.message}<br><br>
+          <small>Asegúrate de haber configurado <code>PAYPAL_CLIENT_ID</code> y <code>PAYPAL_CLIENT_SECRET</code> en el panel de Render con credenciales válidas de <a href="https://developer.paypal.com" target="_blank" style="text-decoration: underline; color: #991B1B;">developer.paypal.com</a>.</small>
+        `;
+      }
+    }
+  }
+
+  loadPayPalSdkScript(clientId) {
+    return new Promise((resolve, reject) => {
+      const existingScript = document.getElementById('paypal-sdk-script');
+      if (existingScript) {
+        if (existingScript.getAttribute('data-client-id') === clientId && window.paypal) {
+          return resolve();
+        }
+        existingScript.remove();
+        if (window.paypal) delete window.paypal;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'paypal-sdk-script';
+      script.setAttribute('data-client-id', clientId);
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&components=buttons&enable-funding=card`;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('No se pudo cargar el script del SDK de PayPal desde paypal.com.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  activateAdminSubscriptionSuccess(orderId, payerEmail, plan) {
     const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
     const renewalDays = plan.period === 'Anual' ? 365 : 30;
     const renewal = new Date(Date.now() + renewalDays * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-
-    const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+    const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : payerEmail.toLowerCase();
 
     const subObj = {
       active: true,
       email: currentEmail,
+      payerEmail: payerEmail,
       plan: plan.name,
       period: plan.period,
       priceUsd: plan.priceUsd,
-      paypalSubId: subId,
+      paypalSubId: orderId,
       subscribedAt: today,
       renewalDate: renewal,
-      statusLabel: 'Activa vía PayPal'
+      statusLabel: `Activa vía PayPal (${payerEmail})`
     };
 
     // Guardar en mapa de suscripciones por email en localStorage
@@ -3029,7 +3165,7 @@ class JardinesApp {
 
     this.saveAllState();
     this.closePaypalSubscriptionModal();
-    this.showToast(`¡Suscripción SaaS autorizada con éxito (${subId})! Todas las funciones del sistema han sido desbloqueadas.`);
+    this.showToast(`¡Pago de PayPal verificado con éxito (${orderId})! Cuenta: ${payerEmail}. Módulos desbloqueados.`);
     this.activeAdminTab = 'inventario';
     this.renderAdminTabContent();
   }

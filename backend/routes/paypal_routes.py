@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Subscription, User
-from schemas import PayPalVerifySubscription
+from schemas import PayPalVerifySubscription, PayPalVerifyOrder
 from services.paypal_service import PayPalService
 
 router = APIRouter(prefix="/api/paypal", tags=["Pasarela PayPal Subscriptions"])
@@ -63,6 +63,50 @@ def get_subscription_status(context: str, user_id: str = None, db: Session = Dep
         "statusLabel": "Activa vía PayPal"
     }
 
+@router.post("/verify-order")
+def verify_and_activate_order(payload: PayPalVerifyOrder, db: Session = Depends(get_db)):
+    """
+    Verifica con la API de PayPal una orden capturada y activa la suscripción en el sistema.
+    """
+    verify_result = PayPalService.verify_order(payload.order_id)
+    if not verify_result.get("valid"):
+        err_msg = verify_result.get("error") or f"Estado de orden: {verify_result.get('status')}"
+        raise HTTPException(
+            status_code=400,
+            detail=f"La orden no pudo ser verificada por PayPal: {err_msg}"
+        )
+
+    # Calcular fecha de renovación
+    days = 365 if payload.period == "Anual" else 30
+    renewal_str = (datetime.now() + timedelta(days=days)).strftime("%d %b %Y")
+    payer_email = verify_result.get("payer_email") or payload.user_id or "admin@jardinesdelcerro.do"
+
+    # Guardar en base de datos
+    new_sub = Subscription(
+        id=f"sub-{int(datetime.now().timestamp())}",
+        context=payload.context,
+        user_id=payer_email,
+        plan_id=payload.plan_id,
+        plan_name=payload.plan_name,
+        period=payload.period,
+        price_usd=payload.price_usd,
+        paypal_sub_id=payload.order_id,
+        status="active",
+        renewal_date=renewal_str
+    )
+    db.add(new_sub)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Pago confirmado y verificado con PayPal ({payload.order_id}). Acceso habilitado.",
+        "paypalOrderId": payload.order_id,
+        "payerEmail": payer_email,
+        "plan": payload.plan_name,
+        "renewalDate": renewal_str,
+        "status": "active"
+    }
+
 @router.post("/verify-subscription")
 def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Session = Depends(get_db)):
     """
@@ -73,18 +117,19 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
     if not verify_result.get("valid"):
         raise HTTPException(
             status_code=400,
-            detail=f"La suscripción no pudo ser verificada por PayPal: {verify_result.get('status')}"
+            detail=f"La suscripción no pudo ser verificada por PayPal: {verify_result.get('error') or verify_result.get('status')}"
         )
 
     # 2. Calcular fecha de renovación
     days = 365 if payload.period == "Anual" else 30
     renewal_str = (datetime.now() + timedelta(days=days)).strftime("%d %b %Y")
+    payer_email = verify_result.get("payer_email") or payload.user_id or "admin@jardinesdelcerro.do"
 
     # 3. Guardar en base de datos
     new_sub = Subscription(
         id=f"sub-{int(datetime.now().timestamp())}",
         context=payload.context,
-        user_id=payload.user_id,
+        user_id=payer_email,
         plan_id=payload.plan_id,
         plan_name=payload.plan_name,
         period=payload.period,
@@ -100,6 +145,7 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
         "success": True,
         "message": f"Suscripción PayPal activada con éxito para {payload.context}.",
         "paypalSubId": payload.paypal_sub_id,
+        "payerEmail": payer_email,
         "plan": payload.plan_name,
         "renewalDate": renewal_str,
         "status": "active"

@@ -43,12 +43,73 @@ class PayPalService:
         return ""
 
     @classmethod
+    def verify_order(cls, order_id: str) -> dict:
+        """
+        Verifica y captura el estado de una orden de pago en la API v2 de PayPal.
+        Retorna { "valid": bool, "status": str, "order_id": str, "payer_email": str, "payer_name": str, "amount": str }
+        """
+        token = cls.get_access_token()
+        if token:
+            url = f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+            try:
+                res = requests.get(url, headers=headers, timeout=10)
+                if res.status_code == 200:
+                    data = res.json()
+                    status = data.get("status")
+                    is_valid = status in ["COMPLETED", "APPROVED"]
+                    payer = data.get("payer", {})
+                    purchase_units = data.get("purchase_units", [{}])
+                    amount_obj = purchase_units[0].get("amount", {})
+                    return {
+                        "valid": is_valid,
+                        "status": status,
+                        "order_id": order_id,
+                        "payer_email": payer.get("email_address", ""),
+                        "payer_name": f"{payer.get('name', {}).get('given_name', '')} {payer.get('name', {}).get('surname', '')}".strip(),
+                        "amount": amount_obj.get("value", "24.99"),
+                        "currency": amount_obj.get("currency_code", "USD"),
+                        "raw": data
+                    }
+                else:
+                    logger.error(f"Orden PayPal {order_id} no encontrada (HTTP {res.status_code}): {res.text}")
+                    return {
+                        "valid": False,
+                        "status": "NOT_FOUND",
+                        "error": f"La orden no existe en PayPal (HTTP {res.status_code})"
+                    }
+            except Exception as e:
+                logger.error(f"Error consultando orden {order_id} en PayPal: {e}")
+                return {"valid": False, "status": "ERROR", "error": str(e)}
+
+        # Si aún no se configuran credenciales en el backend local (solo preview)
+        if PAYPAL_CLIENT_ID.startswith("sb-dummy"):
+            return {
+                "valid": True,
+                "status": "COMPLETED",
+                "order_id": order_id,
+                "payer_email": "demo-admin@jardinesdelcerro.do",
+                "payer_name": "Administrador Demo",
+                "amount": "24.99",
+                "mode": PAYPAL_MODE,
+                "note": "Modo Preview Local (Sin credenciales de PayPal configuradas)"
+            }
+
+        return {
+            "valid": False,
+            "status": "UNAUTHORIZED",
+            "error": "No fue posible autenticar con PayPal para verificar la orden."
+        }
+
+    @classmethod
     def verify_subscription(cls, subscription_id: str) -> dict:
         """
         Verifica el estado de una suscripción recurrente directamente en PayPal.
         Retorna { "valid": bool, "status": str, "details": dict }
         """
-        # Si las credenciales reales de PayPal están configuradas, consultar la API en vivo
         token = cls.get_access_token()
         if token:
             url = f"{PAYPAL_BASE_URL}/v1/billing/subscriptions/{subscription_id}"
@@ -61,23 +122,39 @@ class PayPalService:
                 if res.status_code == 200:
                     data = res.json()
                     status = data.get("status", "ACTIVE")
+                    subscriber = data.get("subscriber", {})
                     return {
                         "valid": status in ["ACTIVE", "APPROVED"],
                         "status": status,
                         "plan_id": data.get("plan_id"),
-                        "subscriber": data.get("subscriber"),
+                        "subscriber": subscriber,
+                        "payer_email": subscriber.get("email_address", ""),
                         "raw": data
+                    }
+                else:
+                    logger.error(f"Suscripción {subscription_id} no encontrada en PayPal (HTTP {res.status_code}): {res.text}")
+                    return {
+                        "valid": False,
+                        "status": "NOT_FOUND",
+                        "error": f"La suscripción no existe en PayPal (HTTP {res.status_code})"
                     }
             except Exception as e:
                 logger.error(f"Error consultando suscripción {subscription_id} en PayPal: {e}")
+                return {"valid": False, "status": "ERROR", "error": str(e)}
 
-        # Modo Sandbox / Simulación verificada cuando aún no se configura client_secret
+        if PAYPAL_CLIENT_ID.startswith("sb-dummy"):
+            return {
+                "valid": True,
+                "status": "ACTIVE",
+                "subscription_id": subscription_id,
+                "mode": PAYPAL_MODE,
+                "note": "Modo Preview Local"
+            }
+
         return {
-            "valid": True,
-            "status": "ACTIVE",
-            "subscription_id": subscription_id,
-            "mode": PAYPAL_MODE,
-            "note": "Validación exitosa en modo Sandbox / Desarrollo"
+            "valid": False,
+            "status": "UNAUTHORIZED",
+            "error": "No fue posible autenticar con PayPal para verificar la suscripción."
         }
 
     @classmethod
@@ -85,10 +162,11 @@ class PayPalService:
         """
         Retorna la configuración pública que el Frontend necesita para cargar el PayPal SDK.
         """
+        is_configured = bool(PAYPAL_CLIENT_SECRET and not PAYPAL_CLIENT_ID.startswith("sb-dummy"))
         return {
             "client_id": PAYPAL_CLIENT_ID,
             "mode": PAYPAL_MODE,
             "currency": "USD",
-            "intent": "subscription",
-            "vault": "true"
+            "intent": "capture",
+            "is_configured": is_configured
         }

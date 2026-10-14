@@ -266,6 +266,20 @@ class ApiClient {
     }
   }
 
+  async verifyPayPalOrder(payload) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/paypal/verify-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Inteligencia Artificial (Google Gemini)
   async chatAI(prompt, contextType = 'public', userId = null, unit = null) {
     const candidateUrls = [];

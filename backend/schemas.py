@@ -75,6 +75,17 @@ class PayPalVerifySubscription(BaseModel):
     period: str = "Mensual"
     price_usd: float
     paypal_sub_id: str
+    order_id: Optional[str] = None
+    payer_email: Optional[str] = None
+
+class PayPalVerifyOrder(BaseModel):
+    order_id: str
+    plan_id: str = "admin-plan-monthly"
+    plan_name: str = "Licencia SaaS Sistema Condominal Pro"
+    period: str = "Mensual"
+    price_usd: float = 24.99
+    user_id: Optional[str] = None
+    context: str = "admin"
 
 # AI Chat Request
 class AIChatPrompt(BaseModel):
