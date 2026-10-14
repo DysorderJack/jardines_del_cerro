@@ -568,7 +568,7 @@ class JardinesApp {
       const el = document.getElementById(`view-${v}`);
       if (el) {
         if (v === viewName) {
-          el.style.display = (v === 'landing' || v === 'schedule') ? 'block' : 'flex';
+          el.style.display = 'block';
           el.classList.add('fade-in');
         } else {
           el.style.display = 'none';

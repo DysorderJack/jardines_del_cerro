@@ -6,7 +6,7 @@
   <title>Torre Residencial Jardines del Cerro IV | Mao, Valverde</title>
   <meta name="description" content="El nuevo estándar de vida residencial de alto nivel en Mao, Valverde. 10 niveles, apartamentos de 120 m², penthouses de 170 m² y 11 amenidades exclusivas.">
   <link rel="stylesheet" href="css/fonts.css">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261014_bg1">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231B3B36'><polygon points='12 2 2 22 22 22'/></svg>">
 </head>
 <body>
@@ -730,8 +730,50 @@
        ========================================================================= -->
   <section id="view-owner" class="portal-view fade-in" style="display: none;">
     <!-- Resident Login / Register View (when not authenticated) -->
-    <div id="owner-login-container" class="portal-login-wrap">
-      <div class="portal-login-card" style="max-width: 480px;">
+    <div id="owner-login-container" class="portal-login-wrap resident-bg">
+      <div class="portal-auth-container">
+        <!-- Showcase Panel -->
+        <div class="portal-auth-showcase">
+          <div class="portal-auth-badge">
+            <span class="portal-auth-dot"></span>
+            <span>JARDINES DEL CERRO IV • MAO, VALVERDE</span>
+          </div>
+          <h1 class="portal-auth-title">Exclusividad, Confort & Vida Privada</h1>
+          <p class="portal-auth-desc">
+            Bienvenido al portal oficial de copropietarios e inquilinos. Gestione sus cuotas de mantenimiento, consulte comprobantes fiscales NCF ante la DGII, programe visitas a amenidades y participe en las asambleas de su comunidad.
+          </p>
+          <div class="portal-auth-features">
+            <div class="portal-auth-feature-item">
+              <div class="portal-auth-feature-icon">🏛️</div>
+              <div>
+                <strong>Torre Residencial de Vanguardia</strong>
+                <p>Penthouse & apartamentos de diseño contemporáneo en la exclusiva zona de El Cerro, Mao.</p>
+              </div>
+            </div>
+            <div class="portal-auth-feature-item">
+              <div class="portal-auth-feature-icon">📜</div>
+              <div>
+                <strong>Seguridad Jurídica & Notaría</strong>
+                <p>Gobernanza transparente conforme a la Ley 5038 sobre Condominios de la Rep. Dominicana.</p>
+              </div>
+            </div>
+            <div class="portal-auth-feature-item">
+              <div class="portal-auth-feature-icon">💳</div>
+              <div>
+                <strong>Conciliación Fiscal Inmediata</strong>
+                <p>Estados de cuenta digitalizados, reservas para áreas comunes y facturación oficial NCF.</p>
+              </div>
+            </div>
+          </div>
+          <div class="portal-auth-developer">
+            <div class="portal-auth-dev-tag">DESARROLLA: <strong>INVERSIONISTO S.R.L.</strong></div>
+            <div class="portal-auth-dev-sub">Excelencia en desarrollos inmobiliarios de alta gama • Mao, R.D.</div>
+          </div>
+        </div>
+
+        <!-- Form Card Panel -->
+        <div class="portal-auth-card-wrap">
+          <div class="portal-login-card" style="max-width: 480px;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 20px;">
           <div style="width: 48px; height: 48px; border-radius: 12px; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto;">
@@ -913,12 +955,14 @@
         </form>
 
         <div style="text-align: center; margin-top: 20px;">
-          <button onclick="window.app.setView('landing');" style="font-size: 12.5px; color: var(--dust); text-decoration: underline;">
+          <button type="button" onclick="window.app.setView('landing');" class="btn-return-pill">
             ← Volver a la página principal
           </button>
         </div>
       </div>
     </div>
+  </div>
+</div>
 
     <!-- Owner Dashboard Layout (when authenticated) -->
     <div id="owner-dashboard-container" class="portal-layout" style="display: none;">
@@ -993,8 +1037,50 @@
        ========================================================================= -->
   <section id="view-admin" class="portal-view fade-in" style="display: none;">
     <!-- Admin Login Screen (when not logged in) -->
-    <div id="admin-login-container" class="portal-login-wrap" style="background-color: #0E1614;">
-      <div class="portal-login-card dark">
+    <div id="admin-login-container" class="portal-login-wrap admin-bg">
+      <div class="portal-auth-container">
+        <!-- Showcase Panel -->
+        <div class="portal-auth-showcase">
+          <div class="portal-auth-badge admin-badge">
+            <span class="portal-auth-dot gold"></span>
+            <span>SISTEMA CENTRAL DE GESTIÓN • CONDOMINIO</span>
+          </div>
+          <h1 class="portal-auth-title">Panel Maestro de Control & Operaciones</h1>
+          <p class="portal-auth-desc">
+            Plataforma directiva para el Super Administrador y administradores condominales. Supervisión del inventario residencial, auditoría de debida diligencia de contratos notariados, pasarela de suscripciones PayPal y copiloto inteligente con IA.
+          </p>
+          <div class="portal-auth-features">
+            <div class="portal-auth-feature-item">
+              <div class="portal-auth-feature-icon">🛡️</div>
+              <div>
+                <strong>Super Administrador & Bypass Oficial</strong>
+                <p>Gestión multi-rol con exenciones personalizadas para pruebas de desarrollo e interoperabilidad.</p>
+              </div>
+            </div>
+            <div class="portal-auth-feature-item">
+              <div class="portal-auth-feature-icon">📑</div>
+              <div>
+                <strong>Auditoría & Debida Diligencia Notarial</strong>
+                <p>Validación de actos jurídicos conforme a la Ley 5038 y Ley 155-17 contra el lavado de activos.</p>
+              </div>
+            </div>
+            <div class="portal-auth-feature-item">
+              <div class="portal-auth-feature-icon">⚡</div>
+              <div>
+                <strong>Automatización Integral & CRM</strong>
+                <p>Cobros, liquidación de cuotas, bitácoras de auditoría y notificaciones automatizadas por correo.</p>
+              </div>
+            </div>
+          </div>
+          <div class="portal-auth-developer">
+            <div class="portal-auth-dev-tag">INFRAESTRUCTURA DIRECTIVA: <strong>TORRE JARDINES DEL CERRO IV</strong></div>
+            <div class="portal-auth-dev-sub">Mao, Valverde, República Dominicana • Conexión Cifrada SSL</div>
+          </div>
+        </div>
+
+        <!-- Form Card Panel -->
+        <div class="portal-auth-card-wrap">
+          <div class="portal-login-card dark" style="max-width: 480px;">
         <div style="text-align: center; margin-bottom: 24px;">
           <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(201, 167, 112, 0.15); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -1026,13 +1112,15 @@
         </form>
 
 
-        <div style="text-align: center; margin-top: 16px;">
-          <button onclick="window.app.setView('landing');" style="font-size: 12.5px; color: rgba(255,255,255,0.6); text-decoration: underline;">
+        <div style="text-align: center; margin-top: 20px;">
+          <button type="button" onclick="window.app.setView('landing');" class="btn-return-pill">
             ← Volver al sitio público
           </button>
         </div>
       </div>
     </div>
+  </div>
+</div>
 
     <!-- Admin Dashboard Main Layout (when authenticated) -->
     <div id="admin-dashboard-container" class="portal-layout" style="display: none;">
