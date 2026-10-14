@@ -29,12 +29,26 @@ def get_subscription_status(context: str, user_id: str = None, db: Session = Dep
             "context": "resident"
         }
 
+    if context == "admin" and user_id in ["usr-superadmin", "admin@jardinesdelcerro.do", "admin"]:
+        return {
+            "active": True,
+            "is_superadmin": True,
+            "subscription_exempt": True,
+            "plan": "Acceso Maestro Permanente (Desarrollador)",
+            "statusLabel": "Super Admin (Exento)",
+            "context": "admin"
+        }
+
     query = db.query(Subscription).filter(Subscription.context == context)
+    if user_id:
+        query = query.filter(Subscription.user_id == user_id)
     sub = query.order_by(Subscription.created_at.desc()).first()
     if not sub or sub.status != "active":
         return {
             "active": False,
-            "statusLabel": "Inactiva (Requiere Suscripción)",
+            "is_superadmin": False,
+            "subscription_exempt": False,
+            "statusLabel": "Inactiva (Requiere Suscripción SaaS)",
             "context": context
         }
 

@@ -1025,6 +1025,24 @@
           </button>
         </form>
 
+        <!-- Selector Rápido de Credenciales para Pruebas (Super Admin vs Admin Regular) -->
+        <div style="margin-top: 18px; padding: 12px; background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.2); border-radius: var(--radius-md); font-size: 11.5px; text-align: left;">
+          <div style="font-weight: 700; color: var(--accent); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <span>Cuentas para Pruebas del Programador:</span>
+            <span style="font-size: 10px; color: rgba(255,255,255,0.5);">Clic para cargar</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <button type="button" onclick="window.app.fillAdminCredentials('admin@jardinesdelcerro.do', 'admin123');" style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #6EE7B7; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+              <span>👑 <strong>Super Administrador (Programador)</strong></span>
+              <span style="font-size: 10px; opacity: 0.85;">Exento · Acceso Total</span>
+            </button>
+            <button type="button" onclick="window.app.fillAdminCredentials('gerencia@jardinesdelcerro.do', 'admin123');" style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #FCD34D; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+              <span>🏢 <strong>Administrador Regular</strong></span>
+              <span style="font-size: 10px; opacity: 0.85;">Requiere Suscripción</span>
+            </button>
+          </div>
+        </div>
+
         <div style="text-align: center; margin-top: 16px;">
           <button onclick="window.app.setView('landing');" style="font-size: 12.5px; color: rgba(255,255,255,0.6); text-decoration: underline;">
             ← Volver al sitio público
@@ -1043,7 +1061,7 @@
           </div>
           <div>
             <div style="font-size: 13px; font-weight: 700; color: var(--white);">Jardines del Cerro IV</div>
-            <div style="font-size: 11px; color: rgba(255,255,255,0.5);">Admin Condominio</div>
+            <div id="admin-sidebar-role-label" style="font-size: 11px; color: rgba(255,255,255,0.6);">Admin Condominio</div>
           </div>
         </div>
 
@@ -1079,16 +1097,17 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             <span>Reportes Financieros</span>
           </button>
-          <!-- Nueva Pestaña Oficial: Copiloto IA Ejecutivo (Administrador) -->
+          <!-- Pestaña Oficial: Copiloto IA Ejecutivo (Incluido con el Sistema) -->
           <button class="portal-nav-btn" data-admin-tab="ia_admin" onclick="window.app.setAdminTab('ia_admin', this);" style="position: relative;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             <span>Copiloto IA Ejecutivo</span>
-            <span class="badge badge-accent" style="font-size: 8px; margin-left: auto;">PayPal</span>
+            <span class="badge badge-primary" style="font-size: 8px; margin-left: auto;">Incluido</span>
           </button>
-          <!-- Pestaña: Suscripción Suite IA Administrador -->
+          <!-- Pestaña Oficial: Suscripción SaaS Integral del Sistema -->
           <button class="portal-nav-btn" data-admin-tab="suscripcion_admin" onclick="window.app.setAdminTab('suscripcion_admin', this);">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-            <span>Suscripción IA Admin</span>
+            <span>Suscripción del Sistema</span>
+            <span id="admin-sub-status-badge" class="badge badge-accent" style="font-size: 8px; margin-left: auto;">PayPal</span>
           </button>
         </nav>
 
@@ -1309,21 +1328,31 @@
         </div>
       </div>
 
-      <!-- Resumen del Plan de IA Seleccionado -->
+      <!-- Selector de Plan Rápido -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <button type="button" id="paypal-modal-btn-monthly" class="btn-primary" style="flex: 1; padding: 8px 10px; font-size: 11.5px; border-radius: 6px;" onclick="window.app.switchModalAdminPlan('admin-plan-monthly');">
+          Plan Mensual (US$ 24.99)
+        </button>
+        <button type="button" id="paypal-modal-btn-annual" class="btn-outline" style="flex: 1; padding: 8px 10px; font-size: 11.5px; border-radius: 6px;" onclick="window.app.switchModalAdminPlan('admin-plan-annual');">
+          Plan Anual (US$ 249) ⭐
+        </button>
+      </div>
+
+      <!-- Resumen del Plan SaaS Seleccionado -->
       <div style="background: var(--surface); border: 1.5px solid var(--accent); border-radius: var(--radius-md); padding: 18px; margin-bottom: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-          <h4 id="paypal-modal-plan-title" style="font-size: 15px; font-weight: 800; color: var(--ink);">Suite IA Administrador Pro (Mensual)</h4>
+          <h4 id="paypal-modal-plan-title" style="font-size: 15px; font-weight: 800; color: var(--ink);">Licencia SaaS Sistema Condominal Pro (Mensual)</h4>
           <div id="paypal-modal-plan-price" style="font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--primary);">US$ 24.99 <span style="font-size: 12px; font-weight: 500; color: var(--dust);">/ mes</span></div>
         </div>
         <div id="paypal-modal-plan-desc" style="font-size: 12px; color: var(--dust); line-height: 1.45;">
-          Licencia corporativa para el Administrador de la Torre: Auditoría contable automatizada, cálculo de mora, redactor de intimaciones legales y diagnósticos de mantenimiento predictivo.
+          Licencia de operación completa para la administración: Inventario, Solicitudes, CRM de Prospectos, Padrón de Residentes, Agenda de Visitas, Facturación DGII con NCF y Copiloto IA Ejecutivo incluido.
         </div>
       </div>
 
       <form onsubmit="window.app.handleProcessPaypalSubscription(event);">
         <div class="form-group">
           <label class="form-label">Cuenta de Correo de PayPal (Administración)</label>
-          <input type="email" class="form-input" id="paypal-sub-email" value="admin@jardinesdelcerro.do" required>
+          <input type="email" class="form-input" id="paypal-sub-email" value="gerencia@jardinesdelcerro.do" required>
         </div>
         <div class="form-group">
           <label class="form-label">Método de Cargo Preferido</label>
@@ -1335,11 +1364,11 @@
         </div>
 
         <div style="font-size: 11px; color: var(--dust); margin-bottom: 20px; line-height: 1.4;">
-          Al hacer clic en el botón inferior, autorizas a PayPal a cargar la tarifa del servicio de forma recurrente para la Suite Administrativa de Torre Jardines del Cerro IV. Puedes pausar o cancelar la suscripción ejecutiva en cualquier momento desde tu consola administrativa.
+          Al hacer clic en el botón inferior, autorizas a PayPal a cargar la tarifa recurrente del software de gestión para la Torre Jardines del Cerro IV. El acceso a todos los módulos del sistema se habilitará de forma inmediata.
         </div>
 
         <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; background: #FFC439; color: #111; border: 1px solid #E0AA3E; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <span>Autorizar Suscripción con</span>
+          <span>Autorizar Suscripción del Sistema con</span>
           <strong style="color: #003087; font-size: 16px;">PayPal</strong>
         </button>
       </form>

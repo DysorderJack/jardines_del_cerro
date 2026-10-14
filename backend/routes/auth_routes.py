@@ -19,7 +19,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     """
     doc = payload.document_id.strip()
     
-    # Manejo especial para admin con credenciales maestras
+    # Manejo especial para admin con credenciales maestras (Super Administrador / Programador)
     if doc.lower() in ["admin", "admin@jardinesdelcerro.do", "034-0000001-0"]:
         admin_user = db.query(User).filter(User.role == "admin").first()
         valid_passwords = ["admin123", "1234"]
@@ -30,18 +30,39 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
                 "success": True,
                 "token": "token-admin-session-live",
                 "user": {
-                    "id": admin_user.id if admin_user else "usr-admin",
-                    "name": admin_user.name if admin_user else "Administración Jardines del Cerro IV",
+                    "id": admin_user.id if admin_user else "usr-superadmin",
+                    "name": "Super Administrador (Desarrollador)",
                     "document_id": admin_user.document_id if admin_user else "034-0000001-0",
-                    "email": admin_user.email if admin_user else "admin@jardinesdelcerro.do",
-                    "role": "admin",
-                    "role_label": "Administrador Condominal",
+                    "email": "admin@jardinesdelcerro.do",
+                    "role": "superadmin",
+                    "role_label": "Super Administrador (Desarrollador)",
                     "unit": "Admin",
-                    "status": "approved"
+                    "status": "approved",
+                    "is_superadmin": True,
+                    "subscription_exempt": True
                 }
             }
         else:
             raise HTTPException(status_code=401, detail="Contraseña incorrecta de administrador.")
+
+    # Manejo de Administrador Regular de Demostración (Requiere Suscripción SaaS)
+    if doc.lower() == "gerencia@jardinesdelcerro.do" and payload.password == "admin123":
+        return {
+            "success": True,
+            "token": "token-admin-regular-live",
+            "user": {
+                "id": "usr-admin-regular",
+                "name": "Lic. Fernando Morales (Gerencia)",
+                "document_id": "034-0009999-1",
+                "email": "gerencia@jardinesdelcerro.do",
+                "role": "admin",
+                "role_label": "Administrador Condominal Regular",
+                "unit": "Admin",
+                "status": "approved",
+                "is_superadmin": False,
+                "subscription_exempt": False
+            }
+        }
 
     # Búsqueda de residente en base de datos (por email, documento exacto o normalizado)
     doc_digits = re.sub(r"\D", "", doc)

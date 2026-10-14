@@ -528,14 +528,21 @@ const ADMIN_MOCK_DATA = {
       notes: "Separación de US$5,000 acreditada vía PayPal. En trámite de aprobación final de inicial."
     }
   ],
+  systemSubscription: {
+    active: false,
+    plan: "Licencia SaaS Sistema Condominal Pro",
+    statusLabel: "Suscripción Requerida"
+  },
   aiSubscription: {
-    active: true,
-    plan: "Suite Mensual IA Administrador Pro",
-    priceUsd: 24.99,
-    paypalSubId: "I-ADMIN-CERRO-PRO",
-    subscribedAt: "12 Oct 2026",
-    renewalDate: "12 Nov 2026",
-    statusLabel: "Activa (Copiloto Ejecutivo Habilitado)"
+    active: false,
+    plan: "Licencia SaaS Sistema Condominal Pro",
+    statusLabel: "Suscripción Requerida"
+  },
+  superAdmin: {
+    email: "admin@jardinesdelcerro.do",
+    name: "Super Administrador (Desarrollador)",
+    role: "superadmin",
+    subscriptionExempt: true
   }
 };
 
@@ -648,40 +655,45 @@ const AI_SUBSCRIPTION_PLANS = [
 ];
 
 /**
- * Planes de Suscripción PayPal para el Copiloto de IA del Administrador (Suite Ejecutiva)
+ * Planes de Suscripción PayPal para el Sistema Completo de Administración (SaaS Condominal)
+ * Incluye Copiloto IA Ejecutivo, Facturación DGII con NCF, CRM, Mantenimiento e Inventario.
  */
-const ADMIN_AI_SUBSCRIPTION_PLANS = [
+const ADMIN_SYSTEM_SUBSCRIPTION_PLANS = [
   {
     id: "admin-plan-monthly",
-    name: "Suite IA Administrador Pro (Mensual)",
+    name: "Licencia SaaS Sistema Condominal Pro (Mensual)",
     priceUsd: 24.99,
     priceDop: "RD$ 1,511.00 / mes",
     period: "Mensual",
-    periodNote: "Facturación mensual recurrente vía PayPal",
-    badge: "Plan Profesional",
+    periodNote: "Licencia de operación completa facturada mensualmente vía PayPal",
+    badge: "SaaS Completo · Pago Mensual",
     features: [
-      "Auditoría automatizada de cartera vencida y cálculo de morosidad",
-      "Redacción instantánea de convocatorias de asambleas (Ley 5038)",
-      "Generación de cartas de cobro formal con intimación legal",
-      "Diagnóstico predictivo de mantenimiento de equipos (Generador, Otis)",
-      "Análisis comparativo de presupuestos de proveedores y cotizaciones"
+      "Acceso ilimitado a Inventario, Solicitudes de Acceso, CRM y Directorio",
+      "Facturación electrónica DGII con comprobantes fiscales NCF automáticos",
+      "Control integral de Mantenimiento & Tickets técnicos en tiempo real",
+      "Agenda de Visitas con confirmación y recordatorios por correo oficial",
+      "Copiloto IA Ejecutivo (Google Gemini) 100% INCLUIDO sin costo extra",
+      "Gestión de Asambleas, Alícuotas y Voto Ponderado conforme a Ley 5038"
     ]
   },
   {
     id: "admin-plan-annual",
-    name: "Suite IA Administrador Corporativo (Anual)",
+    name: "Licencia SaaS Sistema Condominal Corporativa (Anual)",
     priceUsd: 249.00,
     priceDop: "RD$ 15,064.00 / año",
     period: "Anual",
-    periodNote: "Ahorra 2 meses con facturación anual vía PayPal",
-    badge: "Mejor Valor Corporativo (17% Descuento)",
+    periodNote: "Ahorra 2 meses de servicio con facturación anual vía PayPal",
+    badge: "Mejor Valor Anual (17% Descuento)",
     features: [
-      "Todas las funcionalidades de la suite mensual incluidas",
-      "Generador de informes consolidados de asambleas ordinarias y extraordinarias",
-      "Asesoría regulatoria en debida diligencia de lavado de activos (Ley 155-17)",
-      "Exportación directa de reportes financieros para contabilidad externa",
-      "Soporte preferente de ingeniería y despliegue prioritario de modelos IA"
+      "Todas las funcionalidades del sistema completo con soporte prioritario",
+      "Auditoría automatizada de cartera vencida, morosidad y conciliación bancaria",
+      "Asesoría de cumplimiento en debida diligencia de lavado de activos (Ley 155-17)",
+      "Copiloto IA Ejecutivo ilimitado para redacción legal y análisis financiero",
+      "Exportación directa de reportes a Excel/PDF y respaldo continuo en la nube"
     ]
   }
 ];
+
+// Compatibilidad con código existente
+const ADMIN_AI_SUBSCRIPTION_PLANS = ADMIN_SYSTEM_SUBSCRIPTION_PLANS;
 

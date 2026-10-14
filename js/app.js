@@ -85,23 +85,21 @@ class JardinesApp {
       paymentMethod: 'paypal'
     };
 
-    // Plan activo de suscripción PayPal para IA (exclusivo para Suite Administrador)
-    this.activeAiPlan = (typeof ADMIN_AI_SUBSCRIPTION_PLANS !== 'undefined') ? ADMIN_AI_SUBSCRIPTION_PLANS[0] : null;
+    // Plan activo de suscripción SaaS del Sistema Condominal (Administrador)
+    this.activeAiPlan = (typeof ADMIN_SYSTEM_SUBSCRIPTION_PLANS !== 'undefined')
+      ? ADMIN_SYSTEM_SUBSCRIPTION_PLANS[0]
+      : ((typeof ADMIN_AI_SUBSCRIPTION_PLANS !== 'undefined') ? ADMIN_AI_SUBSCRIPTION_PLANS[0] : null);
 
-    // Contexto de pasarela PayPal ('admin')
+    // Contexto de pasarela PayPal ('admin') y modo Super Admin (exento)
     this.subscriptionContext = 'admin';
+    this.isSuperAdmin = false;
 
     // Asegurar estructura de suscripción para el Administrador
     if (this.adminData) {
-      if (!this.adminData.aiSubscription || !this.adminData.aiSubscription.active) {
-        this.adminData.aiSubscription = {
-          active: true,
-          plan: "Suite Mensual IA Administrador Pro",
-          priceUsd: 24.99,
-          paypalSubId: "I-ADMIN-CERRO-PRO",
-          subscribedAt: "12 Oct 2026",
-          renewalDate: "12 Nov 2026",
-          statusLabel: "Activa (Copiloto Ejecutivo Habilitado)"
+      if (!this.adminData.systemSubscription) {
+        this.adminData.systemSubscription = {
+          active: false,
+          statusLabel: 'Suscripción Requerida'
         };
       }
 
@@ -518,19 +516,12 @@ class JardinesApp {
     this.updateAdminVisitsBadge();
     this.renderRegistrationUnitsDropdown();
 
-    // Garantizar acceso activado a la IA para el Administrador
-    if (this.adminData) {
-      if (!this.adminData.aiSubscription || !this.adminData.aiSubscription.active) {
-        this.adminData.aiSubscription = {
-          active: true,
-          plan: "Suite Mensual IA Administrador Pro",
-          priceUsd: 24.99,
-          paypalSubId: "I-ADMIN-CERRO-PRO",
-          subscribedAt: "12 Oct 2026",
-          renewalDate: "12 Nov 2026",
-          statusLabel: "Activa (Copiloto Ejecutivo Habilitado)"
-        };
-      }
+    // Asegurar estructura de suscripción para el Administrador
+    if (this.adminData && !this.adminData.systemSubscription) {
+      this.adminData.systemSubscription = {
+        active: false,
+        statusLabel: 'Suscripción Requerida'
+      };
     }
 
     // Garantizar que los residentes tengan acceso al Asistente Privado como beneficio incluido (sin PayPal)
@@ -2950,11 +2941,18 @@ class JardinesApp {
     return this.openAdminPaypalSubscriptionModal(planId);
   }
 
+  switchModalAdminPlan(planId) {
+    this.openAdminPaypalSubscriptionModal(planId);
+  }
+
   openAdminPaypalSubscriptionModal(planId = 'admin-plan-monthly') {
     this.subscriptionContext = 'admin';
-    const plan = (typeof ADMIN_AI_SUBSCRIPTION_PLANS !== 'undefined')
-      ? (ADMIN_AI_SUBSCRIPTION_PLANS.find(p => p.id === planId) || ADMIN_AI_SUBSCRIPTION_PLANS[0])
-      : { id: 'admin-plan-monthly', name: 'Suite IA Administrador Pro (Mensual)', priceUsd: 24.99, period: 'Mensual' };
+    const plans = (typeof ADMIN_SYSTEM_SUBSCRIPTION_PLANS !== 'undefined')
+      ? ADMIN_SYSTEM_SUBSCRIPTION_PLANS
+      : ((typeof ADMIN_AI_SUBSCRIPTION_PLANS !== 'undefined') ? ADMIN_AI_SUBSCRIPTION_PLANS : []);
+
+    const plan = (plans.find(p => p.id === planId) || plans[0])
+      || { id: 'admin-plan-monthly', name: 'Licencia SaaS Sistema Condominal Pro (Mensual)', priceUsd: 24.99, period: 'Mensual' };
 
     this.activeAiPlan = plan;
 
@@ -2963,16 +2961,28 @@ class JardinesApp {
     const priceEl = document.getElementById('paypal-modal-plan-price');
     const descEl = document.getElementById('paypal-modal-plan-desc');
     const emailEl = document.getElementById('paypal-sub-email');
+    const btnMonthly = document.getElementById('paypal-modal-btn-monthly');
+    const btnAnnual = document.getElementById('paypal-modal-btn-annual');
+
+    if (btnMonthly && btnAnnual) {
+      if (plan.period === 'Anual') {
+        btnAnnual.className = 'btn-primary';
+        btnMonthly.className = 'btn-outline';
+      } else {
+        btnMonthly.className = 'btn-primary';
+        btnAnnual.className = 'btn-outline';
+      }
+    }
 
     if (titleEl) titleEl.innerText = plan.name;
     if (priceEl) {
       priceEl.innerHTML = `US$ ${plan.priceUsd.toFixed(2)} <span style="font-size: 12px; font-weight: 500; color: var(--dust);">${plan.period === 'Mensual' ? '/ mes' : '/ año'}</span>`;
     }
     if (descEl) {
-      descEl.innerText = 'Licencia corporativa para el Administrador de la Torre: Auditoría contable automatizada, cálculo de mora, redactor de intimaciones legales y diagnósticos de mantenimiento predictivo.';
+      descEl.innerText = 'Licencia de operación completa para la administración: Inventario, Solicitudes, CRM de Prospectos, Padrón de Residentes, Agenda de Visitas, Facturación DGII con NCF y Copiloto IA Ejecutivo incluido.';
     }
     if (emailEl) {
-      emailEl.value = 'admin@jardinesdelcerro.do';
+      emailEl.value = (this.currentUser && this.currentUser.email) ? this.currentUser.email : 'gerencia@jardinesdelcerro.do';
     }
 
     if (modal) modal.style.display = 'flex';
@@ -2986,15 +2996,17 @@ class JardinesApp {
   handleProcessPaypalSubscription(e) {
     if (e) e.preventDefault();
 
-    // La suscripción vía PayPal es exclusiva para la Suite del Administrador
-    const plan = this.activeAiPlan || { name: 'Suite IA Administrador Pro', period: 'Mensual', priceUsd: 24.99 };
-    const subId = `I-PAYPAL-ADM-${Math.floor(100000 + Math.random() * 900000)}`;
+    const plan = this.activeAiPlan || { name: 'Licencia SaaS Sistema Condominal Pro', period: 'Mensual', priceUsd: 24.99 };
+    const subId = `I-PAYPAL-SAAS-${Math.floor(100000 + Math.random() * 900000)}`;
     const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
     const renewalDays = plan.period === 'Anual' ? 365 : 30;
     const renewal = new Date(Date.now() + renewalDays * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    this.adminData.aiSubscription = {
+    const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+
+    const subObj = {
       active: true,
+      email: currentEmail,
       plan: plan.name,
       period: plan.period,
       priceUsd: plan.priceUsd,
@@ -3004,9 +3016,21 @@ class JardinesApp {
       statusLabel: 'Activa vía PayPal'
     };
 
+    // Guardar en mapa de suscripciones por email en localStorage
+    const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
+    subMap[currentEmail] = subObj;
+    this.saveStorage('jc_admin_subscriptions_v1', subMap);
+
+    this.adminData.systemSubscription = subObj;
+    this.adminData.aiSubscription = subObj;
+    if (this.currentUser) {
+      this.currentUser.subscription = subObj;
+    }
+
     this.saveAllState();
     this.closePaypalSubscriptionModal();
-    this.showToast(`¡Suscripción Ejecutiva PayPal autorizada (${subId})! Copiloto IA de Administración desbloqueado.`);
+    this.showToast(`¡Suscripción SaaS autorizada con éxito (${subId})! Todas las funciones del sistema han sido desbloqueadas.`);
+    this.activeAdminTab = 'inventario';
     this.renderAdminTabContent();
   }
 
@@ -3015,14 +3039,27 @@ class JardinesApp {
   }
 
   cancelAdminPaypalSubscription() {
-    if (confirm("¿Deseas cancelar la suscripción ejecutiva de IA del Administrador vía PayPal?")) {
-      if (!this.adminData.aiSubscription) {
-        this.adminData.aiSubscription = {};
+    if (confirm("¿Deseas cancelar la suscripción del sistema vía PayPal? (Al cancelar, las funciones del sistema quedarán restringidas)")) {
+      const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+      const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
+      if (subMap[currentEmail]) {
+        subMap[currentEmail].active = false;
+        subMap[currentEmail].statusLabel = 'Cancelada por el administrador';
+        this.saveStorage('jc_admin_subscriptions_v1', subMap);
       }
-      this.adminData.aiSubscription.active = false;
-      this.adminData.aiSubscription.statusLabel = 'Cancelada por el administrador';
+      if (this.adminData.systemSubscription) {
+        this.adminData.systemSubscription.active = false;
+        this.adminData.systemSubscription.statusLabel = 'Cancelada por el administrador';
+      }
+      if (this.adminData.aiSubscription) {
+        this.adminData.aiSubscription.active = false;
+        this.adminData.aiSubscription.statusLabel = 'Cancelada por el administrador';
+      }
+      if (this.currentUser && this.currentUser.subscription) {
+        this.currentUser.subscription.active = false;
+      }
       this.saveAllState();
-      this.showToast("Suscripción de IA para el Administrador cancelada.");
+      this.showToast("Suscripción del sistema cancelada. El acceso a los módulos ha sido restringido.");
       this.renderAdminTabContent();
     }
   }
@@ -3165,8 +3202,136 @@ class JardinesApp {
   }
 
   /* =========================================================================
-     Panel Administrativo del Condominio
+     Suscripción del Sistema & Autenticación de Administrador
      ========================================================================= */
+
+  fillAdminCredentials(user, pass) {
+    const userInput = document.getElementById('admin-login-user');
+    const passInput = document.getElementById('admin-login-pass');
+    if (userInput) userInput.value = user;
+    if (passInput) passInput.value = pass;
+    this.showToast(`Credenciales cargadas: ${user}`);
+  }
+
+  isAdminSubscribed() {
+    // 1. Super Administrador siempre está exento de suscripción (Modo Desarrollador / Programador)
+    if (this.isSuperAdmin) return true;
+    if (this.currentUser && (
+      (this.currentUser.email && this.currentUser.email.toLowerCase() === 'admin@jardinesdelcerro.do') ||
+      this.currentUser.role === 'superadmin' ||
+      this.currentUser.subscriptionExempt === true ||
+      this.currentUser.subscription_exempt === true
+    )) {
+      return true;
+    }
+
+    // 2. Administrador regular: verificar si su cuenta tiene suscripción activa en localStorage
+    const email = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+    const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
+    const userSub = subMap[email];
+    if (userSub && userSub.active) {
+      return true;
+    }
+
+    if (this.currentUser && this.currentUser.subscription && this.currentUser.subscription.active) {
+      return true;
+    }
+
+    if (this.adminData && this.adminData.systemSubscription && this.adminData.systemSubscription.active) {
+      if (this.adminData.systemSubscription.email === email) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  renderAdminPaywallHtml() {
+    const user = this.currentUser || { name: 'Administrador', email: 'gerencia@jardinesdelcerro.do' };
+    return `
+      <div style="background: var(--white); border: 2px dashed #EF4444; border-radius: var(--radius-xl); padding: 48px 32px; text-align: center; max-width: 740px; margin: 30px auto; box-shadow: var(--shadow-md);">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px auto; box-shadow: 0 4px 12px rgba(220,38,38,0.2);">
+          🔒
+        </div>
+        <span class="badge badge-warning" style="font-size: 11px; padding: 4px 12px; margin-bottom: 12px; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D;">
+          Suscripción SaaS Requerida · Acceso Restringido
+        </span>
+        <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink); margin-bottom: 12px;">
+          Módulo Bloqueado: Suscripción al Sistema Requerida
+        </h2>
+        <p style="font-size: 14px; color: #4B5563; max-width: 600px; margin: 0 auto 20px auto; line-height: 1.6;">
+          Hola, <strong>${user.name}</strong> (<code>${user.email}</code>). El software de gestión de <strong>Torre Jardines del Cerro IV</strong> opera bajo un modelo de suscripción SaaS completa. Para desbloquear el acceso a este módulo y a todas las herramientas operativas de la Torre, es necesario activar tu suscripción mediante PayPal.
+        </p>
+
+        <!-- Tarjeta de Cobertura Integral -->
+        <div style="background: #F8FAFC; border: 1px solid var(--linen); border-radius: var(--radius-lg); padding: 22px; text-align: left; margin-bottom: 26px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+            <span>Funcionalidades incluidas en la suscripción del sistema:</span>
+            <span class="badge badge-success" style="font-size: 10px;">Copiloto IA Incluido</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; font-size: 12.5px; color: #374151;">
+            <div style="display: flex; align-items: center; gap: 8px;">✅ <strong>Inventario:</strong> Control en tiempo real de unidades y precios</div>
+            <div style="display: flex; align-items: center; gap: 8px;">✅ <strong>Facturación DGII:</strong> Emisión automática de NCF fiscales</div>
+            <div style="display: flex; align-items: center; gap: 8px;">✅ <strong>Copiloto IA (Gemini):</strong> Auditoría contable y redactor legal</div>
+            <div style="display: flex; align-items: center; gap: 8px;">✅ <strong>Agenda de Visitas:</strong> Notificación automática por correo</div>
+            <div style="display: flex; align-items: center; gap: 8px;">✅ <strong>Mantenimiento:</strong> Gestión técnica de incidencias y tickets</div>
+            <div style="display: flex; align-items: center; gap: 8px;">✅ <strong>Asambleas (Ley 5038):</strong> Voto ponderado y quórum legal</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn-primary" style="padding: 14px 28px; font-size: 13.5px; font-weight: 800; background: #003087; border-color: #003087; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,48,135,0.25);" onclick="window.app.openAdminPaypalSubscriptionModal('admin-plan-monthly');">
+            <span>💳 Activar Suscripción del Sistema con PayPal (US$ 24.99/mes)</span>
+          </button>
+          <button class="btn-outline" style="padding: 14px 20px; font-size: 13px;" onclick="window.app.setAdminTab('suscripcion_admin');">
+            Ver Planes y Tarifas
+          </button>
+        </div>
+
+        <div style="margin-top: 18px; font-size: 11.5px; color: var(--dust);">
+          💡 <em>Nota para pruebas:</em> Si eres el programador/evaluador y deseas probar las funciones sin restricciones, puedes iniciar sesión con <code>admin@jardinesdelcerro.do</code> (Super Administrador).
+        </div>
+      </div>
+    `;
+  }
+
+  updateAdminSidebarBadge() {
+    const roleLabelEl = document.getElementById('admin-sidebar-role-label');
+    const subBadge = document.getElementById('admin-sub-status-badge');
+
+    if (this.isSuperAdmin) {
+      if (roleLabelEl) {
+        roleLabelEl.innerHTML = '<span style="color: #34D399; font-weight: 700;">👑 Super Admin (Exento)</span>';
+      }
+      if (subBadge) {
+        subBadge.innerText = 'Exento';
+        subBadge.className = 'badge badge-success';
+        subBadge.style.background = '#059669';
+        subBadge.style.color = '#fff';
+      }
+    } else {
+      const isSub = this.isAdminSubscribed();
+      if (roleLabelEl) {
+        roleLabelEl.innerHTML = isSub
+          ? '<span style="color: #60A5FA; font-weight: 600;">🏢 Admin (Suscripción Activa)</span>'
+          : '<span style="color: #F87171; font-weight: 600;">🔒 Admin (Sin Suscripción)</span>';
+      }
+      if (subBadge) {
+        if (isSub) {
+          subBadge.innerText = 'Activa';
+          subBadge.className = 'badge badge-success';
+          subBadge.style.background = '#059669';
+          subBadge.style.color = '#fff';
+        } else {
+          subBadge.innerText = 'Pendiente';
+          subBadge.className = 'badge badge-danger';
+          subBadge.style.background = '#EF4444';
+          subBadge.style.color = '#fff';
+        }
+      }
+    }
+  }
+
   async loginAdmin(e) {
     if (e) e.preventDefault();
     const userInput = document.getElementById('admin-login-user');
@@ -3194,64 +3359,101 @@ class JardinesApp {
     let authenticated = false;
     let adminName = 'Administración Condominal';
 
-    // 1. Intento de autenticación en backend en vivo si está online
-    if (window.apiClient && window.apiClient.isBackendOnline) {
+    // 1. Identificar si es Super Administrador (Desarrollador / Exento de Suscripción)
+    const isSuperAdminAccount = (
+      (userVal.toLowerCase() === 'admin' ||
+       userVal.toLowerCase() === 'admin@jardinesdelcerro.do' ||
+       userVal === '034-0000001-0') &&
+      (passVal === 'admin123' || passVal === '1234')
+    );
+
+    // 2. Administrador Regular Demo para pruebas de suscripción
+    const isRegularAdminDemo = (
+      userVal.toLowerCase() === 'gerencia@jardinesdelcerro.do' &&
+      passVal === 'admin123'
+    );
+
+    // 3. Revisar administradores personalizados creados localmente
+    const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
+    const customMatch = customAdmins.find(a =>
+      (a.email.toLowerCase() === userVal.toLowerCase() ||
+       a.documentId === userVal ||
+       (a.username && a.username.toLowerCase() === userVal.toLowerCase())) &&
+      a.password === passVal
+    );
+
+    if (isSuperAdminAccount) {
+      authenticated = true;
+      this.isSuperAdmin = true;
+      adminName = 'Super Administrador (Desarrollador)';
+      this.currentUser = {
+        name: 'Super Administrador (Desarrollador)',
+        email: 'admin@jardinesdelcerro.do',
+        role: 'superadmin',
+        role_label: 'Super Administrador (Desarrollador)',
+        isSuperAdmin: true,
+        subscriptionExempt: true
+      };
+    } else if (isRegularAdminDemo) {
+      authenticated = true;
+      this.isSuperAdmin = false;
+      adminName = 'Lic. Fernando Morales (Gerencia Condominal)';
+      this.currentUser = {
+        name: 'Lic. Fernando Morales',
+        email: 'gerencia@jardinesdelcerro.do',
+        role: 'admin',
+        role_label: 'Administrador Condominal Regular',
+        isSuperAdmin: false,
+        subscriptionExempt: false
+      };
+    } else if (customMatch) {
+      authenticated = true;
+      this.isSuperAdmin = false;
+      adminName = customMatch.name;
+      this.currentUser = {
+        name: customMatch.name,
+        email: customMatch.email,
+        document_id: customMatch.documentId,
+        role: 'admin',
+        role_label: 'Administrador Condominal Regular',
+        isSuperAdmin: false,
+        subscriptionExempt: false
+      };
+    } else if (window.apiClient && window.apiClient.isBackendOnline) {
+      // 4. Intento con backend online si no coincidió en local
       try {
         const res = await window.apiClient.login(userVal, passVal);
-        if (res && res.success && res.user && res.user.role === 'admin') {
+        if (res && res.success && res.user && (res.user.role === 'admin' || res.user.role === 'superadmin')) {
           authenticated = true;
-          adminName = res.user.name || 'Administración Jardines del Cerro IV';
+          adminName = res.user.name || 'Administración Condominal';
           this.currentUser = res.user;
-        } else if (res && res.user && res.user.role !== 'admin') {
-          if (errorBox) {
-            errorBox.innerHTML = '⛔ Este usuario no cuenta con privilegios de Administrador.';
-            errorBox.style.display = 'block';
-          }
-          return;
+          this.isSuperAdmin = (res.user.role === 'superadmin' || res.user.is_superadmin === true);
         }
       } catch (err) {
         console.warn('Fallo en autenticación con backend:', err);
       }
     }
 
-    // 2. Validación de credenciales locales maestras o administradores creados
-    if (!authenticated) {
-      const isMasterAdmin = (
-        (userVal.toLowerCase() === 'admin' ||
-         userVal.toLowerCase() === 'admin@jardinesdelcerro.do' ||
-         userVal === '034-0000001-0') &&
-        (passVal === 'admin123' || passVal === '1234')
-      );
-
-      // Revisar administradores personalizados creados localmente
-      const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
-      const customMatch = customAdmins.find(a =>
-        (a.email.toLowerCase() === userVal.toLowerCase() ||
-         a.documentId === userVal ||
-         (a.username && a.username.toLowerCase() === userVal.toLowerCase())) &&
-        a.password === passVal
-      );
-
-      if (isMasterAdmin) {
-        authenticated = true;
-        adminName = 'Administración Jardines del Cerro IV';
-      } else if (customMatch) {
-        authenticated = true;
-        adminName = customMatch.name;
-        this.currentUser = {
-          name: customMatch.name,
-          email: customMatch.email,
-          document_id: customMatch.documentId,
-          role: 'admin',
-          role_label: 'Administrador Condominal'
-        };
-      }
-    }
-
     if (authenticated) {
       this.isAdminLoggedIn = true;
-      this.renderAdminState();
-      this.showToast(`Acceso concedido: ${adminName}`);
+      const isSub = this.isAdminSubscribed();
+
+      if (this.isSuperAdmin) {
+        this.activeAdminTab = 'inventario';
+        this.renderAdminState();
+        this.showToast(`👑 Bienvenido, Super Administrador. Acceso total permanente (Exento de Suscripción).`);
+      } else if (!isSub) {
+        // Justo al iniciar sesión, salta de inmediato la ventana mostrando los planes de suscripción
+        this.activeAdminTab = 'suscripcion_admin';
+        this.renderAdminState();
+        this.openAdminPaypalSubscriptionModal('admin-plan-monthly');
+        this.showToast(`⚠️ Suscripción del Sistema requerida para habilitar las funciones de administración. Por favor autoriza el plan vía PayPal.`, 'warning');
+      } else {
+        this.activeAdminTab = 'inventario';
+        this.renderAdminState();
+        this.showToast(`Bienvenido a la administración, ${adminName}. Suscripción activa.`);
+      }
+
       if (passInput) passInput.value = '';
       if (errorBox) errorBox.style.display = 'none';
     } else {
@@ -3266,6 +3468,8 @@ class JardinesApp {
 
   logoutAdmin() {
     this.isAdminLoggedIn = false;
+    this.isSuperAdmin = false;
+    this.currentUser = null;
     const passInput = document.getElementById('admin-login-pass');
     if (passInput) passInput.value = '';
     const errorBox = document.getElementById('admin-login-error');
@@ -3368,6 +3572,16 @@ class JardinesApp {
   renderAdminTabContent() {
     const panel = document.getElementById('admin-content-panel');
     if (!panel) return;
+
+    this.updateAdminSidebarBadge();
+
+    // Verificación de suscripción obligatoria para operar el sistema:
+    // Si la cuenta NO es Super Admin exento y NO tiene suscripción activa,
+    // y no está visualizando la pestaña de suscripción, bloquear todas las funciones del sistema.
+    if (!this.isAdminSubscribed() && this.activeAdminTab !== 'suscripcion_admin') {
+      panel.innerHTML = this.renderAdminPaywallHtml();
+      return;
+    }
 
     const data = this.adminData;
 
@@ -3928,13 +4142,10 @@ class JardinesApp {
         </div>
       `;
     } else if (this.activeAdminTab === 'ia_admin') {
-      const sub = this.adminData.aiSubscription || {
-        active: true,
-        plan: "Suite Mensual IA Administrador Pro",
-        paypalSubId: "I-ADMIN-CERRO-PRO"
-      };
+      const isSub = this.isAdminSubscribed();
       const adminChat = this.getAdminAIChat();
       const adminSessionCount = (adminChat.sessions || []).length;
+      const subBadgeText = this.isSuperAdmin ? '👑 Super Admin (Exento)' : (isSub ? '✓ Incluido en Licencia SaaS' : '⚠️ Requiere Suscripción');
 
       panel.innerHTML = `
         <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
@@ -3942,10 +4153,12 @@ class JardinesApp {
             <div style="display: flex; align-items: center; gap: 8px;">
               <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Copiloto IA Ejecutivo de Administración</h2>
               <span class="badge badge-success">✓ En Línea · Google Gemini (gemini-3.8-flash)</span>
-              <span class="badge badge-accent" style="font-size: 11px;">Suite Corporativa Pro</span>
+              <span class="badge ${this.isSuperAdmin ? 'badge-accent' : (isSub ? 'badge-success' : 'badge-danger')}" style="font-size: 11px;">${subBadgeText}</span>
             </div>
             <p style="font-size: 12.5px; color: var(--dust); margin-top: 2px;">
-              ID de Suscripción: <code>${sub.paypalSubId || 'I-ADMIN-CERRO-PRO'}</code> · Auditoría contable, padrón, Ley 5038 de Condominios y telemetría de equipos críticos.
+              ${this.isSuperAdmin
+                ? 'Bypass de facturación activo · Auditoría contable, padrón, Ley 5038 de Condominios y telemetría de equipos críticos.'
+                : 'Copiloto ejecutivo 100% incluido en la suscripción del sistema · Auditoría contable, padrón, Ley 5038 y telemetría.'}
             </p>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -3953,7 +4166,7 @@ class JardinesApp {
               🤖 Probar Gemini API
             </button>
             <button class="btn-outline" style="padding: 6px 12px; font-size: 11px;" onclick="window.app.setAdminTab('suscripcion_admin');">
-              Administrar Suscripción PayPal
+              Licencia del Sistema
             </button>
           </div>
         </div>
@@ -4027,79 +4240,167 @@ class JardinesApp {
         if (container) container.scrollTop = container.scrollHeight;
       }, 50);
     } else if (this.activeAdminTab === 'suscripcion_admin') {
-      const sub = this.adminData.aiSubscription || { active: false };
+      // 1. Caso Super Administrador (Desarrollador / Bypass permanente)
+      if (this.isSuperAdmin) {
+        panel.innerHTML = `
+          <div style="margin-bottom: 24px;">
+            <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Licencia & Suscripción del Sistema</h2>
+            <p style="font-size: 13px; color: var(--dust);">Gestión de la licencia de uso y facturación para la administración condominal</p>
+          </div>
+
+          <div style="background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); border: 2px solid #059669; border-radius: var(--radius-xl); padding: 28px; box-shadow: var(--shadow-sm); margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: #059669; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);">
+                  👑
+                </div>
+                <div>
+                  <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: #065F46; margin: 0;">Cuenta Super Administrador (Desarrollador)</h3>
+                  <div style="font-size: 12px; color: #047857; font-weight: 600;">admin@jardinesdelcerro.do · Modo Evaluación & Control Total de Ingeniería</div>
+                </div>
+              </div>
+              <span class="badge" style="background: #059669; color: #fff; font-size: 12px; padding: 6px 14px; font-weight: 700; border-radius: 9999px;">✓ Exento de Suscripción (Acceso Ilimitado)</span>
+            </div>
+
+            <p style="font-size: 13.5px; color: #064E3B; line-height: 1.6; margin-bottom: 20px;">
+              Esta cuenta maestra ha sido categorizada como <strong>Super Administrador</strong> para permitir al programador y al equipo técnico evaluar, depurar y auditar todas las funcionalidades del sistema (Inventario, Solicitudes, CRM de Prospectos, Padrón de Residentes, Agenda de Visitas, Telemetría de Mantenimiento, Reportes Financieros y Copiloto IA Ejecutivo) de manera permanente, sin restricciones ni requerimiento de facturación periódica.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px;">
+              <div style="background: rgba(255,255,255,0.85); border: 1px solid #A7F3D0; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 11px; color: #047857; font-weight: 700; text-transform: uppercase;">Estado de Facturación</div>
+                <div style="font-size: 15px; font-weight: 800; color: #065F46;">0.00 USD (Bypass Activado)</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.85); border: 1px solid #A7F3D0; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 11px; color: #047857; font-weight: 700; text-transform: uppercase;">Módulos del Sistema</div>
+                <div style="font-size: 15px; font-weight: 800; color: #065F46;">100% Desbloqueados</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.85); border: 1px solid #A7F3D0; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 11px; color: #047857; font-weight: 700; text-transform: uppercase;">Copiloto IA Gemini</div>
+                <div style="font-size: 15px; font-weight: 800; color: #065F46;">Integrado Ilimitado</div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button class="btn-primary" style="background: #059669; border-color: #059669;" onclick="window.app.setAdminTab('inventario');">
+                🏢 Ir al Inventario de Unidades
+              </button>
+              <button class="btn-accent" onclick="window.app.setAdminTab('ia_admin');">
+                🤖 Ir al Copiloto IA Ejecutivo
+              </button>
+            </div>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 24px;">
+            <h4 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">
+              ℹ️ Guía para Probar el Bloqueo de Suscripción de Clientes
+            </h4>
+            <p style="font-size: 12.5px; color: var(--dust); line-height: 1.5; margin-bottom: 12px;">
+              Para comprobar la experiencia de un cliente o administrador regular con bloqueo por suscripción y pasarela de pago PayPal, cierra sesión e ingresa con la cuenta demo:
+            </p>
+            <div style="background: var(--white); border: 1px solid var(--linen); border-radius: 8px; padding: 12px; font-size: 12.5px; font-family: monospace; color: var(--ink);">
+              Usuario: <strong>gerencia@jardinesdelcerro.do</strong> | Clave: <strong>admin123</strong>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // 2. Caso Administrador Regular (Requiere suscripción activa)
+      const isSub = this.isAdminSubscribed();
+      const userEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+      const allSubs = this.loadStorage('jc_admin_subscriptions_v1', {});
+      const subInfo = allSubs[userEmail] || this.adminData.systemSubscription || {
+        active: isSub,
+        plan: 'Licencia SaaS Sistema Condominal Pro (Mensual)',
+        priceUsd: 24.99,
+        paypalSubId: 'I-CERRO-PRO',
+        subscribedAt: new Date().toLocaleDateString('es-DO'),
+        renewalDate: new Date(Date.now() + 30 * 86400000).toLocaleDateString('es-DO')
+      };
 
       panel.innerHTML = `
         <div style="margin-bottom: 24px;">
-          <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Membresía & Suscripción PayPal (Suite Administrador)</h2>
-          <p style="font-size: 13px; color: var(--dust);">Gestión de la licencia ejecutiva de Inteligencia Artificial para la Administración</p>
+          <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Licencia & Suscripción del Sistema Condominal</h2>
+          <p style="font-size: 13px; color: var(--dust);">Gestión de la licencia de uso para la administración y operación de Torre Jardines del Cerro IV</p>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
           <!-- Tarjeta de Estado Actual -->
           <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 28px; box-shadow: var(--shadow-sm);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <span class="badge ${sub.active ? 'badge-success' : 'badge-warning'}">
-                ${sub.active ? 'Suscripción Activa' : 'Sin Suscripción'}
+              <span class="badge ${isSub ? 'badge-success' : 'badge-danger'}" style="${isSub ? 'background: #059669; color: #fff;' : 'background: #EF4444; color: #fff;'}">
+                ${isSub ? 'Suscripción Activa' : 'Suscripción Requerida'}
               </span>
               <span style="font-size: 12px; font-weight: 800; color: #003087;">PayPal Subscriptions</span>
             </div>
 
             <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--ink); margin-bottom: 8px;">
-              ${sub.active ? `${sub.plan}` : 'Copiloto IA Administrador Desactivado'}
+              ${isSub ? (subInfo.plan || 'Licencia SaaS Sistema Condominal Pro') : 'Licencia del Sistema Suspendida'}
             </h3>
 
             <div style="font-size: 13px; color: var(--dust); line-height: 1.5; margin-bottom: 20px;">
-              ${sub.active
-                ? `La administración de la Torre cuenta con una suscripción corporativa activa vía PayPal. La próxima fecha programada de renovación es el <strong>${sub.renewalDate || 'Próximo ciclo'}</strong> por <strong>US$ ${sub.priceUsd}</strong>.`
-                : 'Active la suscripción ejecutiva vía PayPal para desbloquear la suite de auditoría financiera, cálculo de mora automática y redacción legal para la Junta de Administración.'}
+              ${isSub
+                ? `La administración cuenta con una suscripción corporativa activa vía PayPal. Todos los módulos operativos (Inventario, Solicitudes, Prospectos, Residentes, Agenda, DGII NCF y Copiloto IA) están desbloqueados. Próxima renovación: <strong>${subInfo.renewalDate || 'En 30 días'}</strong> por <strong>US$ ${subInfo.priceUsd || 24.99}</strong>.`
+                : 'El sistema Jardines del Cerro IV opera bajo un modelo de suscripción integral. Para habilitar las operaciones de administración y el acceso a los datos del condominio, active su suscripción vía PayPal.'}
             </div>
 
-            ${sub.active ? `
+            ${isSub ? `
               <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 12px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                   <span style="color: var(--dust);">ID de Transacción:</span>
-                  <code>${sub.paypalSubId}</code>
+                  <code>${subInfo.paypalSubId || 'I-PAYPAL-SAAS-ACT'}</code>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                  <span style="color: var(--dust);">Cuenta Vinculada:</span>
+                  <strong>${userEmail}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                   <span style="color: var(--dust);">Fecha de Alta:</span>
-                  <strong>${sub.subscribedAt || 'Hoy'}</strong>
+                  <strong>${subInfo.subscribedAt || 'Hoy'}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span style="color: var(--dust);">Próxima Renovación:</span>
-                  <strong>${sub.renewalDate || '30 días'}</strong>
+                  <strong>${subInfo.renewalDate || '30 días'}</strong>
                 </div>
               </div>
 
-              <div style="display: flex; gap: 10px;">
-                <button class="btn-primary" onclick="window.app.setAdminTab('ia_admin');">
-                  Ir al Copiloto IA
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-primary" onclick="window.app.setAdminTab('inventario');">
+                  🏢 Ir a Inventario
+                </button>
+                <button class="btn-accent" onclick="window.app.setAdminTab('ia_admin');">
+                  🤖 Abrir Copiloto IA
                 </button>
                 <button class="btn-outline" style="color: #DC2626; border-color: #F87171;" onclick="window.app.cancelAdminPaypalSubscription();">
                   Cancelar Suscripción
                 </button>
               </div>
             ` : `
-              <div style="display: flex; gap: 10px;">
-                <button class="btn-primary" style="background: #003087; border-color: #003087;" onclick="window.app.openAdminPaypalSubscriptionModal('admin-plan-monthly');">
-                  Activar Suite Mensual (US$ 24.99)
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn-primary" style="background: #003087; border-color: #003087; padding: 12px 18px;" onclick="window.app.openAdminPaypalSubscriptionModal('admin-plan-monthly');">
+                  💳 Activar Licencia Mensual (US$ 24.99/mes)
                 </button>
-                <button class="btn-accent" onclick="window.app.openAdminPaypalSubscriptionModal('admin-plan-annual');">
-                  Activar Suite Anual (US$ 249)
+                <button class="btn-accent" style="padding: 12px 18px;" onclick="window.app.openAdminPaypalSubscriptionModal('admin-plan-annual');">
+                  ⭐ Activar Licencia Corporativa Anual (US$ 249/año)
                 </button>
               </div>
             `}
           </div>
 
-          <!-- Cobertura y Garantías Corporativas -->
+          <!-- Módulos Incluidos en la Suscripción -->
           <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 28px;">
             <h4 style="font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 12px;">
-              Garantías Corporativas & Respaldo Legal
+              Funcionalidades Incluidas en la Licencia SaaS
             </h4>
-            <ul style="font-size: 12.5px; color: var(--dust); list-style: none; display: flex; flex-direction: column; gap: 12px; line-height: 1.5;">
-              <li>🏛️ <strong>Alineación con Ley 5038:</strong> Todas las plantillas de asamblea y convocatorias generadas cumplen con los requisitos de quórum y formalidades notariales de la República Dominicana.</li>
-              <li>🛡️ <strong>Debida Diligencia (Ley 155-17):</strong> Apoyo analítico en verificación de solvencia y procedencia de fondos de prospectos y contratos de ocupación.</li>
-              <li>⚡ <strong>Cancelación Corporativa Inmediata:</strong> El administrador puede suspender o pausar la suscripción desde esta consola o directamente en PayPal en cualquier momento.</li>
+            <ul style="font-size: 12.5px; color: var(--dust); list-style: none; display: flex; flex-direction: column; gap: 10px; line-height: 1.5; padding: 0;">
+              <li>✅ <strong>Inventario & Tipologías:</strong> Control de disponibilidad, precios y planos en tiempo real.</li>
+              <li>✅ <strong>CRM de Prospectos & Solicitudes:</strong> Flujo completo de ventas y reservas.</li>
+              <li>✅ <strong>Padrón de Residentes:</strong> Registro de propietarios e inquilinos (Ley 5038).</li>
+              <li>✅ <strong>Agenda de Citas & Visitas:</strong> Notificaciones y confirmaciones automáticas por correo.</li>
+              <li>✅ <strong>Mantenimiento Crítico:</strong> Monitoreo de planta eléctrica 150 kVA y ascensores.</li>
+              <li>✅ <strong>Finanzas & DGII:</strong> Fondo de reserva, moras y facturación con NCF.</li>
+              <li>🤖 <strong>Copiloto IA Gemini:</strong> Asistente jurídico y gerencial 100% incluido sin cargos extras.</li>
             </ul>
           </div>
         </div>
