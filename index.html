@@ -1025,23 +1025,6 @@
           </button>
         </form>
 
-        <!-- Selector Rápido de Credenciales para Pruebas (Super Admin vs Admin Regular) -->
-        <div style="margin-top: 18px; padding: 12px; background: rgba(255,255,255,0.04); border: 1px dashed rgba(255,255,255,0.2); border-radius: var(--radius-md); font-size: 11.5px; text-align: left;">
-          <div style="font-weight: 700; color: var(--accent); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-            <span>Cuentas para Pruebas del Programador:</span>
-            <span style="font-size: 10px; color: rgba(255,255,255,0.5);">Clic para cargar</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <button type="button" onclick="window.app.fillAdminCredentials('admin@jardinesdelcerro.do', 'admin123');" style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #6EE7B7; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-              <span>👑 <strong>Super Administrador (Programador)</strong></span>
-              <span style="font-size: 10px; opacity: 0.85;">Exento · Acceso Total</span>
-            </button>
-            <button type="button" onclick="window.app.fillAdminCredentials('gerencia@jardinesdelcerro.do', 'admin123');" style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #FCD34D; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-              <span>🏢 <strong>Administrador Regular</strong></span>
-              <span style="font-size: 10px; opacity: 0.85;">Requiere Suscripción</span>
-            </button>
-          </div>
-        </div>
 
         <div style="text-align: center; margin-top: 16px;">
           <button onclick="window.app.setView('landing');" style="font-size: 12.5px; color: rgba(255,255,255,0.6); text-decoration: underline;">

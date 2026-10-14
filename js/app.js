@@ -3287,10 +3287,6 @@ class JardinesApp {
             Ver Planes y Tarifas
           </button>
         </div>
-
-        <div style="margin-top: 18px; font-size: 11.5px; color: var(--dust);">
-          💡 <em>Nota para pruebas:</em> Si eres el programador/evaluador y deseas probar las funciones sin restricciones, puedes iniciar sesión con <code>admin@jardinesdelcerro.do</code> (Super Administrador).
-        </div>
       </div>
     `;
   }
@@ -4293,14 +4289,11 @@ class JardinesApp {
 
           <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-xl); padding: 24px;">
             <h4 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 8px;">
-              ℹ️ Guía para Probar el Bloqueo de Suscripción de Clientes
+              🛡️ Arquitectura de Seguridad & Privilegios
             </h4>
-            <p style="font-size: 12.5px; color: var(--dust); line-height: 1.5; margin-bottom: 12px;">
-              Para comprobar la experiencia de un cliente o administrador regular con bloqueo por suscripción y pasarela de pago PayPal, cierra sesión e ingresa con la cuenta demo:
+            <p style="font-size: 12.5px; color: var(--dust); line-height: 1.5; margin: 0;">
+              La cuenta de Super Administrador posee credenciales criptográficas de nivel 1 para supervisión estructural, acceso a logs de auditoría contable y mantenimiento del software. Las cuentas de administradores condominales operan bajo suscripción y licenciamiento periódico gestionado mediante PayPal.
             </p>
-            <div style="background: var(--white); border: 1px solid var(--linen); border-radius: 8px; padding: 12px; font-size: 12.5px; font-family: monospace; color: var(--ink);">
-              Usuario: <strong>gerencia@jardinesdelcerro.do</strong> | Clave: <strong>admin123</strong>
-            </div>
           </div>
         `;
         return;
