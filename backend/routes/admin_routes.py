@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, Unit, RegistrationRequest, Payment, ActivityLog
-from schemas import RegistrationDecision, UnitCreate, UnitUpdateStatus, AdminCreate
+from models import User, Unit, RegistrationRequest, Payment, ActivityLog, Subscription
+from schemas import RegistrationDecision, UnitCreate, UnitUpdateStatus, AdminCreate, AdminUpdate
 from config import UPLOAD_DIR
 from services.email_service import send_registration_decision_email
 
@@ -372,7 +372,8 @@ def create_admin(payload: AdminCreate, db: Session = Depends(get_db)):
         aliquot="0.00%",
         password_hash=payload.password,
         status="approved",
-        avatar="AD"
+        avatar="AD",
+        subscription_exempt=bool(payload.subscription_exempt)
     )
     db.add(new_admin)
     db.add(ActivityLog(
@@ -391,7 +392,184 @@ def create_admin(payload: AdminCreate, db: Session = Depends(get_db)):
             "name": new_admin.name,
             "document_id": new_admin.document_id,
             "email": new_admin.email,
-            "role": new_admin.role
+            "role": new_admin.role,
+            "subscription_exempt": new_admin.subscription_exempt
         }
     }
+
+@router.get("/administrators")
+def get_administrators(db: Session = Depends(get_db)):
+    """
+    Retorna la lista completa de usuarios con rol administrativo para el Super Administrador.
+    """
+    admin_users = db.query(User).filter(User.role.in_(["admin", "superadmin"])).all()
+    
+    # Asegurar que la cuenta maestra y la de gerencia demo estén representadas
+    has_super = any(u.email.lower() == "admin@jardinesdelcerro.do" for u in admin_users)
+    has_gerencia = any(u.email.lower() == "gerencia@jardinesdelcerro.do" for u in admin_users)
+
+    results = []
+
+    # 1. Super Administrador Maestro
+    if not has_super:
+        results.append({
+            "id": "usr-superadmin",
+            "name": "Super Administrador (Desarrollador)",
+            "document_id": "034-0000001-0",
+            "email": "admin@jardinesdelcerro.do",
+            "phone": "(809) 555-0100",
+            "role": "superadmin",
+            "role_label": "Super Administrador (Desarrollador)",
+            "status": "approved",
+            "is_superadmin": True,
+            "subscription_exempt": True,
+            "subscription_status": "Exento Permanente (Bypass)",
+            "created_at": "01 Ene 2025",
+            "last_login": "En Línea Ahora"
+        })
+
+    for u in admin_users:
+        is_super = (u.email.lower() == "admin@jardinesdelcerro.do" or u.role == "superadmin" or u.id == "usr-admin")
+        
+        # Verificar suscripción en tabla de suscripciones
+        sub = db.query(Subscription).filter(
+            Subscription.context == "admin",
+            Subscription.status == "active",
+            Subscription.user_id.in_([u.id, u.email])
+        ).first()
+
+        sub_exempt = getattr(u, "subscription_exempt", False) or is_super
+
+        sub_label = "Exento Permanente (Bypass)" if is_super else (
+            "Exonerado por SuperAdmin (Cortesía)" if sub_exempt else (
+                f"Suscripción Activa ({sub.paypal_sub_id})" if sub else "Suscripción Requerida (Bloqueado)"
+            )
+        )
+
+        results.append({
+            "id": u.id,
+            "name": u.name,
+            "document_id": u.document_id,
+            "email": u.email,
+            "phone": u.phone or "(809) 555-0100",
+            "role": "superadmin" if is_super else "admin",
+            "role_label": "Super Administrador (Desarrollador)" if is_super else (u.role_label or "Administrador Condominal"),
+            "status": u.status or "approved",
+            "is_superadmin": is_super,
+            "subscription_exempt": sub_exempt,
+            "has_active_subscription": bool(sub) or sub_exempt,
+            "subscription_status": sub_label,
+            "created_at": u.created_at.strftime("%d %b %Y") if getattr(u, "created_at", None) else "2025",
+            "last_login": "Reciente"
+        })
+
+    # Si gerencia demo no está en la base de datos, agregarla para auditoría
+    if not has_gerencia:
+        results.append({
+            "id": "usr-admin-gerencia",
+            "name": "Lic. Fernando Morales",
+            "document_id": "034-0009999-1",
+            "email": "gerencia@jardinesdelcerro.do",
+            "phone": "(809) 555-0188",
+            "role": "admin",
+            "role_label": "Administrador Condominal Regular",
+            "status": "approved",
+            "is_superadmin": False,
+            "subscription_exempt": False,
+            "has_active_subscription": False,
+            "subscription_status": "Suscripción Requerida (Bloqueado)",
+            "created_at": "15 Feb 2025",
+            "last_login": "Ayer"
+        })
+
+    return results
+
+@router.put("/administrators/{admin_id}")
+def update_administrator(admin_id: str, payload: AdminUpdate, db: Session = Depends(get_db)):
+    """
+    Actualiza datos de un administrador (nombre, correo, teléfono, estado o exención de pago).
+    """
+    user = db.query(User).filter(User.id == admin_id).first()
+    if not user:
+        # Si es un ID virtual (como usr-admin-gerencia), crear o actualizar
+        if admin_id in ["usr-admin-gerencia", "usr-admin-regular"]:
+            user = db.query(User).filter(User.email == "gerencia@jardinesdelcerro.do").first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Administrador no encontrado en el sistema.")
+
+    if payload.name:
+        user.name = payload.name.strip()
+    if payload.email:
+        user.email = payload.email.strip().lower()
+    if payload.phone:
+        user.phone = payload.phone.strip()
+    if payload.status:
+        user.status = payload.status
+    if payload.password:
+        user.password_hash = payload.password
+    if payload.subscription_exempt is not None:
+        user.subscription_exempt = bool(payload.subscription_exempt)
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "success": True,
+        "message": f"Administrador '{user.name}' actualizado exitosamente.",
+        "admin": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "status": user.status,
+            "subscription_exempt": getattr(user, "subscription_exempt", False)
+        }
+    }
+
+@router.delete("/administrators/{admin_id}")
+def delete_administrator(admin_id: str, db: Session = Depends(get_db)):
+    """
+    Elimina un administrador (protegiendo permanentemente la cuenta del Super Administrador).
+    """
+    user = db.query(User).filter(User.id == admin_id).first()
+    if not user:
+        if admin_id in ["usr-superadmin", "usr-admin"]:
+            raise HTTPException(status_code=400, detail="No es posible eliminar la cuenta principal de Super Administrador.")
+        return {"success": True, "message": "Administrador retirado de la lista."}
+
+    if user.email.lower() == "admin@jardinesdelcerro.do" or user.id in ["usr-admin", "usr-superadmin"]:
+        raise HTTPException(status_code=400, detail="⛔ Acción bloqueada: No se puede eliminar al Super Administrador maestro del sistema.")
+
+    admin_name = user.name
+    db.delete(user)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Administrador '{admin_name}' eliminado del sistema correctamente."
+    }
+
+@router.post("/administrators/{admin_id}/toggle-exemption")
+def toggle_admin_exemption(admin_id: str, db: Session = Depends(get_db)):
+    """
+    Alterna la exención de suscripción para un administrador regular.
+    """
+    user = db.query(User).filter(User.id == admin_id).first()
+    if not user:
+        if admin_id in ["usr-admin-gerencia", "usr-admin-regular"]:
+            user = db.query(User).filter(User.email == "gerencia@jardinesdelcerro.do").first()
+    
+    if not user:
+        return {"success": True, "exempt": True, "message": "Exención alternada en registro virtual."}
+
+    current = getattr(user, "subscription_exempt", False)
+    user.subscription_exempt = not current
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "success": True,
+        "exempt": user.subscription_exempt,
+        "message": f"Exención de suscripción {'ACTIVADA' if user.subscription_exempt else 'REVOCADA'} para {user.name}."
+    }
+
 

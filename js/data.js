@@ -547,6 +547,66 @@ const ADMIN_MOCK_DATA = {
 };
 
 /**
+ * Directorio Oficial de Administradores del Sistema (Supervisión SuperAdmin)
+ */
+const DEFAULT_ADMIN_USERS_DATA = [
+  {
+    id: "usr-superadmin",
+    name: "Super Administrador (Desarrollador)",
+    documentId: "034-0000001-0",
+    email: "admin@jardinesdelcerro.do",
+    phone: "(809) 555-0100",
+    role: "superadmin",
+    roleLabel: "Super Administrador (Desarrollador)",
+    unit: "Control Central",
+    status: "approved",
+    statusLabel: "Activo Permanente",
+    isSuperAdmin: true,
+    subscriptionExempt: true,
+    subscriptionStatus: "Exento Permanente (Bypass)",
+    createdAt: "01 Ene 2025",
+    lastLogin: "En Línea Ahora",
+    avatar: "👑"
+  },
+  {
+    id: "usr-admin-gerencia",
+    name: "Lic. Fernando Morales",
+    documentId: "034-0009999-1",
+    email: "gerencia@jardinesdelcerro.do",
+    phone: "(809) 555-0188",
+    role: "admin",
+    roleLabel: "Gerencia Condominal",
+    unit: "Torre Administrativa",
+    status: "approved",
+    statusLabel: "Activo",
+    isSuperAdmin: false,
+    subscriptionExempt: false,
+    subscriptionStatus: "Suscripción Requerida",
+    createdAt: "15 Feb 2025",
+    lastLogin: "Ayer",
+    avatar: "FM"
+  },
+  {
+    id: "usr-admin-operaciones",
+    name: "Ing. Carlos Mendoza",
+    documentId: "034-0044552-3",
+    email: "operaciones@jardinesdelcerro.do",
+    phone: "(809) 555-0192",
+    role: "admin",
+    roleLabel: "Mantenimiento & Telemetría",
+    unit: "Operaciones Técnicas",
+    status: "approved",
+    statusLabel: "Activo",
+    isSuperAdmin: false,
+    subscriptionExempt: false,
+    subscriptionStatus: "Suscripción Requerida",
+    createdAt: "01 Mar 2025",
+    lastLogin: "Hace 3 días",
+    avatar: "CM"
+  }
+];
+
+/**
  * Padrón de Usuarios del Condominio con Credenciales y Estados
  */
 const REGISTERED_USERS_DATA = [

@@ -1092,6 +1092,12 @@
             <span>Suscripción del Sistema</span>
             <span id="admin-sub-status-badge" class="badge badge-accent" style="font-size: 8px; margin-left: auto;">PayPal</span>
           </button>
+          <!-- Pestaña Exclusiva Super Administrador: Gestión de Administradores -->
+          <button class="portal-nav-btn" id="nav-btn-superadmin-admins" data-admin-tab="gestion_admins" onclick="window.app.setAdminTab('gestion_admins', this);" style="display: none; position: relative;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Gestión Administradores</span>
+            <span class="badge" style="font-size: 8px; margin-left: auto; background: #059669; color: #fff; font-weight: 700;">SuperAdmin</span>
+          </button>
         </nav>
 
         <div style="padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
@@ -1425,12 +1431,14 @@
           🛡️
         </div>
         <div>
-          <h3 style="font-size: 18px; font-weight: 800; color: var(--ink);">Registrar Nuevo Administrador</h3>
-          <div style="font-size: 12.5px; color: var(--dust);">Crea una cuenta con privilegios administrativos para el condominio</div>
+          <h3 id="create-admin-modal-title" style="font-size: 18px; font-weight: 800; color: var(--ink);">Registrar Nuevo Administrador</h3>
+          <div id="create-admin-modal-sub" style="font-size: 12.5px; color: var(--dust);">Crea una cuenta con privilegios administrativos para el condominio</div>
         </div>
       </div>
 
       <form onsubmit="window.app.handleCreateAdminSubmit(event);">
+        <input type="hidden" id="admin-form-mode" value="create">
+        <input type="hidden" id="edit-admin-id" value="">
         <div id="create-admin-error" style="display: none; margin-bottom: 14px; padding: 10px 12px; background: #FEE2E2; border: 1px solid #FCA5A5; border-radius: var(--radius-sm); color: #B91C1C; font-size: 12.5px; line-height: 1.4;"></div>
 
         <div class="form-group">
@@ -1454,19 +1462,37 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Contraseña de Acceso Administrativo *</label>
+          <label class="form-label" id="new-admin-pass-label">Contraseña de Acceso Administrativo *</label>
           <div class="pw-input-wrapper">
             <input type="password" class="form-input" id="new-admin-pass" placeholder="Mínimo 8 caracteres" required style="padding-right: 38px;">
             <button type="button" class="pw-toggle-btn" onclick="window.app.togglePasswordVisibility('new-admin-pass', this);" title="Ver u ocultar contraseña">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
-          <p style="font-size: 11.5px; color: var(--dust); margin-top: 4px;">Debe tener al menos 8 caracteres, mayúscula, minúscula, número y símbolo.</p>
+          <p id="new-admin-pass-note" style="font-size: 11.5px; color: var(--dust); margin-top: 4px;">Debe tener al menos 8 caracteres, mayúscula, minúscula, número y símbolo.</p>
+        </div>
+
+        <div class="form-group" id="edit-admin-status-group" style="display: none;">
+          <label class="form-label">Estado de Acceso</label>
+          <select class="form-select" id="edit-admin-status">
+            <option value="approved">✓ Activo (Habilitado)</option>
+            <option value="suspended">⛔ Suspendido (Acceso Bloqueado)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="background: #ECFDF5; border: 1.5px solid #10B981; border-radius: var(--radius-md); padding: 14px; margin-top: 14px;">
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #065F46; cursor: pointer; margin: 0;">
+            <input type="checkbox" id="new-admin-exempt" style="width: 18px; height: 18px; accent-color: #059669; cursor: pointer;">
+            <span>⭐ Conceder Exención de Suscripción (Bypass SuperAdmin)</span>
+          </label>
+          <p style="font-size: 11.5px; color: #047857; margin: 6px 0 0 28px; line-height: 1.45;">
+            Si se activa, este administrador tendrá acceso completo e inmediato a todos los módulos sin requerir pago previo de licencia por PayPal.
+          </p>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
           <button type="button" class="btn-outline" onclick="window.app.closeCreateAdminModal();">Cancelar</button>
-          <button type="submit" class="btn-accent" style="padding: 10px 20px;">
+          <button type="submit" class="btn-accent" id="create-admin-modal-submit-btn" style="padding: 10px 20px;">
             <span>Crear Administrador</span>
           </button>
         </div>

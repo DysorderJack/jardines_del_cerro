@@ -3225,8 +3225,15 @@ class JardinesApp {
       return true;
     }
 
-    // 2. Administrador regular: verificar si su cuenta tiene suscripción activa en localStorage
     const email = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+
+    // 2. Revisar si la cuenta tiene exención manual concedida por el Super Administrador
+    const manualExemptions = this.loadStorage('jc_admin_exemptions_v1', {});
+    if (manualExemptions[email] === true) {
+      return true;
+    }
+
+    // 3. Administrador regular: verificar si su cuenta tiene suscripción activa en localStorage
     const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
     const userSub = subMap[email];
     if (userSub && userSub.active) {
@@ -3294,6 +3301,7 @@ class JardinesApp {
   updateAdminSidebarBadge() {
     const roleLabelEl = document.getElementById('admin-sidebar-role-label');
     const subBadge = document.getElementById('admin-sub-status-badge');
+    const superAdminNavBtn = document.getElementById('nav-btn-superadmin-admins');
 
     if (this.isSuperAdmin) {
       if (roleLabelEl) {
@@ -3305,7 +3313,18 @@ class JardinesApp {
         subBadge.style.background = '#059669';
         subBadge.style.color = '#fff';
       }
+      // Mostrar pestaña de administración de administradores SOLO para el Super Administrador
+      if (superAdminNavBtn) {
+        superAdminNavBtn.style.display = 'flex';
+      }
     } else {
+      // Ocultar completamente la pestaña para cualquier otro administrador
+      if (superAdminNavBtn) {
+        superAdminNavBtn.style.display = 'none';
+      }
+      if (this.activeAdminTab === 'gestion_admins') {
+        this.activeAdminTab = this.isAdminSubscribed() ? 'inventario' : 'suscripcion_admin';
+      }
       const isSub = this.isAdminSubscribed();
       if (roleLabelEl) {
         roleLabelEl.innerHTML = isSub
@@ -3355,28 +3374,51 @@ class JardinesApp {
     let authenticated = false;
     let adminName = 'Administración Condominal';
 
+    const cleanUser = userVal.toLowerCase();
+    const suspendedMap = this.loadStorage('jc_admin_suspended_v1', {});
+    const exemptionsMap = this.loadStorage('jc_admin_exemptions_v1', {});
+
     // 1. Identificar si es Super Administrador (Desarrollador / Exento de Suscripción)
     const isSuperAdminAccount = (
-      (userVal.toLowerCase() === 'admin' ||
-       userVal.toLowerCase() === 'admin@jardinesdelcerro.do' ||
+      (cleanUser === 'admin' ||
+       cleanUser === 'admin@jardinesdelcerro.do' ||
        userVal === '034-0000001-0') &&
       (passVal === 'admin123' || passVal === '1234')
     );
 
+    // Si la cuenta está suspendida por el Super Administrador y no es la cuenta maestra
+    if (!isSuperAdminAccount && (suspendedMap[cleanUser] === true || suspendedMap[userVal] === true)) {
+      if (errorBox) {
+        errorBox.innerHTML = '⛔ Esta cuenta de administrador ha sido suspendida por el Super Administrador.';
+        errorBox.style.display = 'block';
+      } else {
+        this.showToast('Cuenta de administrador suspendida.', 'error');
+      }
+      return;
+    }
+
     // 2. Administrador Regular Demo para pruebas de suscripción
     const isRegularAdminDemo = (
-      userVal.toLowerCase() === 'gerencia@jardinesdelcerro.do' &&
+      cleanUser === 'gerencia@jardinesdelcerro.do' &&
       passVal === 'admin123'
     );
 
     // 3. Revisar administradores personalizados creados localmente
     const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
     const customMatch = customAdmins.find(a =>
-      (a.email.toLowerCase() === userVal.toLowerCase() ||
+      (a.email.toLowerCase() === cleanUser ||
        a.documentId === userVal ||
-       (a.username && a.username.toLowerCase() === userVal.toLowerCase())) &&
+       (a.username && a.username.toLowerCase() === cleanUser)) &&
       a.password === passVal
     );
+
+    if (customMatch && (customMatch.status === 'suspended' || suspendedMap[customMatch.email.toLowerCase()] === true)) {
+      if (errorBox) {
+        errorBox.innerHTML = '⛔ Esta cuenta de administrador ha sido suspendida por el Super Administrador.';
+        errorBox.style.display = 'block';
+      }
+      return;
+    }
 
     if (isSuperAdminAccount) {
       authenticated = true;
@@ -3394,18 +3436,20 @@ class JardinesApp {
       authenticated = true;
       this.isSuperAdmin = false;
       adminName = 'Lic. Fernando Morales (Gerencia Condominal)';
+      const isExempt = Boolean(exemptionsMap['gerencia@jardinesdelcerro.do']);
       this.currentUser = {
         name: 'Lic. Fernando Morales',
         email: 'gerencia@jardinesdelcerro.do',
         role: 'admin',
         role_label: 'Administrador Condominal Regular',
         isSuperAdmin: false,
-        subscriptionExempt: false
+        subscriptionExempt: isExempt
       };
     } else if (customMatch) {
       authenticated = true;
       this.isSuperAdmin = false;
       adminName = customMatch.name;
+      const isExempt = Boolean(customMatch.subscriptionExempt || exemptionsMap[customMatch.email.toLowerCase()]);
       this.currentUser = {
         name: customMatch.name,
         email: customMatch.email,
@@ -3413,7 +3457,7 @@ class JardinesApp {
         role: 'admin',
         role_label: 'Administrador Condominal Regular',
         isSuperAdmin: false,
-        subscriptionExempt: false
+        subscriptionExempt: isExempt
       };
     } else if (window.apiClient && window.apiClient.isBackendOnline) {
       // 4. Intento con backend online si no coincidió en local
@@ -3424,6 +3468,9 @@ class JardinesApp {
           adminName = res.user.name || 'Administración Condominal';
           this.currentUser = res.user;
           this.isSuperAdmin = (res.user.role === 'superadmin' || res.user.is_superadmin === true);
+          if (exemptionsMap[(res.user.email || '').toLowerCase()] === true) {
+            this.currentUser.subscriptionExempt = true;
+          }
         }
       } catch (err) {
         console.warn('Fallo en autenticación con backend:', err);
@@ -3576,6 +3623,17 @@ class JardinesApp {
     // y no está visualizando la pestaña de suscripción, bloquear todas las funciones del sistema.
     if (!this.isAdminSubscribed() && this.activeAdminTab !== 'suscripcion_admin') {
       panel.innerHTML = this.renderAdminPaywallHtml();
+      return;
+    }
+
+    // Pestaña Exclusiva Super Administrador: Gestión de Administradores
+    if (this.activeAdminTab === 'gestion_admins') {
+      if (!this.isSuperAdmin) {
+        this.activeAdminTab = 'inventario';
+        this.renderAdminTabContent();
+        return;
+      }
+      this.renderSuperAdminAdminsManagement(panel);
       return;
     }
 
@@ -5496,15 +5554,421 @@ class JardinesApp {
 
 
   /* =========================================================================
-     Gestión y Creación de Administradores
+     Módulo Exclusivo Super Administrador: Gestión de Usuarios Administradores
      ========================================================================= */
+  getAdministratorsList() {
+    // 1. Administradores base predeterminados
+    const baseList = (typeof DEFAULT_ADMIN_USERS_DATA !== 'undefined')
+      ? JSON.parse(JSON.stringify(DEFAULT_ADMIN_USERS_DATA))
+      : [
+          {
+            id: "usr-superadmin",
+            name: "Super Administrador (Desarrollador)",
+            documentId: "034-0000001-0",
+            email: "admin@jardinesdelcerro.do",
+            phone: "(809) 555-0100",
+            role: "superadmin",
+            roleLabel: "Super Administrador (Desarrollador)",
+            status: "approved",
+            statusLabel: "Activo Permanente",
+            isSuperAdmin: true,
+            subscriptionExempt: true,
+            createdAt: "01 Ene 2025",
+            lastLogin: "En Línea Ahora",
+            avatar: "👑"
+          },
+          {
+            id: "usr-admin-gerencia",
+            name: "Lic. Fernando Morales",
+            documentId: "034-0009999-1",
+            email: "gerencia@jardinesdelcerro.do",
+            phone: "(809) 555-0188",
+            role: "admin",
+            roleLabel: "Gerencia Condominal",
+            status: "approved",
+            statusLabel: "Activo",
+            isSuperAdmin: false,
+            subscriptionExempt: false,
+            createdAt: "15 Feb 2025",
+            lastLogin: "Ayer",
+            avatar: "FM"
+          }
+        ];
+
+    // 2. Mapas de estado dinámico persistente
+    const customAdmins = this.loadStorage('custom_admins', []);
+    const exemptionsMap = this.loadStorage('jc_admin_exemptions_v1', {});
+    const subsMap = this.loadStorage('jc_admin_subscriptions_v1', {});
+    const suspendedMap = this.loadStorage('jc_admin_suspended_v1', {});
+
+    // Mapear administradores base con sus estados dinámicos
+    baseList.forEach(admin => {
+      const email = admin.email.toLowerCase();
+      if (admin.isSuperAdmin) {
+        admin.subscriptionExempt = true;
+        admin.subscriptionStatus = 'Exento Permanente (Bypass)';
+        admin.status = 'approved';
+      } else {
+        if (exemptionsMap[email] === true) {
+          admin.subscriptionExempt = true;
+          admin.subscriptionStatus = 'Exonerado por SuperAdmin (Cortesía)';
+        } else if (subsMap[email] && subsMap[email].active) {
+          admin.subscriptionExempt = false;
+          admin.hasActiveSub = true;
+          admin.subscriptionStatus = `Suscripción Activa (${subsMap[email].paypalSubId || 'PayPal'})`;
+        } else {
+          admin.subscriptionExempt = false;
+          admin.hasActiveSub = false;
+          admin.subscriptionStatus = 'Suscripción Requerida (Bloqueado)';
+        }
+
+        if (suspendedMap[email] === true) {
+          admin.status = 'suspended';
+          admin.statusLabel = 'Suspendido';
+        } else {
+          admin.status = 'approved';
+          admin.statusLabel = 'Activo';
+        }
+      }
+    });
+
+    // Agregar custom admins sin duplicar emails
+    customAdmins.forEach(cAdmin => {
+      const email = (cAdmin.email || '').toLowerCase();
+      const existing = baseList.find(a => a.email.toLowerCase() === email || a.documentId === cAdmin.documentId);
+      if (existing) {
+        existing.name = cAdmin.name || existing.name;
+        existing.phone = cAdmin.phone || existing.phone;
+        existing.password = cAdmin.password || existing.password;
+        if (cAdmin.status) existing.status = cAdmin.status;
+      } else {
+        const isExempt = (exemptionsMap[email] === true || cAdmin.subscriptionExempt === true);
+        const sub = subsMap[email];
+        const isSusp = (suspendedMap[email] === true || cAdmin.status === 'suspended');
+        baseList.push({
+          id: cAdmin.id || `usr-admin-${Date.now()}`,
+          name: cAdmin.name,
+          documentId: cAdmin.documentId || cAdmin.document_id || '034-0000000-0',
+          email: cAdmin.email,
+          phone: cAdmin.phone || '(809) 555-0100',
+          role: 'admin',
+          roleLabel: cAdmin.roleLabel || 'Administrador Condominal',
+          password: cAdmin.password,
+          status: isSusp ? 'suspended' : 'approved',
+          statusLabel: isSusp ? 'Suspendido' : 'Activo',
+          isSuperAdmin: false,
+          subscriptionExempt: isExempt,
+          hasActiveSub: Boolean(sub && sub.active),
+          subscriptionStatus: isExempt
+            ? 'Exonerado por SuperAdmin (Cortesía)'
+            : (sub && sub.active ? `Suscripción Activa (${sub.paypalSubId || 'PayPal'})` : 'Suscripción Requerida (Bloqueado)'),
+          createdAt: cAdmin.createdAt || 'Reciente',
+          lastLogin: 'Registrado',
+          avatar: (cAdmin.name || 'AD').substring(0, 2).toUpperCase()
+        });
+      }
+    });
+
+    return baseList;
+  }
+
+  renderSuperAdminAdminsManagement(panel) {
+    const adminList = this.getAdministratorsList();
+    const totalAdmins = adminList.length;
+    const superCount = adminList.filter(a => a.isSuperAdmin).length;
+    const regularCount = totalAdmins - superCount;
+    const activeLicensedCount = adminList.filter(a => a.subscriptionExempt || a.hasActiveSub).length;
+    const pendingPaymentCount = adminList.filter(a => !a.isSuperAdmin && !a.subscriptionExempt && !a.hasActiveSub).length;
+
+    panel.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink); margin: 0;">Gestión de Usuarios Administradores</h2>
+            <span class="badge" style="background: #059669; color: #fff; font-size: 11px; padding: 4px 10px; font-weight: 700; border-radius: 9999px;">👑 Exclusivo Super Administrador</span>
+          </div>
+          <p style="font-size: 13px; color: var(--dust); margin: 0;">
+            Supervisa, crea, audita y administra a los usuarios con rol de administrador. Puedes otorgar o revocar exenciones de suscripción SaaS, suspender cuentas y actualizar accesos.
+          </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-primary" style="background: #059669; border-color: #059669; display: flex; align-items: center; gap: 8px; padding: 10px 18px;" onclick="window.app.openCreateAdminModal();">
+            <span>+ Crear Administrador</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPIs del Equipo Administrativo -->
+      <div class="kpi-cards-grid" style="margin-bottom: 24px;">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Administradores</div>
+          <div class="kpi-val" style="color: var(--ink);">${totalAdmins}</div>
+          <div style="font-size: 11px; color: var(--dust); margin-top: 4px;">En el sistema</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Super Administradores</div>
+          <div class="kpi-val" style="color: #059669;">${superCount}</div>
+          <div style="font-size: 11px; color: var(--dust); margin-top: 4px;">Bypass Permanente</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Administradores Regulares</div>
+          <div class="kpi-val" style="color: #0284C7;">${regularCount}</div>
+          <div style="font-size: 11px; color: var(--dust); margin-top: 4px;">Condominio / Operaciones</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Con Licencia / Exentos</div>
+          <div class="kpi-val" style="color: #10B981;">${activeLicensedCount}</div>
+          <div style="font-size: 11px; color: var(--dust); margin-top: 4px;">Acceso Habilitado</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Pendientes de Pago</div>
+          <div class="kpi-val" style="color: #EF4444;">${pendingPaymentCount}</div>
+          <div style="font-size: 11px; color: var(--dust); margin-top: 4px;">Bloqueados por Paywall</div>
+        </div>
+      </div>
+
+      <!-- Barra de Búsqueda y Filtros en Vivo -->
+      <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; max-width: 420px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--dust);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="admin-user-search-input" class="form-input" placeholder="Buscar por nombre, correo o cédula..." oninput="window.app.filterAdminUsersList(this.value);" style="padding: 8px 14px; font-size: 12.5px;">
+        </div>
+        <div style="font-size: 12px; color: var(--dust);">
+          Mostrando <strong>${totalAdmins}</strong> cuentas registradas
+        </div>
+      </div>
+
+      <!-- Tabla Principal de Administradores -->
+      <div class="table-card" style="box-shadow: var(--shadow-sm); overflow-x: auto;">
+        <table class="custom-table" id="superadmin-admins-table">
+          <thead>
+            <tr>
+              <th>Administrador</th>
+              <th>Cédula / Documento</th>
+              <th>Contacto</th>
+              <th>Rol en Sistema</th>
+              <th>Estado Cuenta</th>
+              <th>Licencia SaaS (PayPal)</th>
+              <th style="text-align: right;">Acciones de SuperAdmin</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${adminList.map(admin => {
+              const isSuper = admin.isSuperAdmin;
+              const isExempt = admin.subscriptionExempt;
+              const isSuspended = admin.status === 'suspended';
+              const hasSub = admin.hasActiveSub;
+
+              let subBadgeHtml = '';
+              if (isSuper) {
+                subBadgeHtml = '<span class="badge" style="background: #059669; color: #fff; font-size: 11px;">👑 Exento Permanente</span>';
+              } else if (isExempt) {
+                subBadgeHtml = '<span class="badge" style="background: #10B981; color: #fff; font-size: 11px;" title="Bypass manual concedido por SuperAdmin">⭐ Exonerado (Bypass)</span>';
+              } else if (hasSub) {
+                subBadgeHtml = '<span class="badge badge-success" style="font-size: 11px;">✅ Activa vía PayPal</span>';
+              } else {
+                subBadgeHtml = '<span class="badge badge-danger" style="background: #EF4444; color: #fff; font-size: 11px;" title="Bloqueado por paywall hasta pagar suscripción">⚠️ Requiere Pago</span>';
+              }
+
+              return `
+                <tr class="admin-user-row" data-search="${(admin.name + ' ' + admin.email + ' ' + admin.documentId).toLowerCase()}" style="${isSuper ? 'background: rgba(16,185,129,0.04);' : ''}">
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <div style="width: 36px; height: 36px; border-radius: 50%; background: ${isSuper ? '#059669' : '#003087'}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+                        ${admin.avatar || (isSuper ? '👑' : admin.name.substring(0, 2).toUpperCase())}
+                      </div>
+                      <div>
+                        <div style="font-weight: 700; color: var(--ink); font-size: 13.5px;">
+                          ${admin.name}
+                          ${isSuper ? '<span style="font-size: 11px; margin-left: 4px;" title="Tu Cuenta Maestra">👑 (Tú)</span>' : ''}
+                        </div>
+                        <div style="font-size: 11.5px; color: var(--dust);">${admin.unit || 'Administración'}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><code>${admin.documentId || '034-0000000-0'}</code></td>
+                  <td>
+                    <div style="font-size: 12.5px; color: var(--ink);"><strong>${admin.email}</strong></div>
+                    <div style="font-size: 11px; color: var(--dust);">${admin.phone || '(809) 555-0100'}</div>
+                  </td>
+                  <td>
+                    <span class="badge ${isSuper ? 'badge-accent' : 'badge-neutral'}" style="font-size: 11px;">
+                      ${isSuper ? 'Super Administrador' : 'Admin Condominal'}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge ${isSuspended ? 'badge-danger' : 'badge-success'}" style="${isSuspended ? 'background: #EF4444; color: #fff;' : 'background: #059669; color: #fff;'}">
+                      ${isSuspended ? '⛔ Suspendido' : '✓ Activo'}
+                    </span>
+                  </td>
+                  <td>
+                    ${subBadgeHtml}
+                  </td>
+                  <td style="text-align: right;">
+                    ${isSuper ? `
+                      <span class="badge" style="background: rgba(5,150,105,0.15); color: #047857; font-weight: 700; font-size: 10.5px;">
+                        🛡️ Cuenta Maestra Protegida
+                      </span>
+                    ` : `
+                      <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
+                        <!-- Botón Alternar Exención de Suscripción -->
+                        ${isExempt ? `
+                          <button class="btn-outline" style="padding: 4px 8px; font-size: 10.5px; color: #D97706; border-color: #FCD34D;" onclick="window.app.toggleAdminExemption('${admin.id}', '${admin.email}');" title="Revocar exoneración y exigir pago de suscripción PayPal">
+                            💳 Exigir PayPal
+                          </button>
+                        ` : `
+                          <button class="btn-primary" style="padding: 4px 8px; font-size: 10.5px; background: #059669; border-color: #059669;" onclick="window.app.toggleAdminExemption('${admin.id}', '${admin.email}');" title="Conceder exoneración y desbloquear acceso completo sin requerir pago">
+                            ⭐ Exonerar
+                          </button>
+                        `}
+
+                        <!-- Botón Alternar Estado Activo / Suspendido -->
+                        ${isSuspended ? `
+                          <button class="btn-outline" style="padding: 4px 8px; font-size: 10.5px; color: #059669; border-color: #A7F3D0;" onclick="window.app.toggleAdminStatus('${admin.id}', '${admin.email}');" title="Reactivar acceso de esta cuenta">
+                            🔓 Activar
+                          </button>
+                        ` : `
+                          <button class="btn-outline" style="padding: 4px 8px; font-size: 10.5px; color: #DC2626; border-color: #FCA5A5;" onclick="window.app.toggleAdminStatus('${admin.id}', '${admin.email}');" title="Suspender acceso de esta cuenta">
+                            🔒 Suspender
+                          </button>
+                        `}
+
+                        <!-- Botón Editar -->
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 10.5px;" onclick="window.app.openEditAdminModal('${admin.id}');" title="Editar datos y contraseña">
+                          ✏️
+                        </button>
+
+                        <!-- Botón Eliminar -->
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 10.5px; color: #DC2626; border-color: #FCA5A5;" onclick="window.app.deleteAdmin('${admin.id}', '${admin.email}');" title="Eliminar administrador del sistema">
+                          🗑️
+                        </button>
+                      </div>
+                    `}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  filterAdminUsersList(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#superadmin-admins-table .admin-user-row');
+    rows.forEach(row => {
+      const searchData = row.getAttribute('data-search') || '';
+      if (!q || searchData.includes(q)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
   openCreateAdminModal() {
     const modal = document.getElementById('create-admin-modal');
+    const titleEl = document.getElementById('create-admin-modal-title');
+    const subEl = document.getElementById('create-admin-modal-sub');
+    const modeInput = document.getElementById('admin-form-mode');
+    const editIdInput = document.getElementById('edit-admin-id');
+    const nameInput = document.getElementById('new-admin-name');
+    const docInput = document.getElementById('new-admin-doc');
+    const emailInput = document.getElementById('new-admin-email');
+    const phoneInput = document.getElementById('new-admin-phone');
+    const passInput = document.getElementById('new-admin-pass');
+    const passLabel = document.getElementById('new-admin-pass-label');
+    const passNote = document.getElementById('new-admin-pass-note');
+    const statusGroup = document.getElementById('edit-admin-status-group');
+    const exemptCheckbox = document.getElementById('new-admin-exempt');
+    const submitBtn = document.getElementById('create-admin-modal-submit-btn');
     const err = document.getElementById('create-admin-error');
+
     if (err) {
       err.style.display = 'none';
       err.innerHTML = '';
     }
+
+    if (modeInput) modeInput.value = 'create';
+    if (editIdInput) editIdInput.value = '';
+    if (titleEl) titleEl.innerText = 'Registrar Nuevo Administrador';
+    if (subEl) subEl.innerText = 'Crea una cuenta con privilegios administrativos para el condominio';
+    if (nameInput) nameInput.value = '';
+    if (docInput) {
+      docInput.value = '';
+      docInput.disabled = false;
+    }
+    if (emailInput) emailInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+    if (passInput) {
+      passInput.value = '';
+      passInput.required = true;
+      passInput.placeholder = 'Mínimo 8 caracteres';
+    }
+    if (passLabel) passLabel.innerText = 'Contraseña de Acceso Administrativo *';
+    if (passNote) passNote.innerText = 'Debe tener al menos 8 caracteres, mayúscula, minúscula, número y símbolo.';
+    if (statusGroup) statusGroup.style.display = 'none';
+    if (exemptCheckbox) exemptCheckbox.checked = false;
+    if (submitBtn) submitBtn.innerHTML = '<span>Crear Administrador</span>';
+
+    if (modal) modal.style.display = 'flex';
+  }
+
+  openEditAdminModal(adminId) {
+    const adminList = this.getAdministratorsList();
+    const admin = adminList.find(a => a.id === adminId || a.email.toLowerCase() === adminId.toLowerCase());
+    if (!admin) {
+      this.showToast('Administrador no encontrado.', 'error');
+      return;
+    }
+
+    const modal = document.getElementById('create-admin-modal');
+    const titleEl = document.getElementById('create-admin-modal-title');
+    const subEl = document.getElementById('create-admin-modal-sub');
+    const modeInput = document.getElementById('admin-form-mode');
+    const editIdInput = document.getElementById('edit-admin-id');
+    const nameInput = document.getElementById('new-admin-name');
+    const docInput = document.getElementById('new-admin-doc');
+    const emailInput = document.getElementById('new-admin-email');
+    const phoneInput = document.getElementById('new-admin-phone');
+    const passInput = document.getElementById('new-admin-pass');
+    const passLabel = document.getElementById('new-admin-pass-label');
+    const passNote = document.getElementById('new-admin-pass-note');
+    const statusGroup = document.getElementById('edit-admin-status-group');
+    const statusSelect = document.getElementById('edit-admin-status');
+    const exemptCheckbox = document.getElementById('new-admin-exempt');
+    const submitBtn = document.getElementById('create-admin-modal-submit-btn');
+    const err = document.getElementById('create-admin-error');
+
+    if (err) {
+      err.style.display = 'none';
+      err.innerHTML = '';
+    }
+
+    if (modeInput) modeInput.value = 'edit';
+    if (editIdInput) editIdInput.value = admin.id;
+    if (titleEl) titleEl.innerText = 'Editar Administrador Condominal';
+    if (subEl) subEl.innerText = `Modifica datos, estado o privilegios de ${admin.name}`;
+    if (nameInput) nameInput.value = admin.name;
+    if (docInput) {
+      docInput.value = admin.documentId || '';
+      docInput.disabled = true; // Mantener cédula como identificador inmutable
+    }
+    if (emailInput) emailInput.value = admin.email;
+    if (phoneInput) phoneInput.value = admin.phone || '';
+    if (passInput) {
+      passInput.value = '';
+      passInput.required = false;
+      passInput.placeholder = 'Dejar en blanco para conservar la actual';
+    }
+    if (passLabel) passLabel.innerText = 'Nueva Contraseña (Opcional)';
+    if (passNote) passNote.innerText = 'Ingresa una contraseña solo si deseas cambiarla.';
+    if (statusGroup) statusGroup.style.display = 'block';
+    if (statusSelect) statusSelect.value = admin.status || 'approved';
+    if (exemptCheckbox) exemptCheckbox.checked = Boolean(admin.subscriptionExempt);
+    if (submitBtn) submitBtn.innerHTML = '<span>Guardar Cambios</span>';
+
     if (modal) modal.style.display = 'flex';
   }
 
@@ -5515,11 +5979,15 @@ class JardinesApp {
 
   async handleCreateAdminSubmit(e) {
     if (e) e.preventDefault();
+    const modeInput = document.getElementById('admin-form-mode');
+    const editIdInput = document.getElementById('edit-admin-id');
     const nameInput = document.getElementById('new-admin-name');
     const docInput = document.getElementById('new-admin-doc');
     const emailInput = document.getElementById('new-admin-email');
     const phoneInput = document.getElementById('new-admin-phone');
     const passInput = document.getElementById('new-admin-pass');
+    const statusSelect = document.getElementById('edit-admin-status');
+    const exemptCheckbox = document.getElementById('new-admin-exempt');
     const errorBox = document.getElementById('create-admin-error');
 
     if (errorBox) {
@@ -5527,21 +5995,93 @@ class JardinesApp {
       errorBox.innerHTML = '';
     }
 
+    const mode = modeInput ? modeInput.value : 'create';
+    const editId = editIdInput ? editIdInput.value : '';
     const name = nameInput ? nameInput.value.trim() : '';
     const doc = docInput ? docInput.value.trim() : '';
     const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
     const phone = phoneInput ? phoneInput.value.trim() : '';
     const pass = passInput ? passInput.value : '';
+    const isExempt = exemptCheckbox ? exemptCheckbox.checked : false;
+    const statusVal = statusSelect ? statusSelect.value : 'approved';
 
-    if (!name || !doc || !email || !pass) {
+    if (!name || !doc || !email) {
       if (errorBox) {
-        errorBox.innerHTML = '⚠️ Por favor completa todos los campos requeridos (*).';
+        errorBox.innerHTML = '⚠️ Por favor completa los campos requeridos (*).';
         errorBox.style.display = 'block';
       }
       return;
     }
 
-    // Validar complejidad de contraseña (mínimo 8 caracteres)
+    // Caso de EDICIÓN de administrador existente
+    if (mode === 'edit') {
+      const customAdmins = this.loadStorage('custom_admins', []);
+      let target = customAdmins.find(a => a.id === editId || a.email.toLowerCase() === email || a.documentId === doc);
+      if (!target) {
+        target = {
+          id: editId || `usr-admin-${Date.now()}`,
+          name,
+          documentId: doc,
+          email,
+          phone: phone || '(809) 555-0100',
+          role: 'admin',
+          roleLabel: 'Administrador Condominal'
+        };
+        customAdmins.push(target);
+      }
+
+      target.name = name;
+      target.email = email;
+      target.phone = phone || '(809) 555-0100';
+      target.status = statusVal;
+      target.subscriptionExempt = isExempt;
+      if (pass && pass.trim().length >= 4) {
+        target.password = pass;
+      }
+      this.saveStorage('custom_admins', customAdmins);
+
+      // Guardar mapa de exenciones y suspensiones
+      const exemptionsMap = this.loadStorage('jc_admin_exemptions_v1', {});
+      exemptionsMap[email] = isExempt;
+      this.saveStorage('jc_admin_exemptions_v1', exemptionsMap);
+
+      const suspendedMap = this.loadStorage('jc_admin_suspended_v1', {});
+      suspendedMap[email] = (statusVal === 'suspended');
+      this.saveStorage('jc_admin_suspended_v1', suspendedMap);
+
+      // Sincronizar en backend si está online
+      if (window.apiClient && window.apiClient.isBackendOnline) {
+        try {
+          await window.apiClient.updateAdministrator(editId || email, {
+            name,
+            email,
+            phone,
+            status: statusVal,
+            password: pass || undefined,
+            subscription_exempt: isExempt
+          });
+        } catch (err) {
+          console.warn('Error al actualizar admin en backend:', err);
+        }
+      }
+
+      this.closeCreateAdminModal();
+      this.showToast(`✓ Administrador "${name}" actualizado exitosamente.`);
+      if (this.activeAdminTab === 'gestion_admins') {
+        this.renderAdminTabContent();
+      }
+      return;
+    }
+
+    // Caso de CREACIÓN de nuevo administrador
+    if (!pass) {
+      if (errorBox) {
+        errorBox.innerHTML = '⚠️ La contraseña de acceso es requerida para un nuevo administrador.';
+        errorBox.style.display = 'block';
+      }
+      return;
+    }
+
     if (pass.length < 8) {
       if (errorBox) {
         errorBox.innerHTML = '⚠️ La contraseña de administrador debe tener como mínimo 8 caracteres.';
@@ -5550,18 +6090,19 @@ class JardinesApp {
       return;
     }
 
-    // Verificar si la cédula o correo ya existen
-    if (this.isDocumentIdTaken(doc)) {
+    // Validar si la cédula o correo ya existen en administradores o residentes
+    const allAdmins = this.getAdministratorsList();
+    if (allAdmins.some(a => a.documentId === doc)) {
       if (errorBox) {
-        errorBox.innerHTML = `⚠️ El documento / cédula <strong>${doc}</strong> ya se encuentra registrado.`;
+        errorBox.innerHTML = `⚠️ El documento / cédula <strong>${doc}</strong> ya pertenece a un administrador.`;
         errorBox.style.display = 'block';
       }
       return;
     }
 
-    if (this.isEmailTaken(email)) {
+    if (allAdmins.some(a => a.email.toLowerCase() === email)) {
       if (errorBox) {
-        errorBox.innerHTML = `⚠️ El correo electrónico <strong>${email}</strong> ya se encuentra registrado.`;
+        errorBox.innerHTML = `⚠️ El correo electrónico <strong>${email}</strong> ya está registrado para otro administrador.`;
         errorBox.style.display = 'block';
       }
       return;
@@ -5575,7 +6116,8 @@ class JardinesApp {
           document_id: doc,
           email,
           phone: phone || '(809) 555-0100',
-          password: pass
+          password: pass,
+          subscription_exempt: isExempt
         });
         if (apiRes && apiRes.detail) {
           if (errorBox) {
@@ -5590,8 +6132,8 @@ class JardinesApp {
     }
 
     // Guardar en administradores locales permanentes (localStorage)
-    const customAdmins = JSON.parse(localStorage.getItem('custom_admins') || '[]');
-    customAdmins.push({
+    const customAdmins = this.loadStorage('custom_admins', []);
+    const newAdminObj = {
       id: `usr-admin-${Date.now()}`,
       name,
       documentId: doc,
@@ -5599,19 +6141,148 @@ class JardinesApp {
       phone: phone || '(809) 555-0100',
       password: pass,
       role: 'admin',
-      roleLabel: 'Administrador Condominal'
-    });
-    localStorage.setItem('custom_admins', JSON.stringify(customAdmins));
+      roleLabel: 'Administrador Condominal',
+      status: 'approved',
+      subscriptionExempt: isExempt,
+      createdAt: new Date().toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+    customAdmins.push(newAdminObj);
+    this.saveStorage('custom_admins', customAdmins);
+
+    if (isExempt) {
+      const exemptionsMap = this.loadStorage('jc_admin_exemptions_v1', {});
+      exemptionsMap[email] = true;
+      this.saveStorage('jc_admin_exemptions_v1', exemptionsMap);
+    }
 
     // Resetear formulario y cerrar modal
-    if (nameInput) nameInput.value = '';
-    if (docInput) docInput.value = '';
-    if (emailInput) emailInput.value = '';
-    if (phoneInput) phoneInput.value = '';
-    if (passInput) passInput.value = '';
     this.closeCreateAdminModal();
-
     this.showToast(`🛡️ Administrador "${name}" creado exitosamente.`);
+    if (this.activeAdminTab === 'gestion_admins') {
+      this.renderAdminTabContent();
+    }
+  }
+
+  async toggleAdminExemption(adminId, email) {
+    if (!this.isSuperAdmin) {
+      this.showToast('Solo el Super Administrador puede gestionar exenciones.', 'error');
+      return;
+    }
+    const cleanEmail = email.toLowerCase();
+    const exemptionsMap = this.loadStorage('jc_admin_exemptions_v1', {});
+    const current = Boolean(exemptionsMap[cleanEmail]);
+    exemptionsMap[cleanEmail] = !current;
+    this.saveStorage('jc_admin_exemptions_v1', exemptionsMap);
+
+    // Sincronizar en custom_admins si existe
+    const customAdmins = this.loadStorage('custom_admins', []);
+    const match = customAdmins.find(a => a.email.toLowerCase() === cleanEmail || a.id === adminId);
+    if (match) {
+      match.subscriptionExempt = !current;
+      this.saveStorage('custom_admins', customAdmins);
+    }
+
+    // Actualizar en backend si está online
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        await window.apiClient.toggleAdminExemption(adminId);
+      } catch (e) {
+        console.warn('Fallo al sincronizar exención con backend:', e);
+      }
+    }
+
+    if (!current) {
+      this.showToast(`⭐ Exención de suscripción ACTIVADA para ${cleanEmail}. Acceso total concedido.`);
+    } else {
+      this.showToast(`💳 Exención REVOCADA para ${cleanEmail}. Ahora requerirá suscripción PayPal.`);
+    }
+
+    this.renderAdminTabContent();
+  }
+
+  async toggleAdminStatus(adminId, email) {
+    if (!this.isSuperAdmin) {
+      this.showToast('Solo el Super Administrador puede suspender o activar cuentas.', 'error');
+      return;
+    }
+    const cleanEmail = email.toLowerCase();
+    if (cleanEmail === 'admin@jardinesdelcerro.do' || adminId === 'usr-superadmin') {
+      this.showToast('No es posible suspender la cuenta de Super Administrador.', 'error');
+      return;
+    }
+    const suspendedMap = this.loadStorage('jc_admin_suspended_v1', {});
+    const isSuspended = Boolean(suspendedMap[cleanEmail]);
+    suspendedMap[cleanEmail] = !isSuspended;
+    this.saveStorage('jc_admin_suspended_v1', suspendedMap);
+
+    // Actualizar en custom_admins si existe
+    const customAdmins = this.loadStorage('custom_admins', []);
+    const match = customAdmins.find(a => a.email.toLowerCase() === cleanEmail || a.id === adminId);
+    if (match) {
+      match.status = !isSuspended ? 'suspended' : 'approved';
+      this.saveStorage('custom_admins', customAdmins);
+    }
+
+    // Actualizar en backend si está online
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        await window.apiClient.updateAdministrator(adminId, {
+          status: !isSuspended ? 'suspended' : 'approved'
+        });
+      } catch (e) {
+        console.warn('Fallo al sincronizar estado con backend:', e);
+      }
+    }
+
+    if (!isSuspended) {
+      this.showToast(`⛔ Cuenta ${cleanEmail} SUSPENDIDA.`);
+    } else {
+      this.showToast(`✓ Cuenta ${cleanEmail} REACTIVADA.`);
+    }
+
+    this.renderAdminTabContent();
+  }
+
+  async deleteAdmin(adminId, email) {
+    if (!this.isSuperAdmin) {
+      this.showToast('Solo el Super Administrador puede eliminar administradores.', 'error');
+      return;
+    }
+    const cleanEmail = email.toLowerCase();
+    if (cleanEmail === 'admin@jardinesdelcerro.do' || adminId === 'usr-superadmin') {
+      alert('⛔ Acción bloqueada: No se puede eliminar la cuenta principal de Super Administrador.');
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente al administrador ${email}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    // Eliminar de custom_admins
+    let customAdmins = this.loadStorage('custom_admins', []);
+    customAdmins = customAdmins.filter(a => a.email.toLowerCase() !== cleanEmail && a.id !== adminId);
+    this.saveStorage('custom_admins', customAdmins);
+
+    // Limpiar mapas asociados
+    const exemptionsMap = this.loadStorage('jc_admin_exemptions_v1', {});
+    delete exemptionsMap[cleanEmail];
+    this.saveStorage('jc_admin_exemptions_v1', exemptionsMap);
+
+    const suspendedMap = this.loadStorage('jc_admin_suspended_v1', {});
+    delete suspendedMap[cleanEmail];
+    this.saveStorage('jc_admin_suspended_v1', suspendedMap);
+
+    // Eliminar en backend si está online
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        await window.apiClient.deleteAdministrator(adminId);
+      } catch (e) {
+        console.warn('Fallo al eliminar admin en backend:', e);
+      }
+    }
+
+    this.showToast(`🗑️ Administrador ${cleanEmail} eliminado del sistema.`);
+    this.renderAdminTabContent();
   }
 
   async promptTestEmail() {

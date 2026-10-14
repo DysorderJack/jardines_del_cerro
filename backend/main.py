@@ -51,6 +51,11 @@ def on_startup():
                     conn.commit()
                 except Exception:
                     pass
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN subscription_exempt BOOLEAN DEFAULT 0"))
+                conn.commit()
+            except Exception:
+                pass
     except Exception:
         pass
 

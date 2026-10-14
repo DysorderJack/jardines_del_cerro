@@ -95,6 +95,62 @@ class ApiClient {
     }
   }
 
+  // Obtener lista completa de administradores (Super Administrador)
+  async getAdministrators() {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/administrators`);
+      return await res.json();
+    } catch (e) {
+      console.warn('Fallo en getAdministrators API:', e);
+      return null;
+    }
+  }
+
+  // Actualizar Administrador
+  async updateAdministrator(adminId, payload) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/administrators/${encodeURIComponent(adminId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Fallo en updateAdministrator API:', e);
+      return null;
+    }
+  }
+
+  // Eliminar Administrador
+  async deleteAdministrator(adminId) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/administrators/${encodeURIComponent(adminId)}`, {
+        method: 'DELETE'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Fallo en deleteAdministrator API:', e);
+      return null;
+    }
+  }
+
+  // Alternar Exención de Suscripción de Administrador
+  async toggleAdminExemption(adminId) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/admin/administrators/${encodeURIComponent(adminId)}/toggle-exemption`, {
+        method: 'POST'
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Fallo en toggleAdminExemption API:', e);
+      return null;
+    }
+  }
+
   // Solicitudes de Registro (Auditoría Admin)
   async getAdminRequests() {
     if (!this.isBackendOnline) return null;

@@ -83,13 +83,22 @@ class AIChatPrompt(BaseModel):
     user_id: Optional[str] = None
     unit: Optional[str] = None
 
-# Admin Creation Request
+# Admin Creation & Update Requests
 class AdminCreate(BaseModel):
     name: str
     document_id: str
     email: str
     phone: Optional[str] = None
     password: str
+    subscription_exempt: Optional[bool] = False
+
+class AdminUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None
+    status: Optional[str] = None
+    subscription_exempt: Optional[bool] = None
 
 # Visit Schemas
 class VisitCreate(BaseModel):
