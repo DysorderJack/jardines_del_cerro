@@ -18,6 +18,7 @@ from routes.ai_routes import router as ai_router
 from routes.maintenance_routes import router as maintenance_router
 from routes.assembly_routes import router as assembly_router
 from routes.visit_routes import router as visit_router
+from routes.ecf_routes import router as ecf_router
 
 # 1. Crear tablas en la base de datos
 Base.metadata.create_all(bind=engine)
@@ -25,7 +26,7 @@ Base.metadata.create_all(bind=engine)
 # 2. Inicializar FastAPI
 app = FastAPI(
     title="Torre Residencial Jardines del Cerro IV — API Backend",
-    description="Backend oficial con base de datos relacional, integración con PayPal Subscriptions, Google Gemini API y DGII NCF.",
+    description="Backend oficial con base de datos relacional, integración con PayPal Subscriptions, Google Gemini API y Facturación Electrónica e-CF DGII (Ley 32-23).",
     version="2.0.0"
 )
 
@@ -71,6 +72,16 @@ def on_startup():
                     conn.commit()
                 except Exception:
                     pass
+            for col, col_type in [
+                ("encf", "VARCHAR(25)"),
+                ("security_code", "VARCHAR(20)"),
+                ("qr_url", "TEXT"),
+            ]:
+                try:
+                    conn.execute(text(f"ALTER TABLE subscriptions ADD COLUMN {col} {col_type}"))
+                    conn.commit()
+                except Exception:
+                    pass
     except Exception:
         pass
 
@@ -96,6 +107,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(payments_router)
 app.include_router(paypal_router)
+app.include_router(ecf_router)
 app.include_router(ai_router)
 app.include_router(maintenance_router)
 app.include_router(assembly_router)
@@ -120,7 +132,8 @@ def api_info():
         "developer": "Inversionisto S.R.L.",
         "ai_engine": "Google Gemini (gemini-2.0-flash)",
         "payments": "PayPal Subscriptions API",
-        "tax_authority": "DGII (Ley 173-07 / Ley 5038)"
+        "tax_authority": "DGII (Ley 173-07 / Ley 5038 / Ley 32-23 Facturación Electrónica)",
+        "electronic_invoicing": "e-CF Tipo E31 (Crédito Fiscal) & E32 (Consumo)"
     }
 
 # 8. Servir frontend de sitio_web si index.html existe en el directorio padre

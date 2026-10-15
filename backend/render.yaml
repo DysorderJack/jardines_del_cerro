@@ -35,3 +35,11 @@ services:
         sync: false
       - key: PAYPAL_CLIENT_SECRET
         sync: false
+      - key: ECF_API_KEY
+        sync: false
+      - key: ECF_API_BASE_URL
+        sync: false
+      - key: ECF_RNC_EMISOR
+        sync: false
+      - key: ECF_ENVIRONMENT
+        value: live

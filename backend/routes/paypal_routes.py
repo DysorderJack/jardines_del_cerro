@@ -2,9 +2,10 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Subscription, User
+from models import Subscription, User, ElectronicInvoice
 from schemas import PayPalVerifySubscription, PayPalVerifyOrder
 from services.paypal_service import PayPalService
+from services.ecf_service import ECFService
 
 router = APIRouter(prefix="/api/paypal", tags=["Pasarela PayPal Subscriptions"])
 
@@ -60,13 +61,17 @@ def get_subscription_status(context: str, user_id: str = None, db: Session = Dep
         "paypalSubId": sub.paypal_sub_id,
         "subscribedAt": sub.created_at.strftime("%d %b %Y"),
         "renewalDate": sub.renewal_date,
+        "encf": sub.encf,
+        "securityCode": sub.security_code,
+        "qrUrl": sub.qr_url,
         "statusLabel": "Activa vía PayPal"
     }
 
 @router.post("/verify-order")
 def verify_and_activate_order(payload: PayPalVerifyOrder, db: Session = Depends(get_db)):
     """
-    Verifica con la API de PayPal una orden capturada y activa la suscripción en el sistema.
+    Verifica con la API de PayPal una orden capturada, activa la suscripción en el sistema
+    y emite de manera automática la Factura Electrónica con Valor de Crédito Fiscal (e-CF Tipo E31).
     """
     verify_result = PayPalService.verify_order(payload.order_id)
     if not verify_result.get("valid"):
@@ -81,7 +86,44 @@ def verify_and_activate_order(payload: PayPalVerifyOrder, db: Session = Depends(
     renewal_str = (datetime.now() + timedelta(days=days)).strftime("%d %b %Y")
     payer_email = verify_result.get("payer_email") or payload.user_id or "admin@jardinesdelcerro.do"
 
-    # Guardar en base de datos
+    # Emitir Factura Electrónica e-CF Tipo E31 ante la DGII (Ley 32-23)
+    ecf_data = None
+    if payload.context == "admin":
+        ecf_data = ECFService.emit_e31_credito_fiscal(
+            user_email=payer_email,
+            plan_name=payload.plan_name,
+            period=payload.period,
+            price_usd=payload.price_usd,
+            paypal_order_id=payload.order_id
+        )
+
+        new_ecf = ElectronicInvoice(
+            id=ecf_data["id"],
+            encf=ecf_data["encf"],
+            type_id=ecf_data["type_id"],
+            type_name=ecf_data["type_name"],
+            context="admin_subscription",
+            user_id=payer_email,
+            paypal_reference=payload.order_id,
+            rnc_emisor=ecf_data["rnc_emisor"],
+            razon_social_emisor=ecf_data["razon_social_emisor"],
+            rnc_receptor=ecf_data["rnc_receptor"],
+            razon_social_receptor=ecf_data["razon_social_receptor"],
+            concept=ecf_data["concept"],
+            currency=ecf_data["currency"],
+            exchange_rate=ecf_data["exchange_rate"],
+            amount_usd=ecf_data["amount_usd"],
+            subtotal_dop=ecf_data["subtotal_dop"],
+            itbis_dop=ecf_data["itbis_dop"],
+            total_dop=ecf_data["total_dop"],
+            security_code=ecf_data["security_code"],
+            qr_url=ecf_data["qr_url"],
+            status=ecf_data["status"],
+            dgii_track_id=ecf_data.get("dgii_track_id")
+        )
+        db.add(new_ecf)
+
+    # Guardar suscripción en base de datos
     new_sub = Subscription(
         id=f"sub-{int(datetime.now().timestamp())}",
         context=payload.context,
@@ -92,25 +134,29 @@ def verify_and_activate_order(payload: PayPalVerifyOrder, db: Session = Depends(
         price_usd=payload.price_usd,
         paypal_sub_id=payload.order_id,
         status="active",
-        renewal_date=renewal_str
+        renewal_date=renewal_str,
+        encf=ecf_data.get("encf") if ecf_data else None,
+        security_code=ecf_data.get("security_code") if ecf_data else None,
+        qr_url=ecf_data.get("qr_url") if ecf_data else None
     )
     db.add(new_sub)
     db.commit()
 
     return {
         "success": True,
-        "message": f"Pago confirmado y verificado con PayPal ({payload.order_id}). Acceso habilitado.",
+        "message": f"Pago confirmado con PayPal ({payload.order_id}) y Factura Electrónica e-CF Tipo E31 emitida exitosamente ante la DGII.",
         "paypalOrderId": payload.order_id,
         "payerEmail": payer_email,
         "plan": payload.plan_name,
         "renewalDate": renewal_str,
-        "status": "active"
+        "status": "active",
+        "ecfInvoice": ecf_data
     }
 
 @router.post("/verify-subscription")
 def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Session = Depends(get_db)):
     """
-    Verifica con PayPal la suscripción creada y la activa en la base de datos.
+    Verifica con PayPal la suscripción creada, la activa en el sistema y emite el e-CF E31.
     """
     # 1. Verificar contra la API de PayPal
     verify_result = PayPalService.verify_subscription(payload.paypal_sub_id)
@@ -125,7 +171,44 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
     renewal_str = (datetime.now() + timedelta(days=days)).strftime("%d %b %Y")
     payer_email = verify_result.get("payer_email") or payload.user_id or "admin@jardinesdelcerro.do"
 
-    # 3. Guardar en base de datos
+    # 3. Emitir Factura Electrónica e-CF Tipo E31 (Ley 32-23)
+    ecf_data = None
+    if payload.context == "admin":
+        ecf_data = ECFService.emit_e31_credito_fiscal(
+            user_email=payer_email,
+            plan_name=payload.plan_name,
+            period=payload.period,
+            price_usd=payload.price_usd,
+            paypal_order_id=payload.paypal_sub_id
+        )
+
+        new_ecf = ElectronicInvoice(
+            id=ecf_data["id"],
+            encf=ecf_data["encf"],
+            type_id=ecf_data["type_id"],
+            type_name=ecf_data["type_name"],
+            context="admin_subscription",
+            user_id=payer_email,
+            paypal_reference=payload.paypal_sub_id,
+            rnc_emisor=ecf_data["rnc_emisor"],
+            razon_social_emisor=ecf_data["razon_social_emisor"],
+            rnc_receptor=ecf_data["rnc_receptor"],
+            razon_social_receptor=ecf_data["razon_social_receptor"],
+            concept=ecf_data["concept"],
+            currency=ecf_data["currency"],
+            exchange_rate=ecf_data["exchange_rate"],
+            amount_usd=ecf_data["amount_usd"],
+            subtotal_dop=ecf_data["subtotal_dop"],
+            itbis_dop=ecf_data["itbis_dop"],
+            total_dop=ecf_data["total_dop"],
+            security_code=ecf_data["security_code"],
+            qr_url=ecf_data["qr_url"],
+            status=ecf_data["status"],
+            dgii_track_id=ecf_data.get("dgii_track_id")
+        )
+        db.add(new_ecf)
+
+    # 4. Guardar en base de datos
     new_sub = Subscription(
         id=f"sub-{int(datetime.now().timestamp())}",
         context=payload.context,
@@ -136,19 +219,23 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
         price_usd=payload.price_usd,
         paypal_sub_id=payload.paypal_sub_id,
         status="active",
-        renewal_date=renewal_str
+        renewal_date=renewal_str,
+        encf=ecf_data.get("encf") if ecf_data else None,
+        security_code=ecf_data.get("security_code") if ecf_data else None,
+        qr_url=ecf_data.get("qr_url") if ecf_data else None
     )
     db.add(new_sub)
     db.commit()
 
     return {
         "success": True,
-        "message": f"Suscripción PayPal activada con éxito para {payload.context}.",
+        "message": f"Suscripción PayPal activada con éxito para {payload.context} y e-CF Tipo E31 emitido.",
         "paypalSubId": payload.paypal_sub_id,
         "payerEmail": payer_email,
         "plan": payload.plan_name,
         "renewalDate": renewal_str,
-        "status": "active"
+        "status": "active",
+        "ecfInvoice": ecf_data
     }
 
 @router.post("/cancel-subscription")

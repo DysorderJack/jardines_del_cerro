@@ -278,6 +278,29 @@ class ApiClient {
     } catch (e) {
       return null;
     }
+  // Facturación Electrónica e-CF DGII (Ley 32-23)
+  async getAdminSubscriptionInvoice(userId) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/ecf/subscription-invoice?user_id=${encodeURIComponent(userId || 'gerencia@jardinesdelcerro.do')}`);
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async getEcfInvoice(encf) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/ecf/invoice/${encodeURIComponent(encf)}`);
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  getPrintableInvoiceUrl(encf) {
+    return `${this.baseUrl || 'http://localhost:8000/api'}/ecf/invoice/${encodeURIComponent(encf)}/print`;
   }
 
   // Inteligencia Artificial (Google Gemini)

@@ -68,4 +68,12 @@ SMTP_PASS = get_clean_env("SMTP_PASS", "").replace(" ", "").replace("-", "").str
 SMTP_FROM = get_clean_env("SMTP_FROM", "") or SMTP_USER or "notificaciones@jardinesdelcerro.com"
 FRONTEND_URL = get_clean_env("FRONTEND_URL", "https://jardines-del-cerro.vercel.app")
 
+# Facturación Electrónica DGII (e-CF - Ley 32-23)
+ECF_API_KEY = get_clean_env("ECF_API_KEY", "ecf_live_6dfa18e5b57b39c212518f6ac148e3f7538ab343d93007a23542f2f402d9b5cc")
+ECF_API_BASE_URL = get_clean_env("ECF_API_BASE_URL", "https://aura.nexo.com.do/api")
+ECF_RNC_EMISOR = get_clean_env("ECF_RNC_EMISOR", "132-45678-9")
+ECF_RAZON_SOCIAL_EMISOR = get_clean_env("ECF_RAZON_SOCIAL_EMISOR", "Torre Residencial Jardines del Cerro IV, S.R.L.")
+ECF_ENVIRONMENT = get_clean_env("ECF_ENVIRONMENT", "live")  # 'live' o 'test'
+ECF_DEFAULT_EXCHANGE_RATE = float(get_clean_env("ECF_DEFAULT_EXCHANGE_RATE", "60.50"))
+
 
