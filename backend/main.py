@@ -56,6 +56,21 @@ def on_startup():
                 conn.commit()
             except Exception:
                 pass
+            for col, col_type in [
+                ("avatar_url", "TEXT"),
+                ("emergency_contact", "VARCHAR(120)"),
+                ("emergency_phone", "VARCHAR(30)"),
+                ("vehicle_plate", "VARCHAR(30)"),
+                ("vehicle_model", "VARCHAR(80)"),
+                ("official_title", "VARCHAR(120)"),
+                ("notify_email", "BOOLEAN DEFAULT 1"),
+                ("notify_whatsapp", "BOOLEAN DEFAULT 1"),
+            ]:
+                try:
+                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
+                    conn.commit()
+                except Exception:
+                    pass
     except Exception:
         pass
 

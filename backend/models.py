@@ -17,6 +17,14 @@ class User(Base):
     password_hash = Column(String(128), default="1234")
     status = Column(String(20), default="pending") # 'pending', 'approved', 'rejected'
     avatar = Column(String(10), default="US")
+    avatar_url = Column(Text, nullable=True)
+    emergency_contact = Column(String(120), nullable=True)
+    emergency_phone = Column(String(30), nullable=True)
+    vehicle_plate = Column(String(30), nullable=True)
+    vehicle_model = Column(String(80), nullable=True)
+    official_title = Column(String(120), nullable=True)
+    notify_email = Column(Boolean, default=True)
+    notify_whatsapp = Column(Boolean, default=True)
     subscription_exempt = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

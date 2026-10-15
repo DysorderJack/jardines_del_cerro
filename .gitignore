@@ -16,3 +16,7 @@ venv/
 # Logs
 *.log
 
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+

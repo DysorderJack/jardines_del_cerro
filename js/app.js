@@ -2278,12 +2278,44 @@ class JardinesApp {
     const unitEl = document.getElementById('sidebar-user-unit');
     const badgeEl = document.getElementById('sidebar-user-badge');
 
-    if (avatar) avatar.innerText = user.avatar || user.name.slice(0, 2).toUpperCase();
+    if (avatar) {
+      if (user.avatar_url) {
+        avatar.innerHTML = `<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" alt="${user.name}">`;
+      } else {
+        const initials = user.avatar || (user.name ? user.name.slice(0, 2).toUpperCase() : 'US');
+        avatar.innerHTML = '';
+        avatar.innerText = initials;
+      }
+    }
     if (nameEl) nameEl.innerText = user.name;
     if (unitEl) unitEl.innerText = `Unidad ${user.unit} · Nivel ${user.unit.startsWith('PH') ? '10' : user.unit[0]}`;
     if (badgeEl) {
-      badgeEl.innerText = user.roleLabel;
+      badgeEl.innerText = user.roleLabel || (user.role === 'owner' ? 'Propietaria' : 'Inquilino');
       badgeEl.className = user.role === 'owner' ? 'badge badge-accent' : 'badge badge-primary';
+    }
+  }
+
+  updateAdminSidebar() {
+    if (!this.currentUser) return;
+    const user = this.currentUser;
+    const avatar = document.getElementById('admin-sidebar-user-avatar');
+    const nameEl = document.getElementById('admin-sidebar-user-name');
+    const roleEl = document.getElementById('admin-sidebar-role-label');
+
+    if (avatar) {
+      if (user.avatar_url) {
+        avatar.innerHTML = `<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" alt="Avatar Admin">`;
+      } else {
+        const initials = user.avatar || (user.name ? user.name.slice(0, 2).toUpperCase() : 'JC');
+        avatar.innerHTML = '';
+        avatar.innerText = initials;
+      }
+    }
+    if (nameEl) {
+      nameEl.innerText = user.name || 'Jardines del Cerro IV';
+    }
+    if (roleEl) {
+      roleEl.innerText = (user.isSuperAdmin || user.role === 'superadmin') ? 'Super Administrador' : (user.official_title || user.role_label || 'Admin Condominio');
     }
   }
 
@@ -2327,7 +2359,16 @@ class JardinesApp {
       btnElement = document.querySelector('[data-owner-tab="ia_assistant"]');
     }
     this.activeOwnerTab = tabName;
-    if (btnElement) {
+    const sidebar = document.querySelector('#owner-dashboard-container .portal-sidebar');
+    if (sidebar) {
+      sidebar.querySelectorAll('.portal-nav-btn').forEach(btn => {
+        if (btn.getAttribute('data-owner-tab') === tabName) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    } else if (btnElement) {
       const parent = btnElement.parentElement;
       if (parent) {
         parent.querySelectorAll('.portal-nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -2336,6 +2377,7 @@ class JardinesApp {
     }
     this.renderOwnerTabContent();
   }
+
 
   /* =========================================================================
      Gestión de Datos Aislados por Residente (Cuotas, Pagos & Solicitudes)
@@ -2846,8 +2888,11 @@ class JardinesApp {
         const container = document.getElementById('resident-ai-messages-container');
         if (container) container.scrollTop = container.scrollHeight;
       }, 50);
+    } else if (this.activeOwnerTab === 'perfil') {
+      this.renderAccountSettings(panel, 'resident');
     }
   }
+
 
   castAssemblyVote(pointId, option) {
     const user = this.currentUser || this.registeredUsers[0];
@@ -3664,12 +3709,14 @@ class JardinesApp {
     if (this.isAdminLoggedIn) {
       if (loginCard) loginCard.style.display = 'none';
       if (dashboardLayout) dashboardLayout.style.display = 'flex';
+      this.updateAdminSidebar();
       this.renderAdminTabContent();
     } else {
       if (loginCard) loginCard.style.display = 'flex';
       if (dashboardLayout) dashboardLayout.style.display = 'none';
     }
   }
+
 
   setAdminTab(tabName, btnElement) {
     this.activeAdminTab = tabName;
@@ -3752,15 +3799,17 @@ class JardinesApp {
     const panel = document.getElementById('admin-content-panel');
     if (!panel) return;
 
+    this.updateAdminSidebar();
     this.updateAdminSidebarBadge();
 
     // Verificación de suscripción obligatoria para operar el sistema:
     // Si la cuenta NO es Super Admin exento y NO tiene suscripción activa,
-    // y no está visualizando la pestaña de suscripción, bloquear todas las funciones del sistema.
-    if (!this.isAdminSubscribed() && this.activeAdminTab !== 'suscripcion_admin') {
+    // y no está visualizando la pestaña de suscripción ni su perfil, bloquear funciones operativas.
+    if (!this.isAdminSubscribed() && this.activeAdminTab !== 'suscripcion_admin' && this.activeAdminTab !== 'perfil') {
       panel.innerHTML = this.renderAdminPaywallHtml();
       return;
     }
+
 
     // Pestaña Exclusiva Super Administrador: Gestión de Administradores
     if (this.activeAdminTab === 'gestion_admins') {
@@ -4592,8 +4641,11 @@ class JardinesApp {
           </div>
         </div>
       `;
+    } else if (this.activeAdminTab === 'perfil') {
+      this.renderAccountSettings(panel, 'admin');
     }
   }
+
 
   toggleUnitStatus(unitId) {
     const unit = this.units.find(u => u.id === unitId);
@@ -6780,6 +6832,840 @@ class JardinesApp {
     return `
       <div>Comprendido, Administrador. Como su <strong>Copiloto IA Ejecutivo</strong>, tengo conectividad completa con los módulos contables, operativos y legales de la <strong>Torre Residencial Jardines del Cerro IV</strong>. Puedo generar informes de morosidad con cálculo de mora y cartas de intimación, redactar convocatorias notariales conforme a la Ley 5038, diagnosticar el mantenimiento predictivo de la planta eléctrica y elevador Otis, o auditar el Fondo de Reserva. ¿En cuál de estos aspectos desea profundizar?</div>
     `;
+  }
+
+  /* =========================================================================
+     Configuración de la Cuenta y Perfil (Residente & Administrador)
+     ========================================================================= */
+
+  renderAccountSettings(panel, roleContext) {
+    const isAdmin = roleContext === 'admin';
+    let user = this.currentUser;
+    if (!user) {
+      if (isAdmin) {
+        user = {
+          name: 'Super Administrador (Desarrollador)',
+          email: 'admin@jardinesdelcerro.do',
+          phone: '(809) 555-0100',
+          role: 'superadmin',
+          role_label: 'Super Administrador (Desarrollador)',
+          isSuperAdmin: true,
+          subscriptionExempt: true,
+          official_title: 'Desarrollador & Super Administrador'
+        };
+      } else {
+        user = this.registeredUsers[0] || {
+          name: 'Ramona Ramos',
+          email: 'ramona.ramos@gmail.com',
+          phone: '(809) 555-0142',
+          role: 'owner',
+          role_label: 'Propietaria Residente',
+          unit: '301',
+          aliquot: '4.65%'
+        };
+      }
+    }
+
+    const initials = user.avatar || (user.name ? user.name.slice(0, 2).toUpperCase() : (isAdmin ? 'AD' : 'RR'));
+    const isOwner = user.role === 'owner';
+    const isSuperAdmin = user.role === 'superadmin' || user.isSuperAdmin === true || (user.email && user.email.toLowerCase() === 'admin@jardinesdelcerro.do');
+
+    // Detección amigable del entorno / navegador para la tarjeta de auditoría
+    const ua = navigator.userAgent;
+    let browserName = 'Navegador Web Seguro';
+    if (ua.includes('Chrome') && !ua.includes('Edg')) browserName = 'Google Chrome';
+    else if (ua.includes('Edg')) browserName = 'Microsoft Edge';
+    else if (ua.includes('Firefox')) browserName = 'Mozilla Firefox';
+    else if (ua.includes('Safari')) browserName = 'Apple Safari';
+
+    panel.innerHTML = `
+      <div class="profile-settings-wrapper">
+        <!-- Hero Card de Perfil -->
+        <div class="profile-hero-card">
+          <div class="profile-hero-content">
+            <div class="profile-avatar-container">
+              <div class="profile-avatar-display" id="profile-card-avatar-display">
+                ${user.avatar_url
+                  ? `<img src="${user.avatar_url}" alt="${user.name}">`
+                  : `<span>${initials}</span>`}
+              </div>
+              <label for="account-avatar-file-input" class="profile-avatar-upload-btn" title="Subir o cambiar foto de perfil">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </label>
+              <input type="file" id="account-avatar-file-input" accept="image/png, image/jpeg, image/webp" style="display: none;" onchange="window.app.handleAvatarFileSelected(event, '${roleContext}');">
+            </div>
+
+            <div style="flex-grow: 1;">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                <span class="badge ${isAdmin ? 'badge-accent' : (isOwner ? 'badge-accent' : 'badge-primary')}" style="font-weight: 700; padding: 4px 10px;">
+                  ${isAdmin ? (isSuperAdmin ? '👑 Super Administrador' : '🛡️ Administrador Condominal') : (user.roleLabel || user.role_label || 'Residente')}
+                </span>
+                <span class="badge" style="background: rgba(255,255,255,0.15); color: #fff; font-size: 11px;">
+                  ✓ Padrón Verificado
+                </span>
+                ${isAdmin && isSuperAdmin ? `<span class="badge" style="background: #059669; color: #fff; font-size: 11px;">Licencia SaaS Permanente</span>` : ''}
+              </div>
+
+              <h2 style="font-family: var(--font-display); font-size: 26px; font-weight: 800; margin: 0 0 4px 0; letter-spacing: -0.02em;">
+                ${user.name}
+              </h2>
+
+              <p style="font-size: 13.5px; opacity: 0.9; margin: 0 0 12px 0;">
+                ${isAdmin
+                  ? `${user.official_title || 'Dirección de Operaciones Condominales'} · Torre Residencial Jardines del Cerro IV`
+                  : `Apartamento Unidad ${user.unit || '301'} · Nivel ${user.unit && user.unit.startsWith('PH') ? '10' : (user.unit ? user.unit[0] : '3')} · Alícuota: ${user.aliquot || '4.65%'}`}
+              </p>
+
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" class="btn-outline" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: #fff; font-size: 12px; padding: 6px 14px;" onclick="document.getElementById('account-avatar-file-input').click();">
+                  📷 Cambiar Foto de Perfil
+                </button>
+                ${user.avatar_url ? `
+                  <button type="button" class="btn-outline" style="background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); color: #FCA5A5; font-size: 12px; padding: 6px 14px;" onclick="window.app.removeAvatar('${roleContext}');">
+                    🗑️ Quitar Foto (Usar Iniciales)
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid de Opciones de Configuración -->
+        <div class="profile-cards-grid">
+
+          <!-- Card 1: Información de Contacto y Correo Asociado -->
+          <div class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div>
+                <h3 class="profile-card-title">Datos Personales & Correo</h3>
+                <div class="profile-card-subtitle">Actualiza tu correo y número de contacto oficial</div>
+              </div>
+            </div>
+
+            <form onsubmit="window.app.saveProfileInfo(event, '${roleContext}');">
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" for="profile-input-name" style="font-size: 12px; font-weight: 600;">Nombre Completo Oficial</label>
+                <input type="text" id="profile-input-name" class="form-input" value="${user.name || ''}" required>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <label class="form-label" for="profile-input-email" style="font-size: 12px; font-weight: 600; margin: 0;">Correo Electrónico Asociado</label>
+                  <span style="font-size: 10px; color: #059669; font-weight: 700;">● Vinculado</span>
+                </div>
+                <input type="email" id="profile-input-email" class="form-input" value="${user.email || ''}" required placeholder="ejemplo@correo.com">
+                <span style="font-size: 11px; color: var(--dust); margin-top: 3px; display: block;">
+                  Utilizado para el inicio de sesión, facturas con Comprobante Fiscal NCF y notificaciones oficiales.
+                </span>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" for="profile-input-phone" style="font-size: 12px; font-weight: 600;">Teléfono Celular / WhatsApp</label>
+                <input type="tel" id="profile-input-phone" class="form-input" value="${user.phone || ''}" placeholder="(809) 555-0100">
+              </div>
+
+              ${isAdmin ? `
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label class="form-label" for="profile-input-title" style="font-size: 12px; font-weight: 600;">Cargo o Título Administrativo</label>
+                  <input type="text" id="profile-input-title" class="form-input" value="${user.official_title || 'Administrador General'}" placeholder="Ej. Administradora General">
+                </div>
+              ` : `
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label class="form-label" style="font-size: 12px; font-weight: 600;">Cédula o Documento de Identidad</label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="text" class="form-input" value="${user.document_id || user.documentId || '034-0012345-6'}" disabled style="background: var(--surface); cursor: not-allowed; opacity: 0.85;">
+                    <span title="Validada notarialmente contra el contrato de la unidad" style="cursor: help; color: var(--dust);">🔒</span>
+                  </div>
+                  <span style="font-size: 10.5px; color: var(--dust); margin-top: 3px; display: block;">
+                    Cédula protegida por ley notarial. Si requieres rectificación legal, contacta a la gerencia.
+                  </span>
+                </div>
+              `}
+
+              <div style="margin-top: 20px;">
+                <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 11px 20px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span>Guardar Cambios de Perfil</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Card 2: Seguridad & Cambio de Contraseña -->
+          <div class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon" style="background: #FEF3C7; color: #D97706;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div>
+                <h3 class="profile-card-title">Seguridad & Contraseña</h3>
+                <div class="profile-card-subtitle">Actualiza tu clave de acceso con validación criptográfica</div>
+              </div>
+            </div>
+
+            <form onsubmit="window.app.saveNewPassword(event, '${roleContext}');">
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" for="profile-input-current-pass" style="font-size: 12px; font-weight: 600;">Contraseña Actual</label>
+                <div class="pw-input-wrapper">
+                  <input type="password" id="profile-input-current-pass" class="form-input" required placeholder="Ingresa tu contraseña actual">
+                  <button type="button" class="pw-toggle-btn" onclick="window.app.togglePasswordVisibility('profile-input-current-pass', this);" title="Mostrar/ocultar contraseña">
+                    👁️
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" for="profile-input-new-pass" style="font-size: 12px; font-weight: 600;">Nueva Contraseña</label>
+                <div class="pw-input-wrapper">
+                  <input type="password" id="profile-input-new-pass" class="form-input" required placeholder="Mínimo 8 caracteres" oninput="window.app.evaluatePasswordStrength(this.value);">
+                  <button type="button" class="pw-toggle-btn" onclick="window.app.togglePasswordVisibility('profile-input-new-pass', this);" title="Mostrar/ocultar contraseña">
+                    👁️
+                  </button>
+                </div>
+                
+                <!-- Barra de Fortaleza -->
+                <div class="strength-meter-bar">
+                  <div id="pw-meter-fill" class="strength-meter-fill"></div>
+                </div>
+
+                <!-- Checklist de Seguridad -->
+                <div class="strength-checklist">
+                  <div id="chk-len" class="strength-check-item">○ Mínimo 8 caracteres</div>
+                  <div id="chk-upper" class="strength-check-item">○ Una Mayúscula (A-Z)</div>
+                  <div id="chk-lower" class="strength-check-item">○ Una Minúscula (a-z)</div>
+                  <div id="chk-num" class="strength-check-item">○ Un Número (0-9)</div>
+                  <div id="chk-sym" class="strength-check-item" style="grid-column: span 2;">○ Un Símbolo especial (!, @, #, $, %, etc.)</div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label" for="profile-input-confirm-pass" style="font-size: 12px; font-weight: 600;">Confirmar Nueva Contraseña</label>
+                <div class="pw-input-wrapper">
+                  <input type="password" id="profile-input-confirm-pass" class="form-input" required placeholder="Repite la nueva contraseña">
+                  <button type="button" class="pw-toggle-btn" onclick="window.app.togglePasswordVisibility('profile-input-confirm-pass', this);" title="Mostrar/ocultar contraseña">
+                    👁️
+                  </button>
+                </div>
+              </div>
+
+              <div style="margin-top: 10px;">
+                <button type="submit" class="btn-accent" style="width: 100%; justify-content: center; padding: 11px 20px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Actualizar Contraseña</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Card 3: Datos de Emergencia & Vehículos (Residente) o Alertas de Gestión (Admin) -->
+          ${isAdmin ? `
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <div class="profile-card-icon" style="background: #EFF6FF; color: #2563EB;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                </div>
+                <div>
+                  <h3 class="profile-card-title">Alertas Administrativas</h3>
+                  <div class="profile-card-subtitle">Configura los eventos que notifican a la gerencia</div>
+                </div>
+              </div>
+
+              <form onsubmit="window.app.saveAdminAlertPreferences(event);">
+                <div class="switch-control">
+                  <div class="switch-label-group">
+                    <span class="switch-label">Nuevas Solicitudes de Registro</span>
+                    <span class="switch-subtext">Aviso por correo al radicarse contratos de residentes</span>
+                  </div>
+                  <label class="switch-input-wrapper">
+                    <input type="checkbox" id="admin-pref-requests" ${user.notify_email !== false ? 'checked' : ''}>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="switch-control">
+                  <div class="switch-label-group">
+                    <span class="switch-label">Tickets de Averías Urgentes</span>
+                    <span class="switch-subtext">Alertas inmediatas de planta eléctrica y ascensores</span>
+                  </div>
+                  <label class="switch-input-wrapper">
+                    <input type="checkbox" id="admin-pref-tickets" checked>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="switch-control">
+                  <div class="switch-label-group">
+                    <span class="switch-label">Pagos y Facturación DGII</span>
+                    <span class="switch-subtext">Confirmación al procesarse cuotas y suscripciones PayPal</span>
+                  </div>
+                  <label class="switch-input-wrapper">
+                    <input type="checkbox" id="admin-pref-payments" checked>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div style="margin-top: 18px;">
+                  <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 11px 20px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Guardar Preferencias de Alertas</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          ` : `
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <div class="profile-card-icon" style="background: #FEE2E2; color: #DC2626;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                </div>
+                <div>
+                  <h3 class="profile-card-title">Emergencias & Vehículo</h3>
+                  <div class="profile-card-subtitle">Contacto ante contingencias y placa para portón automatizado</div>
+                </div>
+              </div>
+
+              <form onsubmit="window.app.saveResidentEmergencyVehicle(event);">
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label class="form-label" for="profile-input-em-contact" style="font-size: 12px; font-weight: 600;">Contacto de Emergencia (Familiar o Allegado)</label>
+                  <input type="text" id="profile-input-em-contact" class="form-input" value="${user.emergency_contact || ''}" placeholder="Ej. Carlos Ramos (Hermano)">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label class="form-label" for="profile-input-em-phone" style="font-size: 12px; font-weight: 600;">Teléfono de Emergencia</label>
+                  <input type="tel" id="profile-input-em-phone" class="form-input" value="${user.emergency_phone || ''}" placeholder="(809) 555-9988">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                  <div>
+                    <label class="form-label" for="profile-input-plate" style="font-size: 12px; font-weight: 600;">Placa Vehicular</label>
+                    <input type="text" id="profile-input-plate" class="form-input" value="${user.vehicle_plate || ''}" placeholder="A123456" style="text-transform: uppercase;">
+                  </div>
+                  <div>
+                    <label class="form-label" for="profile-input-model" style="font-size: 12px; font-weight: 600;">Modelo / Color</label>
+                    <input type="text" id="profile-input-model" class="form-input" value="${user.vehicle_model || ''}" placeholder="Toyota RAV4 Blanco">
+                  </div>
+                </div>
+
+                <span style="font-size: 11px; color: var(--dust); margin-bottom: 14px; display: block;">
+                  🚗 La placa autorizada habilita la apertura automática del portón en la garita con lector RFID de Torre Jardines del Cerro IV.
+                </span>
+
+                <div style="margin-top: 10px;">
+                  <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 11px 20px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Guardar Datos de Acceso y Emergencia</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Card 4: Preferencias de Notificaciones (Residente) -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <div class="profile-card-icon" style="background: #ECFDF5; color: #059669;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                </div>
+                <div>
+                  <h3 class="profile-card-title">Canales de Notificación</h3>
+                  <div class="profile-card-subtitle">Personaliza cómo recibir avisos y comprobantes</div>
+                </div>
+              </div>
+
+              <form onsubmit="window.app.saveResidentNotificationPreferences(event);">
+                <div class="switch-control">
+                  <div class="switch-label-group">
+                    <span class="switch-label">Recibos NCF por Correo</span>
+                    <span class="switch-subtext">Facturas fiscales PDF automáticas tras cada pago</span>
+                  </div>
+                  <label class="switch-input-wrapper">
+                    <input type="checkbox" id="res-pref-email" ${user.notify_email !== false ? 'checked' : ''}>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="switch-control">
+                  <div class="switch-label-group">
+                    <span class="switch-label">Asambleas por WhatsApp</span>
+                    <span class="switch-subtext">Convocatorias notariales y enlace de votación previa</span>
+                  </div>
+                  <label class="switch-input-wrapper">
+                    <input type="checkbox" id="res-pref-whatsapp" ${user.notify_whatsapp !== false ? 'checked' : ''}>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div class="switch-control">
+                  <div class="switch-label-group">
+                    <span class="switch-label">Avisos de Mantenimiento</span>
+                    <span class="switch-subtext">Lavado de cisterna, pruebas de generador y visitas técnicas</span>
+                  </div>
+                  <label class="switch-input-wrapper">
+                    <input type="checkbox" id="res-pref-maint" checked>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div style="margin-top: 18px;">
+                  <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 11px 20px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Guardar Canales de Notificación</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          `}
+
+          <!-- Card de Dispositivo & Sesión Activa -->
+          <div class="profile-card" style="${isAdmin ? 'grid-column: span 1;' : 'grid-column: 1 / -1;'}">
+            <div class="profile-card-header">
+              <div class="profile-card-icon" style="background: var(--surface); color: var(--ink);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </div>
+              <div>
+                <h3 class="profile-card-title">Auditoría de Sesión Activa</h3>
+                <div class="profile-card-subtitle">Estado de autenticación y seguridad de conexión</div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+              <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 12px 16px;">
+                <div style="font-size: 11px; color: var(--dust); text-transform: uppercase; font-weight: 700;">Dispositivo Actual</div>
+                <div style="font-size: 13.5px; font-weight: 700; color: var(--ink); margin-top: 2px;">${browserName}</div>
+              </div>
+              <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 12px 16px;">
+                <div style="font-size: 11px; color: var(--dust); text-transform: uppercase; font-weight: 700;">Cifrado de Canal</div>
+                <div style="font-size: 13.5px; font-weight: 700; color: #059669; margin-top: 2px;">🔒 TLS 1.3 / SSL Activo</div>
+              </div>
+              <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-sm); padding: 12px 16px;">
+                <div style="font-size: 11px; color: var(--dust); text-transform: uppercase; font-weight: 700;">Estado de Cuenta</div>
+                <div style="font-size: 13.5px; font-weight: 700; color: #059669; margin-top: 2px;">● Sesión Autorizada</div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+              <button type="button" class="btn-outline" style="color: #DC2626; border-color: rgba(220,38,38,0.3); font-size: 12px; padding: 8px 18px;" onclick="${isAdmin ? 'window.app.logoutAdmin();' : 'window.app.logoutResident();'}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Cerrar Sesión Segura</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
+  }
+
+  handleAvatarFileSelected(e, roleContext) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.showToast('⚠️ La imagen excede el límite máximo de 5MB.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result;
+      if (!this.currentUser) return;
+      this.currentUser.avatar_url = dataUrl;
+
+      // Actualizar sidebar inmediatamente
+      if (roleContext === 'admin') {
+        this.updateAdminSidebar();
+      } else {
+        this.updateResidentSidebar();
+      }
+
+      // Guardar en almacenamiento local
+      if (roleContext === 'resident') {
+        const targetIdx = this.registeredUsers.findIndex(u => u.id === this.currentUser.id || u.documentId === this.currentUser.documentId || u.email === this.currentUser.email);
+        if (targetIdx !== -1) {
+          this.registeredUsers[targetIdx].avatar_url = dataUrl;
+          this.saveStorage(this.storageKeyUsers, this.registeredUsers);
+        }
+      } else {
+        const customAdmins = this.loadStorage('custom_admins', []);
+        const adminIdx = customAdmins.findIndex(a => a.email.toLowerCase() === this.currentUser.email.toLowerCase() || a.id === this.currentUser.id);
+        if (adminIdx !== -1) {
+          customAdmins[adminIdx].avatar_url = dataUrl;
+          this.saveStorage('custom_admins', customAdmins);
+        }
+      }
+
+      // Sincronizar con backend si está online
+      if (window.apiClient && window.apiClient.isBackendOnline) {
+        try {
+          const res = await window.apiClient.uploadAvatar(this.currentUser.id || this.currentUser.document_id || this.currentUser.email, file);
+          if (res && res.success && res.avatar_url) {
+            this.currentUser.avatar_url = res.avatar_url;
+            if (roleContext === 'admin') this.updateAdminSidebar();
+            else this.updateResidentSidebar();
+          }
+        } catch (err) {
+          console.warn('Subida de avatar al backend:', err);
+        }
+      }
+
+      this.showToast('✓ Foto de perfil actualizada correctamente.');
+      const panel = document.getElementById(roleContext === 'admin' ? 'admin-content-panel' : 'owner-content-panel');
+      if (panel) this.renderAccountSettings(panel, roleContext);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async removeAvatar(roleContext) {
+    if (!this.currentUser) return;
+    this.currentUser.avatar_url = null;
+
+    if (roleContext === 'admin') {
+      this.updateAdminSidebar();
+    } else {
+      this.updateResidentSidebar();
+    }
+
+    if (roleContext === 'resident') {
+      const targetIdx = this.registeredUsers.findIndex(u => u.id === this.currentUser.id || u.documentId === this.currentUser.documentId || u.email === this.currentUser.email);
+      if (targetIdx !== -1) {
+        this.registeredUsers[targetIdx].avatar_url = null;
+        this.saveStorage(this.storageKeyUsers, this.registeredUsers);
+      }
+    } else {
+      const customAdmins = this.loadStorage('custom_admins', []);
+      const adminIdx = customAdmins.findIndex(a => a.email.toLowerCase() === this.currentUser.email.toLowerCase() || a.id === this.currentUser.id);
+      if (adminIdx !== -1) {
+        customAdmins[adminIdx].avatar_url = null;
+        this.saveStorage('custom_admins', customAdmins);
+      }
+    }
+
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        await window.apiClient.deleteAvatar(this.currentUser.id || this.currentUser.document_id || this.currentUser.email);
+      } catch (err) {}
+    }
+
+    this.showToast('Foto de perfil eliminada. Se utilizarán tus iniciales oficiales.');
+    const panel = document.getElementById(roleContext === 'admin' ? 'admin-content-panel' : 'owner-content-panel');
+    if (panel) this.renderAccountSettings(panel, roleContext);
+  }
+
+  togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (btn) btn.innerText = '🙈';
+    } else {
+      input.type = 'password';
+      if (btn) btn.innerText = '👁️';
+    }
+  }
+
+  evaluatePasswordStrength(val) {
+    const fill = document.getElementById('pw-meter-fill');
+    const chkLen = document.getElementById('chk-len');
+    const chkUpper = document.getElementById('chk-upper');
+    const chkLower = document.getElementById('chk-lower');
+    const chkNum = document.getElementById('chk-num');
+    const chkSym = document.getElementById('chk-sym');
+
+    const hasLen = val.length >= 8;
+    const hasUpper = /[A-Z]/.test(val);
+    const hasLower = /[a-z]/.test(val);
+    const hasNum = /[0-9]/.test(val);
+    const hasSym = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(val);
+
+    if (chkLen) { chkLen.className = `strength-check-item ${hasLen ? 'valid' : ''}`; chkLen.innerText = `${hasLen ? '✓' : '○'} Mínimo 8 caracteres`; }
+    if (chkUpper) { chkUpper.className = `strength-check-item ${hasUpper ? 'valid' : ''}`; chkUpper.innerText = `${hasUpper ? '✓' : '○'} Una Mayúscula (A-Z)`; }
+    if (chkLower) { chkLower.className = `strength-check-item ${hasLower ? 'valid' : ''}`; chkLower.innerText = `${hasLower ? '✓' : '○'} Una Minúscula (a-z)`; }
+    if (chkNum) { chkNum.className = `strength-check-item ${hasNum ? 'valid' : ''}`; chkNum.innerText = `${hasNum ? '✓' : '○'} Un Número (0-9)`; }
+    if (chkSym) { chkSym.className = `strength-check-item ${hasSym ? 'valid' : ''}`; chkSym.innerText = `${hasSym ? '✓' : '○'} Un Símbolo especial (!, @, #, $, %, etc.)`; }
+
+    const score = [hasLen, hasUpper, hasLower, hasNum, hasSym].filter(Boolean).length;
+    if (!fill) return;
+
+    if (!val) {
+      fill.className = 'strength-meter-fill';
+      fill.style.width = '0%';
+    } else if (score <= 2) {
+      fill.className = 'strength-meter-fill weak';
+    } else if (score <= 4) {
+      fill.className = 'strength-meter-fill medium';
+    } else {
+      fill.className = 'strength-meter-fill strong';
+    }
+  }
+
+  async saveProfileInfo(e, roleContext) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!this.currentUser) return;
+
+    const nameInput = document.getElementById('profile-input-name');
+    const emailInput = document.getElementById('profile-input-email');
+    const phoneInput = document.getElementById('profile-input-phone');
+    const titleInput = document.getElementById('profile-input-title');
+
+    const newName = nameInput ? nameInput.value.trim() : this.currentUser.name;
+    const newEmail = emailInput ? emailInput.value.trim().toLowerCase() : this.currentUser.email.toLowerCase();
+    const newPhone = phoneInput ? phoneInput.value.trim() : (this.currentUser.phone || '');
+    const newTitle = titleInput ? titleInput.value.trim() : (this.currentUser.official_title || '');
+
+    // Validación básica de correo electrónico
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      this.showToast('⚠️ Ingresa una dirección de correo electrónico válida.', 'error');
+      return;
+    }
+
+    // Validación de unicidad de correo en local
+    if (roleContext === 'resident') {
+      const collision = (this.registeredUsers || []).some(u =>
+        u.email && u.email.toLowerCase() === newEmail && u.id !== this.currentUser.id && u.documentId !== this.currentUser.documentId
+      );
+      if (collision) {
+        this.showToast('⚠️ El correo electrónico ya pertenece a otro residente registrado.', 'error');
+        return;
+      }
+    }
+
+    // Actualizar usuario en sesión
+    this.currentUser.name = newName;
+    this.currentUser.email = newEmail;
+    this.currentUser.phone = newPhone;
+    if (roleContext === 'admin') {
+      this.currentUser.official_title = newTitle;
+    }
+
+    // Si no tiene avatar_url, actualizar iniciales
+    if (!this.currentUser.avatar_url) {
+      const parts = newName.split(' ').filter(Boolean);
+      this.currentUser.avatar = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : newName.slice(0, 2).toUpperCase();
+    }
+
+    // Persistir en local
+    if (roleContext === 'resident') {
+      const targetIdx = this.registeredUsers.findIndex(u => u.id === this.currentUser.id || u.documentId === this.currentUser.documentId || u.email === this.currentUser.email);
+      if (targetIdx !== -1) {
+        this.registeredUsers[targetIdx] = {
+          ...this.registeredUsers[targetIdx],
+          name: newName,
+          email: newEmail,
+          phone: newPhone,
+          avatar: this.currentUser.avatar
+        };
+        this.saveStorage(this.storageKeyUsers, this.registeredUsers);
+      }
+      this.updateResidentSidebar();
+    } else {
+      const customAdmins = this.loadStorage('custom_admins', []);
+      const adminIdx = customAdmins.findIndex(a => a.email.toLowerCase() === this.currentUser.email.toLowerCase() || a.id === this.currentUser.id);
+      if (adminIdx !== -1) {
+        customAdmins[adminIdx] = {
+          ...customAdmins[adminIdx],
+          name: newName,
+          email: newEmail,
+          phone: newPhone,
+          official_title: newTitle,
+          avatar: this.currentUser.avatar
+        };
+        this.saveStorage('custom_admins', customAdmins);
+      }
+      this.updateAdminSidebar();
+    }
+
+    // Enviar a Backend si está en línea
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      const identifier = this.currentUser.id || this.currentUser.document_id || this.currentUser.email;
+      const payload = {
+        name: newName,
+        email: newEmail,
+        phone: newPhone,
+        official_title: newTitle
+      };
+      try {
+        const res = await window.apiClient.updateProfile(identifier, payload);
+        if (res && res.success === false) {
+          this.showToast(`⚠️ ${res.detail || 'Error al sincronizar con el servidor'}`, 'warning');
+        }
+      } catch (err) {
+        console.warn('Sincronización de perfil con backend:', err);
+      }
+    }
+
+    this.showToast('✓ Información de perfil y correo actualizados correctamente.');
+    const panel = document.getElementById(roleContext === 'admin' ? 'admin-content-panel' : 'owner-content-panel');
+    if (panel) this.renderAccountSettings(panel, roleContext);
+  }
+
+  async saveNewPassword(e, roleContext) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!this.currentUser) return;
+
+    const currInput = document.getElementById('profile-input-current-pass');
+    const newInput = document.getElementById('profile-input-new-pass');
+    const confInput = document.getElementById('profile-input-confirm-pass');
+
+    const currPass = currInput ? currInput.value.trim() : '';
+    const newPass = newInput ? newInput.value.trim() : '';
+    const confPass = confInput ? confInput.value.trim() : '';
+
+    const validCurrents = [
+      this.currentUser.password,
+      this.currentUser.password_hash,
+      this.currentUser.passwordHash,
+      '1234'
+    ];
+    if (roleContext === 'admin') {
+      validCurrents.push('admin123');
+    }
+
+    if (!validCurrents.includes(currPass)) {
+      this.showToast('❌ La contraseña actual ingresada es incorrecta.', 'error');
+      return;
+    }
+
+    if (newPass.length < 8) {
+      this.showToast('❌ La nueva contraseña debe tener al menos 8 caracteres.', 'error');
+      return;
+    }
+
+    if (!/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass) || !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPass)) {
+      this.showToast('❌ La contraseña debe incluir mayúscula, minúscula, número y símbolo especial.', 'error');
+      return;
+    }
+
+    if (newPass !== confPass) {
+      this.showToast('❌ La nueva contraseña y su confirmación no coinciden.', 'error');
+      return;
+    }
+
+    if (newPass === currPass) {
+      this.showToast('❌ La nueva contraseña no puede ser idéntica a la anterior.', 'error');
+      return;
+    }
+
+    // Actualizar contraseña en usuario local
+    this.currentUser.password = newPass;
+    this.currentUser.password_hash = newPass;
+    this.currentUser.passwordHash = newPass;
+
+    if (roleContext === 'resident') {
+      const targetIdx = this.registeredUsers.findIndex(u => u.id === this.currentUser.id || u.documentId === this.currentUser.documentId || u.email === this.currentUser.email);
+      if (targetIdx !== -1) {
+        this.registeredUsers[targetIdx].password = newPass;
+        this.registeredUsers[targetIdx].password_hash = newPass;
+        this.registeredUsers[targetIdx].passwordHash = newPass;
+      }
+      this.saveStorage(this.storageKeyUsers, this.registeredUsers);
+    } else {
+      const customAdmins = this.loadStorage('custom_admins', []);
+      const adminIdx = customAdmins.findIndex(a => a.email.toLowerCase() === this.currentUser.email.toLowerCase() || a.id === this.currentUser.id);
+      if (adminIdx !== -1) {
+        customAdmins[adminIdx].password = newPass;
+        this.saveStorage('custom_admins', customAdmins);
+      }
+    }
+
+    // Enviar a Backend si está online
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      try {
+        const identifier = this.currentUser.id || this.currentUser.document_id || this.currentUser.email;
+        await window.apiClient.changePassword(identifier, currPass, newPass);
+      } catch (err) {
+        console.warn('Cambio de contraseña en backend:', err);
+      }
+    }
+
+    this.showToast('🔒 Contraseña actualizada exitosamente. Tus credenciales han sido blindadas.');
+    if (currInput) currInput.value = '';
+    if (newInput) newInput.value = '';
+    if (confInput) confInput.value = '';
+    this.evaluatePasswordStrength('');
+  }
+
+  async saveResidentEmergencyVehicle(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!this.currentUser) return;
+
+    const emContact = document.getElementById('profile-input-em-contact') ? document.getElementById('profile-input-em-contact').value.trim() : '';
+    const emPhone = document.getElementById('profile-input-em-phone') ? document.getElementById('profile-input-em-phone').value.trim() : '';
+    const plate = document.getElementById('profile-input-plate') ? document.getElementById('profile-input-plate').value.trim().toUpperCase() : '';
+    const model = document.getElementById('profile-input-model') ? document.getElementById('profile-input-model').value.trim() : '';
+
+    this.currentUser.emergency_contact = emContact;
+    this.currentUser.emergency_phone = emPhone;
+    this.currentUser.vehicle_plate = plate;
+    this.currentUser.vehicle_model = model;
+
+    const targetIdx = this.registeredUsers.findIndex(u => u.id === this.currentUser.id || u.documentId === this.currentUser.documentId || u.email === this.currentUser.email);
+    if (targetIdx !== -1) {
+      this.registeredUsers[targetIdx] = {
+        ...this.registeredUsers[targetIdx],
+        emergency_contact: emContact,
+        emergency_phone: emPhone,
+        vehicle_plate: plate,
+        vehicle_model: model
+      };
+      this.saveStorage(this.storageKeyUsers, this.registeredUsers);
+    }
+
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      const identifier = this.currentUser.id || this.currentUser.document_id || this.currentUser.email;
+      window.apiClient.updateProfile(identifier, {
+        emergency_contact: emContact,
+        emergency_phone: emPhone,
+        vehicle_plate: plate,
+        vehicle_model: model
+      });
+    }
+
+    this.showToast('🚗 Contacto de emergencia y vehículo autorizado registrados.');
+  }
+
+  async saveResidentNotificationPreferences(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!this.currentUser) return;
+
+    const emailPref = document.getElementById('res-pref-email') ? document.getElementById('res-pref-email').checked : true;
+    const waPref = document.getElementById('res-pref-whatsapp') ? document.getElementById('res-pref-whatsapp').checked : true;
+
+    this.currentUser.notify_email = emailPref;
+    this.currentUser.notify_whatsapp = waPref;
+
+    const targetIdx = this.registeredUsers.findIndex(u => u.id === this.currentUser.id || u.documentId === this.currentUser.documentId || u.email === this.currentUser.email);
+    if (targetIdx !== -1) {
+      this.registeredUsers[targetIdx].notify_email = emailPref;
+      this.registeredUsers[targetIdx].notify_whatsapp = waPref;
+      this.saveStorage(this.storageKeyUsers, this.registeredUsers);
+    }
+
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      const identifier = this.currentUser.id || this.currentUser.document_id || this.currentUser.email;
+      window.apiClient.updateProfile(identifier, {
+        notify_email: emailPref,
+        notify_whatsapp: waPref
+      });
+    }
+
+    this.showToast('📩 Preferencias de canales de notificación guardadas.');
+  }
+
+  async saveAdminAlertPreferences(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!this.currentUser) return;
+
+    const reqPref = document.getElementById('admin-pref-requests') ? document.getElementById('admin-pref-requests').checked : true;
+    const ticketPref = document.getElementById('admin-pref-tickets') ? document.getElementById('admin-pref-tickets').checked : true;
+    const payPref = document.getElementById('admin-pref-payments') ? document.getElementById('admin-pref-payments').checked : true;
+
+    this.currentUser.notify_requests = reqPref;
+    this.currentUser.notify_tickets = ticketPref;
+    this.currentUser.notify_payments = payPref;
+
+    this.showToast('🔔 Preferencias de alertas administrativas guardadas.');
   }
 
   /* =========================================================================

@@ -413,6 +413,94 @@ class ApiClient {
       return null;
     }
   }
+
+  // =========================================================================
+  // Perfil de Usuario & Configuración de Cuenta
+  // =========================================================================
+
+  async getProfile(identifier) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/auth/profile/${encodeURIComponent(identifier)}`);
+      if (res.ok) return await res.json();
+      return null;
+    } catch (e) {
+      console.warn('Fallo en getProfile API:', e);
+      return null;
+    }
+  }
+
+  async updateProfile(identifier, payload) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/auth/profile/${encodeURIComponent(identifier)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, detail: data.detail || 'Error al actualizar perfil' };
+      }
+      return data;
+    } catch (e) {
+      console.warn('Fallo en updateProfile API:', e);
+      return { success: false, detail: e.message };
+    }
+  }
+
+  async changePassword(identifier, currentPassword, newPassword) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/auth/change-password/${encodeURIComponent(identifier)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, detail: data.detail || 'Error al cambiar contraseña' };
+      }
+      return data;
+    } catch (e) {
+      console.warn('Fallo en changePassword API:', e);
+      return { success: false, detail: e.message };
+    }
+  }
+
+  async uploadAvatar(identifier, file) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${this.baseUrl}/auth/upload-avatar/${encodeURIComponent(identifier)}`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, detail: data.detail || 'Error al subir foto de perfil' };
+      }
+      return data;
+    } catch (e) {
+      console.warn('Fallo en uploadAvatar API:', e);
+      return { success: false, detail: e.message };
+    }
+  }
+
+  async deleteAvatar(identifier) {
+    if (!this.isBackendOnline) return null;
+    try {
+      const res = await fetch(`${this.baseUrl}/auth/avatar/${encodeURIComponent(identifier)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) return await res.json();
+      return null;
+    } catch (e) {
+      console.warn('Fallo en deleteAvatar API:', e);
+      return null;
+    }
+  }
 }
 
 // Instancia global del cliente de API

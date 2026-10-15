@@ -19,6 +19,16 @@ class UserResponse(BaseModel):
     aliquot: Optional[str] = "4.65%"
     status: str
     avatar: str
+    avatar_url: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    vehicle_plate: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    official_title: Optional[str] = None
+    notify_email: Optional[bool] = True
+    notify_whatsapp: Optional[bool] = True
+    subscription_exempt: Optional[bool] = False
+    is_superadmin: Optional[bool] = False
 
 # Unit Schemas
 class UnitCreate(BaseModel):
@@ -140,5 +150,23 @@ class VisitResponse(BaseModel):
 
 class VisitUpdateStatus(BaseModel):
     status: str # 'Confirmada', 'Pendiente', 'Cancelada'
+
+# Profile & Account Settings Schemas
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    vehicle_plate: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    official_title: Optional[str] = None
+    notify_email: Optional[bool] = None
+    notify_whatsapp: Optional[bool] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
