@@ -67,7 +67,7 @@ def process_payment(payload: PaymentCreate, db: Session = Depends(get_db)):
 
     ncf_code = ecf_e32.get("encf") or DGIIService.generate_ncf("B02")
     payment_id = f"PAG-2026-{random.randint(100, 999)}"
-    today_str = datetime.now().strftime("%d %b %Y")
+    today_str = ECFService.get_dominican_now().strftime("%d %b %Y")
 
     new_payment = Payment(
         id=payment_id,

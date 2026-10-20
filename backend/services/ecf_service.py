@@ -1,7 +1,7 @@
 import hashlib
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 import requests
 
@@ -14,6 +14,9 @@ from config import (
     ECF_DEFAULT_EXCHANGE_RATE,
 )
 
+# Zona horaria oficial de la República Dominicana (AST / UTC-4, sin horario de verano)
+DOMINICAN_TZ = timezone(timedelta(hours=-4))
+
 class ECFService:
     """
     Servicio Oficial de Comprobantes Fiscales Electrónicos (e-CF) de la República Dominicana.
@@ -22,11 +25,44 @@ class ECFService:
     Gestiona:
     - e-CF Tipo E31: Factura de Crédito Fiscal Electrónica (para deducción fiscal de la administración condominal)
     - e-CF Tipo E32: Factura de Consumo Electrónica (para cuotas de mantenimiento de residentes)
+    - Hora y fecha oficial de la República Dominicana (UTC-4)
     - Autenticación segura mediante API Key (`X-API-Key`)
     - Generación de Código de Seguridad DGII (6 caracteres alfanuméricos)
     - Generación del Código QR oficial de validación tributaria ante la DGII
     - Generación de la Representación Impresa oficial (Formato A4 homologado)
     """
+
+    @classmethod
+    def get_dominican_now(cls) -> datetime:
+        """Retorna la fecha y hora actual en la República Dominicana (UTC-4, hora oficial DGII)."""
+        return datetime.now(timezone.utc).astimezone(DOMINICAN_TZ)
+
+    @classmethod
+    def format_dominican_dt(cls, dt=None) -> str:
+        """
+        Formatea una fecha y hora al horario oficial de la República Dominicana (AST / UTC-4).
+        Soporta objetos datetime con o sin tzinfo (los naive se tratan como UTC procedentes del servidor),
+        cadenas preformateadas, o None (obtiene la hora actual en RD).
+        """
+        if not dt:
+            return cls.get_dominican_now().strftime("%d/%m/%Y %I:%M %p")
+        if isinstance(dt, str):
+            # Si ya contiene formato legible dominicano DD/MM/YYYY hh:mm AM/PM
+            if "/" in dt and ((" AM" in dt.upper()) or (" PM" in dt.upper())):
+                return dt
+            try:
+                parsed = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                return cls.format_dominican_dt(parsed)
+            except Exception:
+                return dt
+        if isinstance(dt, datetime):
+            if dt.tzinfo is None:
+                # Naive datetime: guardado históricamente en UTC en la base de datos
+                dt_utc = dt.replace(tzinfo=timezone.utc)
+                return dt_utc.astimezone(DOMINICAN_TZ).strftime("%d/%m/%Y %I:%M %p")
+            else:
+                return dt.astimezone(DOMINICAN_TZ).strftime("%d/%m/%Y %I:%M %p")
+        return str(dt)
 
     @classmethod
     def _clean_rnc(cls, rnc: str) -> str:
@@ -94,7 +130,7 @@ class ECFService:
         rnc_comp = rnc_receptor or "131-88992-1"
         razon_comp = razon_social_receptor or "Administración de Condominio Jardines del Cerro IV"
 
-        now = datetime.now()
+        now = cls.get_dominican_now()
         timestamp_str = now.strftime("%Y%m%d%H%M%S")
         fecha_emision_display = now.strftime("%d/%m/%Y %I:%M %p")
         fecha_iso = now.isoformat()
@@ -248,6 +284,7 @@ class ECFService:
             "status": f"Aceptado por DGII (IMECF Platform - {estado})" if api_success else "Fallo en registro IMECF Platform",
             "dgii_track_id": track_id,
             "legal_framework": "Ley 32-23 de Facturación Electrónica de la República Dominicana",
+            "issued_at": fecha_emision_display,
             "issued_at_str": fecha_emision_display,
             "issued_at_iso": fecha_iso,
             "api_dispatched": api_success,
@@ -271,7 +308,7 @@ class ECFService:
         Emite una Factura de Consumo Electrónica (Tipo E32) para recibos de pago
         de mantenimiento emitidos a residentes o propietarios.
         """
-        now = datetime.now()
+        now = cls.get_dominican_now()
         timestamp_str = now.strftime("%Y%m%d%H%M%S")
         fecha_display = now.strftime("%d/%m/%Y %I:%M %p")
 
@@ -378,6 +415,7 @@ class ECFService:
             "security_code": security_code,
             "qr_url": qr_url,
             "status": "Aceptado por DGII (Ley 32-23)",
+            "issued_at": fecha_display,
             "issued_at_str": fecha_display,
             "payment_method": payment_method
         }
@@ -403,7 +441,8 @@ class ECFService:
         concept = invoice_data.get("concept", "Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV")
         user_email = invoice_data.get("user_id", "admin@jardinesdelcerro.do")
         paypal_ref = invoice_data.get("paypal_reference", "PAYPAL-ORDER-DEFAULT")
-        date_str = invoice_data.get("issued_at_str", datetime.now().strftime("%d/%m/%Y %I:%M %p"))
+        raw_date = invoice_data.get("issued_at_str") or invoice_data.get("issued_at")
+        date_str = cls.format_dominican_dt(raw_date)
 
         # URL del generador de QR rápido o fallback
         qr_img_src = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={requests.utils.quote(qr_url)}"

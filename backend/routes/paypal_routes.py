@@ -83,7 +83,7 @@ def verify_and_activate_order(payload: PayPalVerifyOrder, db: Session = Depends(
 
     # Calcular fecha de renovación
     days = 365 if payload.period == "Anual" else 30
-    renewal_str = (datetime.now() + timedelta(days=days)).strftime("%d %b %Y")
+    renewal_str = (ECFService.get_dominican_now() + timedelta(days=days)).strftime("%d %b %Y")
     payer_email = payload.user_id or verify_result.get("payer_email") or "admin@jardinesdelcerro.do"
 
     # Emitir Factura Electrónica e-CF Tipo E31 ante la DGII (Ley 32-23)
@@ -176,7 +176,7 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
 
     # 2. Calcular fecha de renovación
     days = 365 if payload.period == "Anual" else 30
-    renewal_str = (datetime.now() + timedelta(days=days)).strftime("%d %b %Y")
+    renewal_str = (ECFService.get_dominican_now() + timedelta(days=days)).strftime("%d %b %Y")
     payer_email = payload.user_id or verify_result.get("payer_email") or "admin@jardinesdelcerro.do"
 
     # 3. Emitir Factura Electrónica e-CF Tipo E31 (Ley 32-23)

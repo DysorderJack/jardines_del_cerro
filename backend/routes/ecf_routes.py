@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -48,7 +48,7 @@ def list_invoices(
             "security_code": inv.security_code,
             "qr_url": inv.qr_url,
             "status": inv.status,
-            "issued_at": inv.issued_at.strftime("%d/%m/%Y %I:%M %p") if inv.issued_at else ""
+            "issued_at": ECFService.format_dominican_dt(inv.issued_at)
         }
         for inv in invoices
     ]
@@ -91,7 +91,7 @@ def get_admin_subscription_invoice(
                 "security_code": inv.security_code,
                 "qr_url": inv.qr_url,
                 "status": inv.status,
-                "issued_at": inv.issued_at.strftime("%d/%m/%Y %I:%M %p") if inv.issued_at else ""
+                "issued_at": ECFService.format_dominican_dt(inv.issued_at)
             }
         }
 
@@ -185,7 +185,7 @@ def get_admin_subscription_invoice(
             "security_code": new_inv.security_code,
             "qr_url": new_inv.qr_url,
             "status": new_inv.status,
-            "issued_at": new_inv.issued_at.strftime("%d/%m/%Y %I:%M %p")
+            "issued_at": ECFService.format_dominican_dt(new_inv.issued_at)
         }
     }
 
@@ -216,7 +216,7 @@ def get_invoice_by_encf(encf: str, db: Session = Depends(get_db)):
         "security_code": inv.security_code,
         "qr_url": inv.qr_url,
         "status": inv.status,
-        "issued_at": inv.issued_at.strftime("%d/%m/%Y %I:%M %p") if inv.issued_at else ""
+        "issued_at": ECFService.format_dominican_dt(inv.issued_at)
     }
 
 @router.get("/invoice/{encf}/print", response_class=HTMLResponse)
@@ -244,7 +244,7 @@ def print_invoice(encf: str, db: Session = Depends(get_db)):
             "concept": "Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV",
             "user_id": "admin@jardinesdelcerro.do",
             "paypal_reference": "PAYPAL-VERIFIED",
-            "issued_at_str": datetime.now().strftime("%d/%m/%Y %I:%M %p")
+            "issued_at_str": ECFService.get_dominican_now().strftime("%d/%m/%Y %I:%M %p")
         }
         return HTMLResponse(content=ECFService.generate_printable_html(data))
 
@@ -264,7 +264,7 @@ def print_invoice(encf: str, db: Session = Depends(get_db)):
         "concept": inv.concept,
         "user_id": inv.user_id,
         "paypal_reference": inv.paypal_reference,
-        "issued_at_str": inv.issued_at.strftime("%d/%m/%Y %I:%M %p") if inv.issued_at else ""
+        "issued_at_str": ECFService.format_dominican_dt(inv.issued_at)
     }
 
     html = ECFService.generate_printable_html(inv_dict)

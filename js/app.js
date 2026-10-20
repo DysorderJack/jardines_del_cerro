@@ -3316,9 +3316,21 @@ class JardinesApp {
       return;
     }
 
-    const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    const today = new Intl.DateTimeFormat('es-DO', {
+      timeZone: 'America/Santo_Domingo',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(new Date());
+
     const renewalDays = plan.period === 'Anual' ? 365 : 30;
-    const renewal = new Date(Date.now() + renewalDays * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    const renewal = new Intl.DateTimeFormat('es-DO', {
+      timeZone: 'America/Santo_Domingo',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(new Date(Date.now() + renewalDays * 24 * 60 * 60 * 1000));
+    const dominicanNowFull = this.getDominicanFormattedDateTime();
     const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : payerEmail.toLowerCase();
 
     // Extraer datos oficiales del comprobante fiscal electrónico e-CF Tipo E31 registrado en IMECF
@@ -3344,6 +3356,7 @@ class JardinesApp {
       paypalSubId: orderId,
       subscribedAt: today,
       renewalDate: renewal,
+      issuedAtStr: (ecfInvoice && (ecfInvoice.issued_at || ecfInvoice.issued_at_str)) || dominicanNowFull,
       encf: encf,
       securityCode: securityCode,
       rncEmisor: rncEmisor,
@@ -5286,6 +5299,22 @@ class JardinesApp {
   /* =========================================================================
      Módulo de Facturación Electrónica e-CF DGII (Ley 32-23)
      ========================================================================= */
+  getDominicanFormattedDateTime(date = new Date()) {
+    try {
+      return new Intl.DateTimeFormat('es-DO', {
+        timeZone: 'America/Santo_Domingo',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).format(date instanceof Date ? date : new Date(date));
+    } catch (e) {
+      return new Date(date).toLocaleString('es-DO');
+    }
+  }
+
   openEcfTimbreModal(customData = null) {
     const modal = document.getElementById('ecf-timbre-modal');
     if (!modal) return;
@@ -5335,7 +5364,7 @@ class JardinesApp {
       concept: `Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV (${subInfo.period || 'Mensual'})`,
       user_id: userEmail,
       paypal_reference: subInfo.paypalSubId || 'PAYPAL-ACT',
-      issued_at_str: subInfo.subscribedAt || new Date().toLocaleDateString('es-DO')
+      issued_at_str: subInfo.issuedAtStr || subInfo.subscribedAt || this.getDominicanFormattedDateTime()
     };
 
     modal.style.display = 'flex';
@@ -5363,7 +5392,7 @@ class JardinesApp {
       concept: 'Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV (Mensual)',
       user_id: (this.currentUser && this.currentUser.email) ? this.currentUser.email : 'gerencia@jardinesdelcerro.do',
       paypal_reference: 'PAYPAL-VERIFIED',
-      issued_at_str: new Date().toLocaleDateString('es-DO')
+      issued_at_str: this.getDominicanFormattedDateTime()
     };
 
     if (this.api && this.api.isBackendOnline) {
