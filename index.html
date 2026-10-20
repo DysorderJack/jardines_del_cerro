@@ -1666,12 +1666,12 @@
 
         <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 6px;">
           <span style="font-size: 12px; color: var(--dust); font-weight: 600;">e-NCF:</span>
-          <span id="ecf-modal-encf" style="font-family: monospace; font-size: 16px; font-weight: 800; color: #003087; background: #DBEAFE; padding: 2px 8px; border-radius: 6px;">E310000001270</span>
+          <span id="ecf-modal-encf" style="font-family: monospace; font-size: 16px; font-weight: 800; color: #003087; background: #DBEAFE; padding: 2px 8px; border-radius: 6px;">E310000001338</span>
         </div>
 
         <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
           <span style="font-size: 12px; color: var(--dust); font-weight: 600;">Código de Seguridad:</span>
-          <span id="ecf-modal-sec-code" style="font-family: monospace; font-size: 15px; font-weight: 800; color: #0F172A; background: #E2E8F0; padding: 2px 8px; border-radius: 6px;">eImm/F</span>
+          <span id="ecf-modal-sec-code" style="font-family: monospace; font-size: 15px; font-weight: 800; color: #0F172A; background: #E2E8F0; padding: 2px 8px; border-radius: 6px;">LTVjai</span>
         </div>
       </div>
 
@@ -1687,15 +1687,15 @@
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--dust);">Base Imponible (Subtotal):</span>
-          <strong id="ecf-modal-subtotal">RD$ 1,249.50</strong>
+          <strong id="ecf-modal-subtotal">RD$ 1,281.26</strong>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--dust);">ITBIS Facturado (18%):</span>
-          <strong id="ecf-modal-itbis" style="color: #059669;">RD$ 224.91</strong>
+          <strong id="ecf-modal-itbis" style="color: #059669;">RD$ 230.63</strong>
         </div>
         <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--linen); font-size: 13.5px;">
           <span style="font-weight: 700; color: var(--ink);">Total Facturado (DOP):</span>
-          <strong id="ecf-modal-total" style="color: #003087;">RD$ 1,474.41</strong>
+          <strong id="ecf-modal-total" style="color: #003087;">RD$ 1,511.89</strong>
         </div>
       </div>
 
@@ -1704,7 +1704,7 @@
         <a id="ecf-modal-verify-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary" style="flex: 1; text-align: center; text-decoration: none; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #003087; border-color: #003087;">
           🌐 Consultar en Portal DGII
         </a>
-        <button type="button" class="btn-accent" style="flex: 1; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onclick="window.app.printActiveEcfInvoice();">
+        <button type="button" class="btn-accent" style="flex: 1; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onclick="window.app.printActiveEcfInvoice(document.getElementById('ecf-modal-encf')?.innerText || '');">
           🖨️ Descargar Factura (PDF)
         </button>
       </div>
@@ -1762,8 +1762,8 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/api.js?v=4.1"></script>
-  <script src="js/data.js?v=4.1"></script>
-  <script src="js/app.js?v=4.1"></script>
+  <script src="js/api.js?v=4.2"></script>
+  <script src="js/data.js?v=4.2"></script>
+  <script src="js/app.js?v=4.2"></script>
 </body>
 </html>

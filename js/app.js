@@ -525,25 +525,25 @@ class JardinesApp {
       plan: 'Licencia SaaS Sistema Condominal Pro (Mensual)',
       period: 'Mensual',
       priceUsd: 24.99,
-      subscribedAt: '17 oct 2026',
-      renewalDate: '17 nov 2026',
-      encf: 'E310000001270',
-      securityCode: 'eImm/F',
+      subscribedAt: '19 oct 2026',
+      renewalDate: '19 nov 2026',
+      encf: 'E310000001338',
+      securityCode: 'LTVjai',
       rncEmisor: '132907401',
       razonSocialEmisor: 'UTESA',
       rncReceptor: '131-88992-1',
-      razonSocialReceptor: 'Condominio Jardines del Cerro IV',
-      qrUrl: 'https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=E310000001270&fechaemision=17-10-2026&montototal=1474.41&fechafirma=17-10-2026%2010%3A22%3A14&codigoseguridad=eImm%2FF',
-      ecfStatus: 'Aceptado por DGII (TesteCF)',
-      subtotalDop: 1249.50,
-      itbisDop: 224.91,
-      totalDop: 1474.41,
+      razonSocialReceptor: 'Administración de Condominio Jardines del Cerro IV',
+      qrUrl: 'https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=E310000001338&fechaemision=19-10-2026&montototal=1511.89&fechafirma=19-10-2026%2022%3A48%3A00&codigoseguridad=LTVjai',
+      ecfStatus: 'Aceptado por DGII (IMECF Platform)',
+      subtotalDop: 1281.26,
+      itbisDop: 230.63,
+      totalDop: 1511.89,
       exchangeRate: 60.50,
       statusLabel: 'Activa vía PayPal · Certificada IMECF'
     };
 
     if (this.adminData) {
-      if (!this.adminData.systemSubscription || this.adminData.systemSubscription.rncEmisor === '132-45678-9' || (this.adminData.systemSubscription.encf && this.adminData.systemSubscription.encf.startsWith('E31000015'))) {
+      if (!this.adminData.systemSubscription || this.adminData.systemSubscription.rncEmisor === '132-45678-9' || (this.adminData.systemSubscription.encf && (this.adminData.systemSubscription.encf.startsWith('E31000015') || this.adminData.systemSubscription.encf === 'E310000001270'))) {
         this.adminData.systemSubscription = Object.assign({}, realImecfEcf);
         this.saveStorage(this.storageKeyAdmin, this.adminData);
       }
@@ -555,7 +555,7 @@ class JardinesApp {
       let updatedSubs = false;
       Object.keys(allSubs).forEach(email => {
         const s = allSubs[email];
-        if (s && (!s.encf || s.rncEmisor === '132-45678-9' || s.encf.startsWith('E31000015'))) {
+        if (s && (!s.encf || s.rncEmisor === '132-45678-9' || s.encf === 'E310000001270' || s.encf.startsWith('E31000015'))) {
           allSubs[email] = Object.assign({}, s, realImecfEcf);
           updatedSubs = true;
         } else if (s && s.rncEmisor !== '132907401') {
@@ -565,7 +565,7 @@ class JardinesApp {
         }
       });
       const defaultAdmin = 'gerencia@jardinesdelcerro.do';
-      if (!allSubs[defaultAdmin] || allSubs[defaultAdmin].rncEmisor === '132-45678-9' || (allSubs[defaultAdmin].encf && allSubs[defaultAdmin].encf.startsWith('E31000015'))) {
+      if (!allSubs[defaultAdmin] || allSubs[defaultAdmin].rncEmisor === '132-45678-9' || (allSubs[defaultAdmin].encf && (allSubs[defaultAdmin].encf.startsWith('E31000015') || allSubs[defaultAdmin].encf === 'E310000001270'))) {
         allSubs[defaultAdmin] = Object.assign({}, realImecfEcf);
         updatedSubs = true;
       }
@@ -3381,6 +3381,24 @@ class JardinesApp {
 
     this.adminData.systemSubscription = subObj;
     this.adminData.aiSubscription = subObj;
+    this.activeEcfInvoiceData = {
+      encf: encf,
+      security_code: securityCode,
+      qr_url: qrUrl,
+      amount_usd: plan.priceUsd,
+      exchange_rate: rate,
+      subtotal_dop: subtotalDop,
+      itbis_dop: itbisDop,
+      total_dop: totalDop,
+      rnc_emisor: rncEmisor,
+      razon_social_emisor: razonSocialEmisor,
+      rnc_receptor: subObj.rncReceptor,
+      razon_social_receptor: subObj.razonSocialReceptor,
+      concept: `Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV (${plan.period})`,
+      user_id: currentEmail,
+      paypal_reference: orderId,
+      issued_at_str: subObj.issuedAtStr
+    };
     if (this.currentUser) {
       this.currentUser.subscription = subObj;
     }
@@ -4736,19 +4754,19 @@ class JardinesApp {
       };
 
       // Garantizar que la suscripción activa cuente con su Factura Electrónica e-CF Tipo E31 conforme a DGII / IMECF
-      if (isSub && (!subInfo.encf || subInfo.encf.startsWith('E31000015') || subInfo.rncEmisor === '132-45678-9')) {
-        subInfo.encf = 'E310000001270';
-        subInfo.securityCode = 'eImm/F';
+      if (isSub && (!subInfo.encf || subInfo.encf === 'E310000001270' || subInfo.encf.startsWith('E31000015') || subInfo.rncEmisor === '132-45678-9')) {
+        subInfo.encf = 'E310000001338';
+        subInfo.securityCode = 'LTVjai';
         subInfo.rncEmisor = '132907401';
         subInfo.razonSocialEmisor = 'UTESA';
         subInfo.rncReceptor = '131-88992-1';
-        subInfo.razonSocialReceptor = 'Condominio Jardines del Cerro IV';
-        subInfo.subtotalDop = 1249.50;
-        subInfo.itbisDop = 224.91;
-        subInfo.totalDop = 1474.41;
+        subInfo.razonSocialReceptor = 'Administración de Condominio Jardines del Cerro IV';
+        subInfo.subtotalDop = 1281.26;
+        subInfo.itbisDop = 230.63;
+        subInfo.totalDop = 1511.89;
         subInfo.exchangeRate = 60.50;
-        subInfo.ecfStatus = 'Aceptado por DGII (TesteCF)';
-        subInfo.qrUrl = 'https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=E310000001270&fechaemision=17-10-2026&montototal=1474.41&fechafirma=17-10-2026%2010%3A22%3A14&codigoseguridad=eImm%2FF';
+        subInfo.ecfStatus = 'Aceptado por DGII (IMECF Platform)';
+        subInfo.qrUrl = 'https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=E310000001338&fechaemision=19-10-2026&montototal=1511.89&fechafirma=19-10-2026%2022%3A48%3A00&codigoseguridad=LTVjai';
         allSubs[userEmail] = subInfo;
         this.saveStorage('jc_admin_subscriptions_v1', allSubs);
       } else if (isSub && subInfo.rncEmisor !== '132907401') {
@@ -4928,13 +4946,13 @@ class JardinesApp {
 
             <!-- Botones de Acción Oficiales -->
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-              <button class="btn-primary" style="background: #003087; border-color: #003087; display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-size: 13px;" onclick="window.app.openEcfTimbreModal();">
+              <button class="btn-primary" style="background: #003087; border-color: #003087; display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-size: 13px;" onclick="window.app.openEcfTimbreModal('${subInfo.encf || ''}');">
                 <span>🔍 Ver Timbre Fiscal & Código QR DGII</span>
               </button>
-              <button class="btn-accent" style="display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-size: 13px;" onclick="window.app.printActiveEcfInvoice();">
+              <button class="btn-accent" style="display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-size: 13px;" onclick="window.app.printActiveEcfInvoice('${subInfo.encf || ''}');">
                 <span>🖨️ Descargar Factura Fiscal E31 (PDF)</span>
               </button>
-              <button class="btn-outline" style="padding: 10px 16px; font-size: 13px;" onclick="window.app.copyEcfNcf('${subInfo.encf || 'E310000000042'}');">
+              <button class="btn-outline" style="padding: 10px 16px; font-size: 13px;" onclick="window.app.copyEcfNcf('${subInfo.encf || 'E310000001338'}');">
                 <span>📋 Copiar e-NCF</span>
               </button>
             </div>
@@ -5319,18 +5337,28 @@ class JardinesApp {
     const modal = document.getElementById('ecf-timbre-modal');
     if (!modal) return;
 
+    let targetEncf = null;
+    let customSub = null;
+    if (typeof customData === 'string' && customData.trim() && customData.trim().startsWith('E')) {
+      targetEncf = customData.trim();
+    } else if (customData && typeof customData === 'object') {
+      customSub = customData;
+      targetEncf = customData.encf;
+    }
+
     const userEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
     const allSubs = this.loadStorage('jc_admin_subscriptions_v1', {});
-    const subInfo = customData || allSubs[userEmail] || this.adminData.systemSubscription || {};
+    const sysSub = this.adminData?.systemSubscription;
+    const subInfo = customSub || sysSub || allSubs[userEmail] || {};
 
-    const encf = subInfo.encf || 'E310000001270';
-    const secCode = subInfo.securityCode || 'eImm/F';
+    const encf = targetEncf || (subInfo.encf && subInfo.encf !== 'E310000001270' ? subInfo.encf : null) || 'E310000001338';
+    const secCode = (subInfo.securityCode && subInfo.securityCode !== 'eImm/F') ? subInfo.securityCode : 'LTVjai';
     const rate = subInfo.exchangeRate || 60.50;
     const priceUsd = subInfo.priceUsd || 24.99;
-    const totalDop = subInfo.totalDop || 1474.41;
-    const subtotalDop = subInfo.subtotalDop || 1249.50;
-    const itbisDop = subInfo.itbisDop || 224.91;
-    const qrUrl = subInfo.qrUrl || `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=${encf}&fechaemision=17-10-2026&montototal=${totalDop.toFixed(2)}&fechafirma=17-10-2026%2010%3A22%3A14&codigoseguridad=${encodeURIComponent(secCode)}`;
+    const totalDop = (subInfo.totalDop && subInfo.totalDop !== 1474.41) ? subInfo.totalDop : 1511.89;
+    const subtotalDop = (subInfo.subtotalDop && subInfo.subtotalDop !== 1249.50) ? subInfo.subtotalDop : 1281.26;
+    const itbisDop = (subInfo.itbisDop && subInfo.itbisDop !== 224.91) ? subInfo.itbisDop : 230.63;
+    const qrUrl = (subInfo.qrUrl && !subInfo.qrUrl.includes('E310000001270')) ? subInfo.qrUrl : `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=${encf}&fechaemision=19-10-2026&montototal=${totalDop.toFixed(2)}&fechafirma=19-10-2026%2022%3A48%3A00&codigoseguridad=${encodeURIComponent(secCode)}`;
 
     const qrImg = document.getElementById('ecf-modal-qr-img');
     const encfEl = document.getElementById('ecf-modal-encf');
@@ -5359,11 +5387,11 @@ class JardinesApp {
       total_dop: totalDop,
       rnc_emisor: subInfo.rncEmisor || '132907401',
       razon_social_emisor: subInfo.razonSocialEmisor || 'UTESA',
-      rnc_receptor: '131-88992-1',
-      razon_social_receptor: 'Administración Condominio Jardines del Cerro IV',
+      rnc_receptor: subInfo.rncReceptor || '131-88992-1',
+      razon_social_receptor: subInfo.razonSocialReceptor || 'Administración de Condominio Jardines del Cerro IV',
       concept: `Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV (${subInfo.period || 'Mensual'})`,
       user_id: userEmail,
-      paypal_reference: subInfo.paypalSubId || 'PAYPAL-ACT',
+      paypal_reference: subInfo.paypalSubId || 'PAYPAL-VERIFIED',
       issued_at_str: subInfo.issuedAtStr || subInfo.subscribedAt || this.getDominicanFormattedDateTime()
     };
 
@@ -5375,24 +5403,63 @@ class JardinesApp {
     if (modal) modal.style.display = 'none';
   }
 
-  printActiveEcfInvoice() {
-    const data = this.activeEcfInvoiceData || {
-      encf: 'E310000001270',
-      security_code: 'eImm/F',
-      qr_url: 'https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=E310000001270&fechaemision=17-10-2026&montototal=1474.41&fechafirma=17-10-2026%2010%3A22%3A14&codigoseguridad=eImm%2FF',
-      amount_usd: 24.99,
-      exchange_rate: 60.50,
-      subtotal_dop: 1249.50,
-      itbis_dop: 224.91,
-      total_dop: 1474.41,
-      rnc_emisor: '132907401',
-      razon_social_emisor: 'UTESA',
-      rnc_receptor: '131-88992-1',
-      razon_social_receptor: 'Administración Condominio Jardines del Cerro IV',
-      concept: 'Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV (Mensual)',
-      user_id: (this.currentUser && this.currentUser.email) ? this.currentUser.email : 'gerencia@jardinesdelcerro.do',
-      paypal_reference: 'PAYPAL-VERIFIED',
-      issued_at_str: this.getDominicanFormattedDateTime()
+  printActiveEcfInvoice(targetEncf = null) {
+    let encf = (typeof targetEncf === 'string' && targetEncf.trim() && targetEncf.trim().startsWith('E') && targetEncf.trim() !== 'E310000001270') ? targetEncf.trim() : null;
+
+    if (!encf && this.activeEcfInvoiceData?.encf && this.activeEcfInvoiceData.encf.startsWith('E') && this.activeEcfInvoiceData.encf !== 'E310000001270') {
+      encf = this.activeEcfInvoiceData.encf;
+    }
+
+    const userEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+    const allSubs = this.loadStorage('jc_admin_subscriptions_v1', {});
+    const sysSub = this.adminData?.systemSubscription;
+    const subInfo = sysSub || allSubs[userEmail] || {};
+
+    if (!encf && subInfo.encf && subInfo.encf.startsWith('E') && subInfo.encf !== 'E310000001270') {
+      encf = subInfo.encf;
+    }
+
+    if (!encf) {
+      for (const k of Object.keys(allSubs)) {
+        if (allSubs[k]?.encf && allSubs[k].encf.startsWith('E') && allSubs[k].encf !== 'E310000001270') {
+          encf = allSubs[k].encf;
+          break;
+        }
+      }
+    }
+
+    if (!encf) {
+      encf = 'E310000001338';
+    }
+
+    if (this.api && this.api.isBackendOnline) {
+      window.open(this.api.getPrintableInvoiceUrl(encf), '_blank');
+      return;
+    }
+
+    const printWin = window.open('', '_blank', 'width=900,height=800');
+    if (!printWin) {
+      this.showToast('Por favor permite ventanas emergentes para imprimir la factura.', 'warning');
+      return;
+    }
+
+    const data = (this.activeEcfInvoiceData && this.activeEcfInvoiceData.encf === encf) ? this.activeEcfInvoiceData : {
+      encf: encf,
+      security_code: subInfo.securityCode || 'LTVjai',
+      qr_url: subInfo.qrUrl || `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=${encf}&fechaemision=19-10-2026&montototal=1511.89&fechafirma=19-10-2026%2022%3A48%3A00&codigoseguridad=LTVjai`,
+      amount_usd: subInfo.priceUsd || 24.99,
+      exchange_rate: subInfo.exchangeRate || 60.50,
+      subtotal_dop: subInfo.subtotalDop || 1281.26,
+      itbis_dop: subInfo.itbisDop || 230.63,
+      total_dop: subInfo.totalDop || 1511.89,
+      rnc_emisor: subInfo.rncEmisor || '132907401',
+      razon_social_emisor: subInfo.razonSocialEmisor || 'UTESA',
+      rnc_receptor: subInfo.rncReceptor || '131-88992-1',
+      razon_social_receptor: subInfo.razonSocialReceptor || 'Administración Condominio Jardines del Cerro IV',
+      concept: `Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV (${subInfo.period || 'Mensual'})`,
+      user_id: userEmail,
+      paypal_reference: subInfo.paypalSubId || 'PAYPAL-VERIFIED',
+      issued_at_str: subInfo.issuedAtStr || this.getDominicanFormattedDateTime()
     };
 
     if (this.api && this.api.isBackendOnline) {
