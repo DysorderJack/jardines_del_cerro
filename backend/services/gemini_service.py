@@ -39,24 +39,38 @@ class GeminiService:
 
     @classmethod
     def _get_candidate_models(cls):
-        preferred = (GEMINI_MODEL or "gemini-3.8-flash").strip()
-        # Si el modelo configurado es un modelo previo deprecado por Google, priorizar gemini-3.8-flash
-        if any(old in preferred for old in ["1.5", "2.0"]):
-            preferred = "gemini-3.8-flash"
-        models = [preferred, "gemini-3.8-flash", "gemini-2.5-flash"]
+        preferred = (GEMINI_MODEL or "gemini-3.5-flash-lite").strip()
+        # Si el modelo configurado es un modelo previo deprecado o con cuota agotada
+        if any(old in preferred for old in ["1.5", "2.0", "2.5-flash"]):
+            preferred = "gemini-3.5-flash-lite"
+            
+        # Modelos verificados con cuota activa y máxima velocidad
+        models = [
+            preferred,
+            "gemini-3.5-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.6-flash",
+            "gemini-3-flash-preview",
+            "gemini-flash-lite-latest",
+            "gemini-3.8-flash"
+        ]
         seen = set()
         candidates = []
         for m in models:
             clean = m.replace("models/", "").strip()
+            # Omitir modelos deprecados por Google que retornan 404
+            if clean in ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-pro"]:
+                continue
             if clean and clean not in seen:
                 seen.add(clean)
                 candidates.append(clean)
         return candidates
 
     @classmethod
-    async def generate_response(cls, prompt: str, context_type: str = "public", extra_context: dict = None) -> str:
+    async def generate_response(cls, prompt: str, context_type: str = "public", extra_context: dict = None) -> dict:
         """
-        Genera una respuesta utilizando la API de Google Gemini o el motor contextual de respaldo.
+        Genera una respuesta utilizando la API de Google Gemini en vivo.
+        No retorna respuestas predefinidas genéricas.
         """
         system_instruction = cls.SYSTEM_PROMPTS.get(context_type, cls.SYSTEM_PROMPTS["public"])
         
@@ -64,8 +78,9 @@ class GeminiService:
         augmented_prompt = prompt
         if extra_context:
             context_str = "\n".join([f"- {k}: {v}" for k, v in extra_context.items()])
-            augmented_prompt = f"Contexto actual del sistema:\n{context_str}\n\nPregunta del usuario: {prompt}"
+            augmented_prompt = f"Contexto del complejo residencial Jardines del Cerro IV:\n{context_str}\n\nPregunta del usuario:\n{prompt}"
 
+        last_error = "No se pudo conectar a los modelos de Google Gemini disponibles."
         # 1. Intentar llamar a Google Gemini si existe API Key
         if GEMINI_API_KEY:
             for model_name in cls._get_candidate_models():
@@ -79,11 +94,16 @@ class GeminiService:
                         config={"system_instruction": system_instruction}
                     )
                     if response and response.text:
-                        return response.text
+                        logger.info(f"Respuesta generada exitosamente por Gemini SDK ({model_name})")
+                        return {
+                            "success": True,
+                            "response": response.text.strip(),
+                            "model": model_name
+                        }
                 except Exception as e:
                     logger.debug(f"SDK Gemini fallo en {model_name}: {e}")
 
-                # B. Llamada HTTP directa a Google Gemini REST API (máxima compatibilidad)
+                # B. Llamada HTTP directa a Google Gemini REST API (rápida y confiable)
                 try:
                     import requests
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
@@ -91,21 +111,39 @@ class GeminiService:
                         "contents": [{"parts": [{"text": augmented_prompt}]}],
                         "systemInstruction": {"parts": [{"text": system_instruction}]}
                     }
-                    res = requests.post(url, json=payload, timeout=20)
+                    res = requests.post(url, json=payload, timeout=12)
                     if res.ok:
                         data = res.json()
                         candidates = data.get("candidates", [])
                         if candidates and "content" in candidates[0]:
                             parts = candidates[0]["content"].get("parts", [])
                             if parts and "text" in parts[0]:
-                                return parts[0]["text"]
+                                text_reply = parts[0]["text"].strip()
+                                logger.info(f"Respuesta generada exitosamente por Gemini REST ({model_name})")
+                                return {
+                                    "success": True,
+                                    "response": text_reply,
+                                    "model": model_name
+                                }
                     else:
-                        logger.info(f"Modelo {model_name} respondió {res.status_code}. Intentando siguiente...")
+                        err_json = res.json() if res.headers.get("content-type", "").startswith("application/json") else {}
+                        err_msg = err_json.get("error", {}).get("message", res.text[:200])
+                        last_error = f"Google Gemini ({res.status_code}) en {model_name}: {err_msg}"
+                        logger.warning(f"Modelo {model_name} respondió error {res.status_code}: {err_msg}")
                 except Exception as e_rest:
+                    last_error = str(e_rest)
                     logger.debug(f"REST Gemini fallo en {model_name}: {e_rest}")
+        else:
+            last_error = "No hay clave GEMINI_API_KEY configurada en el servidor."
 
-        # 2. Fallback contextual de alta fidelidad garantizado
-        return cls._local_fallback(prompt, context_type, extra_context)
+        # Si Google Gemini no respondió, retornar error explicito en vez de respuestas genéricas falsas
+        logger.error(f"Fallo al generar respuesta con Gemini: {last_error}")
+        return {
+            "success": False,
+            "error": last_error,
+            "response": f"⚠️ *No se pudo obtener respuesta de Google Gemini:* {last_error}",
+            "model": "none"
+        }
 
     @classmethod
     def test_connection(cls, api_key: str = None) -> dict:

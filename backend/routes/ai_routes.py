@@ -79,16 +79,26 @@ async def chat_ai(payload: AIChatPrompt, db: Session = Depends(get_db)):
             "ascensor": "Otis Gen2 (Revisión mensual al día)"
         }
 
-    # Generar respuesta con Gemini o motor contextual
-    response_text = await GeminiService.generate_response(
+    # Generar respuesta con Gemini en vivo
+    ai_result = await GeminiService.generate_response(
         prompt=payload.prompt,
         context_type=payload.context_type,
         extra_context=extra_context
     )
 
+    if isinstance(ai_result, dict):
+        return {
+            "success": ai_result.get("success", False),
+            "response": ai_result.get("response", ""),
+            "model": ai_result.get("model", GEMINI_MODEL),
+            "context_type": payload.context_type,
+            "error": ai_result.get("error")
+        }
+
     return {
         "success": True,
-        "response": response_text,
+        "response": str(ai_result),
         "model": GEMINI_MODEL,
         "context_type": payload.context_type
     }
+

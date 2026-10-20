@@ -3511,21 +3511,22 @@ class JardinesApp {
 
     let responseHtml = null;
 
-    // 1. Intentar llamar a Google Gemini vía Backend FastAPI
+    // 1. Llamar a Google Gemini vía Backend FastAPI en vivo
     if (window.apiClient) {
       try {
         const res = await window.apiClient.chatAI(text, 'resident', user ? user.id : null, user ? user.unit : '101');
         if (res && res.success && res.response) {
           responseHtml = this.formatAIMarkdown(res.response);
+        } else if (res && (res.error || res.response)) {
+          responseHtml = `<div style="color: #DC2626;">⚠️ <strong>Google Gemini:</strong> ${this.escapeHtml(res.error || res.response)}</div>`;
         }
       } catch (err) {
-        console.warn('Fallback a motor local de IA residente:', err);
+        console.warn('Error al consultar IA residente:', err);
       }
     }
 
-    // 2. Motor contextual local garantizado si el backend está offline o sin clave
     if (!responseHtml) {
-      responseHtml = this.generateResidentAIResponse(text);
+      responseHtml = `<div style="color: #DC2626; padding: 4px 0;">⚠️ <em>No se pudo obtener respuesta del motor de Inteligencia Artificial (Google Gemini). Por favor verifica la conexión con el servidor.</em></div>`;
     }
 
     typingBubble.remove();
@@ -7118,7 +7119,7 @@ class JardinesApp {
   }
 
   async testGeminiDirectlyFromBrowser(key) {
-    const models = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+    const models = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.8-flash'];
     let lastErr = 'Fallo de conexión';
     for (const m of models) {
       try {
@@ -7203,7 +7204,7 @@ class JardinesApp {
     msgContainer.appendChild(typingBubble);
     msgContainer.scrollTop = msgContainer.scrollHeight;
 
-    // Generar respuesta con Gemini o local
+    // Generar respuesta con Gemini en vivo
     (async () => {
       let responseText = null;
       if (window.apiClient) {
@@ -7211,11 +7212,15 @@ class JardinesApp {
           const res = await window.apiClient.chatAI(text, 'public');
           if (res && res.success && res.response) {
             responseText = this.formatAIMarkdown(res.response);
+          } else if (res && (res.error || res.response)) {
+            responseText = `<div style="color: #DC2626;">⚠️ <strong>Google Gemini:</strong> ${this.escapeHtml(res.error || res.response)}</div>`;
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('Error al consultar Gemini público:', e);
+        }
       }
       if (!responseText) {
-        responseText = this.generateAIResponse(text);
+        responseText = `<div style="color: #DC2626; padding: 4px 0;">⚠️ <em>No se pudo obtener respuesta del motor de Inteligencia Artificial (Google Gemini). Por favor verifica la conexión con el servidor.</em></div>`;
       }
       typingBubble.remove();
       const botBubble = document.createElement('div');
@@ -7311,21 +7316,22 @@ class JardinesApp {
 
     let responseHtml = null;
 
-    // 1. Intentar llamar a Google Gemini vía Backend FastAPI
+    // 1. Llamar a Google Gemini vía Backend FastAPI en vivo
     if (window.apiClient) {
       try {
         const res = await window.apiClient.chatAI(text, 'admin');
         if (res && res.success && res.response) {
           responseHtml = this.formatAIMarkdown(res.response);
+        } else if (res && (res.error || res.response)) {
+          responseHtml = `<div style="color: #DC2626;">⚠️ <strong>Google Gemini:</strong> ${this.escapeHtml(res.error || res.response)}</div>`;
         }
       } catch (err) {
-        console.warn('Fallback a motor local de Copiloto IA admin:', err);
+        console.warn('Error al consultar Copiloto IA admin:', err);
       }
     }
 
-    // 2. Motor contextual local garantizado si el backend está offline o sin clave
     if (!responseHtml) {
-      responseHtml = this.generateAdminAIResponse(text);
+      responseHtml = `<div style="color: #DC2626; padding: 4px 0;">⚠️ <em>No se pudo obtener respuesta del motor de Inteligencia Artificial (Google Gemini). Por favor verifica la conexión con el servidor.</em></div>`;
     }
 
     typingBubble.remove();

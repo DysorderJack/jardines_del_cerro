@@ -364,6 +364,7 @@ class ApiClient {
     if (this.remoteApi && !candidateUrls.includes(this.remoteApi)) candidateUrls.push(this.remoteApi);
     if (isLocal && !candidateUrls.includes('http://127.0.0.1:8000/api')) candidateUrls.push('http://127.0.0.1:8000/api');
 
+    let lastError = null;
     for (const base of candidateUrls) {
       try {
         const res = await fetch(`${base}/ai/chat`, {
@@ -382,12 +383,16 @@ class ApiClient {
           this.isBackendOnline = true;
           this.baseUrl = base;
           return data;
+        } else {
+          const errData = await res.json().catch(() => null);
+          lastError = errData?.detail || errData?.error || `Error HTTP ${res.status}`;
         }
       } catch (e) {
+        lastError = e.message;
         console.warn(`Fallo al consultar Gemini en ${base}:`, e);
       }
     }
-    return null;
+    return { success: false, error: lastError || 'No se pudo contactar con el backend' };
   }
 
   async getAIStatus() {
