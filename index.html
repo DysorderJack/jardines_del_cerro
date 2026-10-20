@@ -820,7 +820,16 @@
               </button>
             </div>
           </div>
-          <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; margin-top: 8px;">
+          <!-- Botones de Demostración Rápida (Facilita la Defensa ante el Docente) -->
+          <div style="display: flex; gap: 8px; margin-top: 10px; margin-bottom: 8px;">
+            <button type="button" class="btn-outline" style="flex: 1; padding: 6px 8px; font-size: 11px; border: 1px dashed #cbd5e1; background: #f8fafc; color: var(--dust); border-radius: 6px; cursor: pointer;" onclick="window.app.fillDemoLogin('owner');" title="Rellenar datos de Ramona Ramos (Propietaria Aprobada)">
+              ⚡ Demo Propietaria (Ramona)
+            </button>
+            <button type="button" class="btn-outline" style="flex: 1; padding: 6px 8px; font-size: 11px; border: 1px dashed #cbd5e1; background: #f8fafc; color: var(--dust); border-radius: 6px; cursor: pointer;" onclick="window.app.fillDemoLogin('tenant');" title="Rellenar datos de Dra. Laura Batista (Inquilina Pendiente)">
+              ⚡ Demo Inquilina (Laura)
+            </button>
+          </div>
+          <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; margin-top: 4px;">
             <span>Ingresar a mi portal</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
@@ -1110,7 +1119,13 @@
               </button>
             </div>
           </div>
-          <button type="submit" class="btn-accent" style="width: 100%; padding: 12px; margin-top: 8px;">
+          <!-- Botón de Demostración Rápida SuperAdmin (Facilita la Defensa ante el Docente) -->
+          <div style="margin-top: 10px; margin-bottom: 8px;">
+            <button type="button" class="btn-outline" style="width: 100%; padding: 6px 8px; font-size: 11px; border: 1px dashed rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); border-radius: 6px; cursor: pointer;" onclick="window.app.fillDemoLogin('admin');" title="Rellenar credenciales del Super Administrador">
+              ⚡ Demo: Cargar Credenciales SuperAdmin
+            </button>
+          </div>
+          <button type="submit" class="btn-accent" style="width: 100%; padding: 12px; margin-top: 4px;">
             <span>Acceder al Panel de Control</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
@@ -1449,6 +1464,16 @@
 
         <div id="paypal-button-container" style="min-height: 100px;"></div>
 
+        <!-- Botón de Suscripción Oficial / Verificación Inmediata ante IMECF -->
+        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--linen); text-align: center;">
+          <button type="button" id="btn-direct-paypal-simulation" class="btn-primary" style="width: 100%; padding: 13px 18px; font-size: 13.5px; font-weight: 800; background: #003087; border-color: #003087; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,48,135,0.25);" onclick="window.app.processDirectAdminSubscription();">
+            <span>⚡ Suscribir Administrador & Emitir e-CF E31 en IMECF</span>
+          </button>
+          <div style="font-size: 11px; color: var(--dust); margin-top: 6px;">
+            Emite en vivo la Factura Electrónica con Crédito Fiscal (e-CF Tipo E31) ante la plataforma IMECF y DGII
+          </div>
+        </div>
+
         <div id="paypal-sdk-error" style="display: none; padding: 12px 14px; background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: var(--radius-sm); color: #991B1B; font-size: 12px; line-height: 1.4; margin-top: 12px;"></div>
       </div>
     </div>
@@ -1657,12 +1682,12 @@
 
         <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 6px;">
           <span style="font-size: 12px; color: var(--dust); font-weight: 600;">e-NCF:</span>
-          <span id="ecf-modal-encf" style="font-family: monospace; font-size: 16px; font-weight: 800; color: #003087; background: #DBEAFE; padding: 2px 8px; border-radius: 6px;">E310000000001</span>
+          <span id="ecf-modal-encf" style="font-family: monospace; font-size: 16px; font-weight: 800; color: #003087; background: #DBEAFE; padding: 2px 8px; border-radius: 6px;">E310000001270</span>
         </div>
 
         <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
           <span style="font-size: 12px; color: var(--dust); font-weight: 600;">Código de Seguridad:</span>
-          <span id="ecf-modal-sec-code" style="font-family: monospace; font-size: 15px; font-weight: 800; color: #0F172A; background: #E2E8F0; padding: 2px 8px; border-radius: 6px;">A8B2C9</span>
+          <span id="ecf-modal-sec-code" style="font-family: monospace; font-size: 15px; font-weight: 800; color: #0F172A; background: #E2E8F0; padding: 2px 8px; border-radius: 6px;">eImm/F</span>
         </div>
       </div>
 
@@ -1670,7 +1695,7 @@
       <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 16px; margin-bottom: 22px; font-size: 12px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--dust);">RNC Emisor (Desarrollador):</span>
-          <strong id="ecf-modal-rnc-emisor">132-45678-9 (Jardines del Cerro IV)</strong>
+          <strong id="ecf-modal-rnc-emisor">132907401 (UTESA)</strong>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--dust);">RNC Receptor (Administración):</span>
@@ -1678,15 +1703,15 @@
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--dust);">Base Imponible (Subtotal):</span>
-          <strong id="ecf-modal-subtotal">RD$ 1,281.27</strong>
+          <strong id="ecf-modal-subtotal">RD$ 1,249.50</strong>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--dust);">ITBIS Facturado (18%):</span>
-          <strong id="ecf-modal-itbis" style="color: #059669;">RD$ 230.63</strong>
+          <strong id="ecf-modal-itbis" style="color: #059669;">RD$ 224.91</strong>
         </div>
         <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--linen); font-size: 13.5px;">
           <span style="font-weight: 700; color: var(--ink);">Total Facturado (DOP):</span>
-          <strong id="ecf-modal-total" style="color: #003087;">RD$ 1,511.90</strong>
+          <strong id="ecf-modal-total" style="color: #003087;">RD$ 1,474.41</strong>
         </div>
       </div>
 
@@ -1753,8 +1778,8 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/api.js?v=2.2"></script>
-  <script src="js/data.js?v=2.2"></script>
-  <script src="js/app.js?v=2.2"></script>
+  <script src="js/api.js?v=3.5"></script>
+  <script src="js/data.js?v=3.5"></script>
+  <script src="js/app.js?v=3.5"></script>
 </body>
 </html>

@@ -8,7 +8,7 @@ services:
       - key: ENV
         value: production
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-3.8-flash
       - key: PAYPAL_MODE
         value: sandbox
       - key: BREVO_API_KEY

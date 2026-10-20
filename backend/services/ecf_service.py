@@ -131,52 +131,72 @@ class ECFService:
 
         if ECF_API_KEY and ECF_API_BASE_URL:
             api_called = True
-            payload = {
-                "typeId": "31",
-                "counterpart": {
-                    "rnc": cls._clean_rnc(rnc_comp),
-                    "legalName": razon_comp,
-                    "email": user_email
-                },
-                "paymentType": 1, # Contado
-                "currency": "USD",
-                "exchangeRate": rate,
-                "items": [
-                    {
-                        "description": f"Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV ({period}) - PayPal Ref #{paypal_order_id}",
-                        "quantity": 1,
-                        "unitPrice": round(subtotal_dop / rate, 2),
-                        "itbisRate": 18,
-                        "goodOrService": 2 # 2 = Servicio
+            clean_comp = cls._clean_rnc(rnc_comp)
+            imecf_payload = {
+                "ECF": {
+                    "Encabezado": {
+                        "Version": "1.0",
+                        "IdDoc": {
+                            "TipoeCF": "31",
+                            "IndicadorEnvioDiferido": "1",
+                            "IndicadorMontoGravado": "0",
+                            "IndicadorServicioTodoIncluido": "1",
+                            "TipoIngresos": "01",
+                            "TipoPago": "1",
+                            "TablaFormasPago": {
+                                "FormaDePago": [
+                                    {"FormaPago": 1, "MontoPago": f"{total_dop:.2f}"}
+                                ]
+                            }
+                        },
+                        "Comprador": {
+                            "RNCComprador": clean_comp,
+                            "RazonSocialComprador": razon_comp
+                        },
+                        "Totales": {
+                            "MontoGravadoTotal": f"{subtotal_dop:.2f}",
+                            "MontoGravadoI1": f"{subtotal_dop:.2f}",
+                            "ITBIS1": "18",
+                            "TotalITBIS": f"{itbis_dop:.2f}",
+                            "TotalITBIS1": f"{itbis_dop:.2f}",
+                            "MontoTotal": f"{total_dop:.2f}"
+                        }
+                    },
+                    "DetallesItems": {
+                        "Item": {
+                            "NumeroLinea": "1",
+                            "IndicadorFacturacion": "1",
+                            "NombreItem": f"Licencia SaaS Sistema Condominal Jardines del Cerro IV ({period})"[:75],
+                            "IndicadorBienoServicio": "2",
+                            "CantidadItem": "1",
+                            "UnidadMedida": "43",
+                            "PrecioUnitarioItem": f"{subtotal_dop:.2f}",
+                            "MontoItem": f"{subtotal_dop:.2f}"
+                        }
                     }
-                ],
-                "additionalInfo": {
-                    "notes": f"Pago procesado mediante pasarela oficial de PayPal. Transacción #{paypal_order_id}. Usuario: {user_email}"
                 }
             }
 
             headers = {
                 "X-API-Key": ECF_API_KEY,
-                "Content-Type": "application/json",
-                "Idempotency-Key": f"ecf-sub-{paypal_order_id}"
+                "Content-Type": "application/json"
             }
 
             try:
-                # Timeout corto para garantizar que el usuario nunca espere más de 3 segundos
-                url = f"{ECF_API_BASE_URL.rstrip('/')}/v1/vouchers"
-                resp = requests.post(url, json=payload, headers=headers, timeout=3.5)
+                url = f"{ECF_API_BASE_URL.rstrip('/')}/api/v1/ecf/send"
+                resp = requests.post(url, json=imecf_payload, headers=headers, timeout=5.0)
                 if resp.status_code in (200, 201, 202):
                     res_json = resp.json()
                     api_success = True
                     api_response_data = res_json
-                    if res_json.get("ncf"):
-                        encf = res_json.get("ncf")
-                    if res_json.get("securityCode"):
-                        security_code = res_json.get("securityCode")
-                    if res_json.get("qrUrl"):
-                        qr_url = res_json.get("qrUrl")
-                    if res_json.get("id"):
-                        track_id = f"AURA-{res_json.get('id')}"
+                    if res_json.get("encf"):
+                        encf = res_json.get("encf")
+                    if res_json.get("codigoSeguridad"):
+                        security_code = res_json.get("codigoSeguridad")
+                    if res_json.get("dgiiUrl"):
+                        qr_url = res_json.get("dgiiUrl")
+                    if res_json.get("trackId"):
+                        track_id = res_json.get("trackId")
             except Exception as e:
                 # Si la API externa no está disponible o rechaza, el motor de contingencia Ley 32-23 toma el control
                 api_success = False
@@ -254,6 +274,72 @@ class ECFService:
             fecha_emision=now.strftime("%d-%m-%Y")
         )
 
+        # Despacho en vivo a IMECF Platform (TesteCF DGII)
+        api_success = False
+        track_id = None
+        if ECF_API_KEY and ECF_API_BASE_URL:
+            imecf_payload = {
+                "ECF": {
+                    "Encabezado": {
+                        "Version": "1.0",
+                        "IdDoc": {
+                            "TipoeCF": "32",
+                            "IndicadorEnvioDiferido": "1",
+                            "IndicadorMontoGravado": "0",
+                            "TipoIngresos": "02",
+                            "TipoPago": "1",
+                            "TablaFormasPago": {
+                                "FormaDePago": [
+                                    {"FormaPago": 1, "MontoPago": f"{amount_dop:.2f}"}
+                                ]
+                            }
+                        },
+                        "Comprador": {
+                            "RNCComprador": clean_ced if len(clean_ced) >= 9 else "00000000000",
+                            "RazonSocialComprador": resident_name or "Consumidor Final"
+                        },
+                        "Totales": {
+                            "MontoExento": f"{amount_dop:.2f}",
+                            "MontoTotal": f"{amount_dop:.2f}"
+                        }
+                    },
+                    "DetallesItems": {
+                        "Item": {
+                            "NumeroLinea": "1",
+                            "IndicadorFacturacion": "4",
+                            "NombreItem": f"Cuota de Mantenimiento Torre Jardines del Cerro IV - Unidad {unit}",
+                            "IndicadorBienoServicio": "2",
+                            "CantidadItem": "1",
+                            "UnidadMedida": "43",
+                            "PrecioUnitarioItem": f"{amount_dop:.2f}",
+                            "MontoItem": f"{amount_dop:.2f}"
+                        }
+                    }
+                }
+            }
+
+            headers = {
+                "X-API-Key": ECF_API_KEY,
+                "Content-Type": "application/json"
+            }
+
+            try:
+                url = f"{ECF_API_BASE_URL.rstrip('/')}/api/v1/ecf/send"
+                resp = requests.post(url, json=imecf_payload, headers=headers, timeout=5.0)
+                if resp.status_code in (200, 201, 202):
+                    res_json = resp.json()
+                    api_success = True
+                    if res_json.get("encf"):
+                        encf = res_json.get("encf")
+                    if res_json.get("codigoSeguridad"):
+                        security_code = res_json.get("codigoSeguridad")
+                    if res_json.get("dgiiUrl"):
+                        qr_url = res_json.get("dgiiUrl")
+                    if res_json.get("trackId"):
+                        track_id = res_json.get("trackId")
+            except Exception:
+                api_success = False
+
         return {
             "id": f"ecf-e32-{int(now.timestamp())}",
             "encf": encf,
@@ -287,8 +373,8 @@ class ECFService:
         itbis_dop = invoice_data.get("itbis_dop", 230.63)
         amount_usd = invoice_data.get("amount_usd", 24.99)
         rate = invoice_data.get("exchange_rate", 60.50)
-        rnc_emisor = invoice_data.get("rnc_emisor", "132-45678-9")
-        emisor = invoice_data.get("razon_social_emisor", "Torre Residencial Jardines del Cerro IV, S.R.L.")
+        rnc_emisor = invoice_data.get("rnc_emisor", "132907401")
+        emisor = invoice_data.get("razon_social_emisor", "UTESA / Torre Residencial Jardines del Cerro IV, S.R.L.")
         rnc_receptor = invoice_data.get("rnc_receptor", "131-88992-1")
         receptor = invoice_data.get("razon_social_receptor", "Administración Condominio Jardines del Cerro IV")
         concept = invoice_data.get("concept", "Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV")

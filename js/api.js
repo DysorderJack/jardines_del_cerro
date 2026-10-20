@@ -6,42 +6,43 @@
 
 class ApiClient {
   constructor() {
-    // URL oficial del Backend en producción desplegado en Render
     this.remoteApi = 'https://jardines-del-cerro.onrender.com/api';
-
-    // Si se ejecuta en localhost o en la nube (Vercel)
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
     this.baseUrl = isLocal ? 'http://127.0.0.1:8000/api' : this.remoteApi;
     this.isBackendOnline = false;
     this.checkConnection();
   }
 
   async checkConnection() {
-    const healthUrl = this.baseUrl.replace('/api', '') + '/health';
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+
+    // 1. Si estamos en entorno local, probar primero si el backend local (127.0.0.1:8000) está activo
+    if (isLocal) {
+      try {
+        const localRes = await fetch('http://127.0.0.1:8000/health', { signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined });
+        if (localRes.ok) {
+          this.baseUrl = 'http://127.0.0.1:8000/api';
+          this.isBackendOnline = true;
+          console.log(`✓ Backend FastAPI conectado localmente en: ${this.baseUrl}`);
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Conectar con Render en la nube (producción o fallback)
     try {
-      const res = await fetch(healthUrl, { signal: AbortSignal.timeout(10000) });
-      if (res.ok) {
+      const remoteHealth = this.remoteApi.replace('/api', '') + '/health';
+      const resRemote = await fetch(remoteHealth, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
+      if (resRemote.ok) {
+        this.baseUrl = this.remoteApi;
         this.isBackendOnline = true;
-        console.log(`✓ Backend FastAPI conectado exitosamente en: ${this.baseUrl}`);
+        console.log(`✓ Conectado al backend en la nube en Render: ${this.baseUrl}`);
         return;
       }
-    } catch (e) {
-      // Si estamos en local y el puerto 8000 no responde, intentar automáticamente con Render
-      if (this.baseUrl !== this.remoteApi) {
-        try {
-          const remoteHealth = this.remoteApi.replace('/api', '') + '/health';
-          const resRemote = await fetch(remoteHealth, { signal: AbortSignal.timeout(10000) });
-          if (resRemote.ok) {
-            this.baseUrl = this.remoteApi;
-            this.isBackendOnline = true;
-            console.log(`✓ Conectado al backend en vivo en Render: ${this.baseUrl}`);
-            return;
-          }
-        } catch (e2) {}
-      }
-      this.isBackendOnline = false;
-      console.log('ℹ Backend FastAPI no detectado. Operando con motor local de respaldo.');
-    }
+    } catch (e2) {}
+
+    this.isBackendOnline = false;
+    console.log('ℹ Backend FastAPI no detectado. Operando con motor local de respaldo.');
   }
 
   // Autenticación
@@ -278,6 +279,8 @@ class ApiClient {
     } catch (e) {
       return null;
     }
+  }
+
   // Facturación Electrónica e-CF DGII (Ley 32-23)
   async getAdminSubscriptionInvoice(userId) {
     if (!this.isBackendOnline) return null;
@@ -305,16 +308,11 @@ class ApiClient {
 
   // Inteligencia Artificial (Google Gemini)
   async chatAI(prompt, contextType = 'public', userId = null, unit = null) {
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
     const candidateUrls = [];
-    if (this.isBackendOnline && this.baseUrl) {
-      candidateUrls.push(this.baseUrl);
-    }
-    if (!candidateUrls.includes(this.remoteApi)) {
-      candidateUrls.push(this.remoteApi);
-    }
-    if (this.baseUrl && !candidateUrls.includes(this.baseUrl)) {
-      candidateUrls.push(this.baseUrl);
-    }
+    if (this.baseUrl) candidateUrls.push(this.baseUrl);
+    if (this.remoteApi && !candidateUrls.includes(this.remoteApi)) candidateUrls.push(this.remoteApi);
+    if (isLocal && !candidateUrls.includes('http://127.0.0.1:8000/api')) candidateUrls.push('http://127.0.0.1:8000/api');
 
     for (const base of candidateUrls) {
       try {
@@ -327,7 +325,7 @@ class ApiClient {
             user_id: userId,
             unit: unit
           }),
-          signal: AbortSignal.timeout(25000)
+          signal: AbortSignal.timeout ? AbortSignal.timeout(35000) : undefined
         });
         if (res.ok) {
           const data = await res.json();
@@ -336,31 +334,70 @@ class ApiClient {
           return data;
         }
       } catch (e) {
-        // Continuar con el siguiente endpoint candidato
+        console.warn(`Fallo al consultar Gemini en ${base}:`, e);
       }
     }
     return null;
   }
 
   async getAIStatus() {
-    if (!this.isBackendOnline) return null;
-    try {
-      const res = await fetch(`${this.baseUrl}/ai/status`);
-      return await res.json();
-    } catch (e) {
-      return null;
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const urls = [];
+    if (this.baseUrl) urls.push(`${this.baseUrl}/ai/status`);
+    if (this.remoteApi && !urls.includes(`${this.remoteApi}/ai/status`)) urls.push(`${this.remoteApi}/ai/status`);
+    if (isLocal && !urls.includes('http://127.0.0.1:8000/api/ai/status')) urls.push('http://127.0.0.1:8000/api/ai/status');
+
+    for (const u of urls) {
+      try {
+        const res = await fetch(u, { signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined });
+        if (res.ok) {
+          this.isBackendOnline = true;
+          return await res.json();
+        }
+      } catch (e) {}
     }
+    return null;
   }
 
   async testAIConnection(apiKey = null) {
-    if (!this.isBackendOnline) return null;
-    try {
-      const url = apiKey ? `${this.baseUrl}/ai/test-connection?api_key=${encodeURIComponent(apiKey)}` : `${this.baseUrl}/ai/test-connection`;
-      const res = await fetch(url, { method: 'POST' });
-      return await res.json();
-    } catch (e) {
-      return { success: false, error: 'No se pudo contactar con el servidor' };
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const candidateEndpoints = [];
+    if (this.baseUrl) {
+      candidateEndpoints.push(apiKey ? `${this.baseUrl}/ai/test-connection?api_key=${encodeURIComponent(apiKey)}` : `${this.baseUrl}/ai/test-connection`);
     }
+    if (this.remoteApi) {
+      const remoteEndpoint = apiKey ? `${this.remoteApi}/ai/test-connection?api_key=${encodeURIComponent(apiKey)}` : `${this.remoteApi}/ai/test-connection`;
+      if (!candidateEndpoints.includes(remoteEndpoint)) {
+        candidateEndpoints.push(remoteEndpoint);
+      }
+    }
+    if (isLocal) {
+      const localEndpoint = apiKey ? `http://127.0.0.1:8000/api/ai/test-connection?api_key=${encodeURIComponent(apiKey)}` : `http://127.0.0.1:8000/api/ai/test-connection`;
+      if (!candidateEndpoints.includes(localEndpoint)) {
+        candidateEndpoints.push(localEndpoint);
+      }
+    }
+
+    let lastError = 'No se pudo contactar con el backend';
+    for (const url of candidateEndpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined
+        });
+        if (res.ok) {
+          const data = await res.json();
+          this.isBackendOnline = true;
+          return data;
+        } else {
+          const errData = await res.json().catch(() => null);
+          lastError = errData?.detail || `Error HTTP ${res.status}`;
+        }
+      } catch (e) {
+        lastError = e.message;
+      }
+    }
+    return { success: false, error: lastError };
   }
 
   // Agenda de Visitas & Citas

@@ -30,10 +30,32 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# 3. Configuración de CORS
+# 3. Configuración de CORS & Private Network Access (Chrome / Edge / file:// support)
+from starlette.types import ASGIApp, Scope, Receive, Send
+
+class PrivateNetworkAccessMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                # Remover posible duplicado previo y agregar el encabezado PNA
+                new_headers = [(k, v) for k, v in headers if k.lower() != b"access-control-allow-private-network"]
+                new_headers.append((b"access-control-allow-private-network", b"true"))
+                message["headers"] = new_headers
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+app.add_middleware(PrivateNetworkAccessMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -139,7 +161,8 @@ def api_info():
 # 8. Servir frontend de sitio_web si index.html existe en el directorio padre
 frontend_dir = Path(__file__).resolve().parent.parent
 if (frontend_dir / "index.html").exists():
-    app.mount("/sitio", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+    app.mount("/sitio", StaticFiles(directory=str(frontend_dir), html=True), name="frontend_sitio")
+    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend_root")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host=HOST, port=PORT, reload=True)

@@ -40,7 +40,10 @@ class GeminiService:
     @classmethod
     def _get_candidate_models(cls):
         preferred = (GEMINI_MODEL or "gemini-3.8-flash").strip()
-        models = [preferred, "gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"]
+        # Si el modelo configurado es un modelo previo deprecado por Google, priorizar gemini-3.8-flash
+        if any(old in preferred for old in ["1.5", "2.0"]):
+            preferred = "gemini-3.8-flash"
+        models = [preferred, "gemini-3.8-flash", "gemini-2.5-flash"]
         seen = set()
         candidates = []
         for m in models:

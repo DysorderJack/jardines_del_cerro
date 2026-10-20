@@ -164,8 +164,8 @@ class ElectronicInvoice(Base):
     context = Column(String(40), default="admin_subscription")  # 'admin_subscription', 'resident_maintenance'
     user_id = Column(String(120), nullable=True)  # email del administrador o residente
     paypal_reference = Column(String(120), nullable=True)  # ID de orden o suscripción PayPal
-    rnc_emisor = Column(String(30), default="132-45678-9")
-    razon_social_emisor = Column(String(180), default="Torre Residencial Jardines del Cerro IV, S.R.L.")
+    rnc_emisor = Column(String(30), default="132907401")
+    razon_social_emisor = Column(String(180), default="UTESA")
     rnc_receptor = Column(String(30), nullable=False)
     razon_social_receptor = Column(String(180), nullable=False)
     concept = Column(String(255), default="Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV")
