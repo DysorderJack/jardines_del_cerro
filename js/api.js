@@ -11,6 +11,15 @@ class ApiClient {
     this.baseUrl = isLocal ? 'http://127.0.0.1:8000/api' : this.remoteApi;
     this.isBackendOnline = false;
     this.checkConnection();
+
+    // Reintentar conexión automáticamente en segundo plano si el backend está despertando
+    if (!window._jcBackendPoller) {
+      window._jcBackendPoller = setInterval(() => {
+        if (!this.isBackendOnline) {
+          this.checkConnection();
+        }
+      }, 10000);
+    }
   }
 
   async checkConnection() {
@@ -24,7 +33,7 @@ class ApiClient {
           this.baseUrl = 'http://127.0.0.1:8000/api';
           this.isBackendOnline = true;
           console.log(`✓ Backend FastAPI conectado localmente en: ${this.baseUrl}`);
-          return;
+          return true;
         }
       } catch (e) {}
     }
@@ -37,12 +46,13 @@ class ApiClient {
         this.baseUrl = this.remoteApi;
         this.isBackendOnline = true;
         console.log(`✓ Conectado al backend en la nube en Render: ${this.baseUrl}`);
-        return;
+        return true;
       }
     } catch (e2) {}
 
     this.isBackendOnline = false;
-    console.log('ℹ Backend FastAPI no detectado. Operando con motor local de respaldo.');
+    console.log('ℹ Backend FastAPI en espera. Reintentando en segundo plano...');
+    return false;
   }
 
   // Autenticación
@@ -244,21 +254,30 @@ class ApiClient {
 
   // PayPal Subscriptions
   async getPayPalConfig() {
-    if (!this.isBackendOnline) return null;
-    try {
-      const res = await fetch(`${this.baseUrl}/paypal/config`);
-      return await res.json();
-    } catch (e) {
-      return null;
+    if (!this.isBackendOnline) {
+      await this.checkConnection();
     }
+    const targetUrl = this.baseUrl || this.remoteApi;
+    try {
+      const res = await fetch(`${targetUrl}/paypal/config`);
+      if (res.ok) {
+        this.isBackendOnline = true;
+        this.baseUrl = targetUrl;
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('Error obteniendo config de PayPal:', e);
+    }
+    return null;
   }
 
   async verifyPayPalSubscription(payload) {
     if (!this.isBackendOnline) {
-      return { success: false, detail: 'El servidor backend no está disponible para registrar en IMECF Platform.' };
+      await this.checkConnection();
     }
+    const targetUrl = this.baseUrl || this.remoteApi;
     try {
-      const res = await fetch(`${this.baseUrl}/paypal/verify-subscription`, {
+      const res = await fetch(`${targetUrl}/paypal/verify-subscription`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -270,19 +289,22 @@ class ApiClient {
           detail: data?.detail || `Error HTTP ${res.status} al verificar la suscripción con PayPal / IMECF`
         };
       }
+      this.isBackendOnline = true;
+      this.baseUrl = targetUrl;
       return data;
     } catch (e) {
       console.error('Error en verifyPayPalSubscription:', e);
-      return { success: false, detail: e.message || 'Error de conexión con el backend' };
+      return { success: false, detail: `Error de conexión con el backend (${targetUrl}): ${e.message || 'Verifica el servicio en Render'}` };
     }
   }
 
   async verifyPayPalOrder(payload) {
     if (!this.isBackendOnline) {
-      return { success: false, detail: 'El servidor backend no está disponible para registrar en IMECF Platform.' };
+      await this.checkConnection();
     }
+    const targetUrl = this.baseUrl || this.remoteApi;
     try {
-      const res = await fetch(`${this.baseUrl}/paypal/verify-order`, {
+      const res = await fetch(`${targetUrl}/paypal/verify-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -294,22 +316,30 @@ class ApiClient {
           detail: data?.detail || `Error HTTP ${res.status} al verificar la orden con PayPal / IMECF`
         };
       }
+      this.isBackendOnline = true;
+      this.baseUrl = targetUrl;
       return data;
     } catch (e) {
       console.error('Error en verifyPayPalOrder:', e);
-      return { success: false, detail: e.message || 'Error de conexión con el backend' };
+      return { success: false, detail: `Error de conexión con el backend (${targetUrl}): ${e.message || 'Verifica el servicio en Render'}` };
     }
   }
 
   // Facturación Electrónica e-CF DGII (Ley 32-23)
   async getAdminSubscriptionInvoice(userId) {
-    if (!this.isBackendOnline) return null;
-    try {
-      const res = await fetch(`${this.baseUrl}/ecf/subscription-invoice?user_id=${encodeURIComponent(userId || 'gerencia@jardinesdelcerro.do')}`);
-      return await res.json();
-    } catch (e) {
-      return null;
+    if (!this.isBackendOnline) {
+      await this.checkConnection();
     }
+    const targetUrl = this.baseUrl || this.remoteApi;
+    try {
+      const res = await fetch(`${targetUrl}/ecf/subscription-invoice?user_id=${encodeURIComponent(userId || 'gerencia@jardinesdelcerro.do')}`);
+      if (res.ok) {
+        this.isBackendOnline = true;
+        this.baseUrl = targetUrl;
+        return await res.json();
+      }
+    } catch (e) {}
+    return null;
   }
 
   async getEcfInvoice(encf) {

@@ -3185,8 +3185,8 @@ class JardinesApp {
             const payerEmail = captureDetails.payer?.email_address || (this.currentUser?.email) || 'gerencia@jardinesdelcerro.do';
 
             // Validar en el Backend y verificar registro obligatorio en IMECF Platform (Ley 32-23)
-            if (!this.api || !this.api.isBackendOnline) {
-              throw new Error('El backend debe estar en línea para registrar el comprobante fiscal en IMECF Platform.');
+            if (this.api && !this.api.isBackendOnline) {
+              await this.api.checkConnection();
             }
 
             const verifyRes = await this.api.verifyPayPalOrder({
@@ -3277,8 +3277,8 @@ class JardinesApp {
     }
 
     try {
-      if (!this.api || !this.api.isBackendOnline) {
-        throw new Error('El backend de la aplicación debe estar disponible para registrar el comprobante en la plataforma IMECF.');
+      if (this.api && !this.api.isBackendOnline) {
+        await this.api.checkConnection();
       }
 
       const verifyRes = await this.api.verifyPayPalOrder({
