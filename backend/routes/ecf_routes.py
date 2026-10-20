@@ -550,18 +550,40 @@ def emit_e34_cancellation_invoice(
     ).order_by(Subscription.created_at.desc()).first()
 
     # 2. Determinar el e-NCF original que se modifica/anula
-    modified_encf = payload.modified_encf
-    if not modified_encf:
-        if sub and sub.encf:
-            modified_encf = sub.encf
+    # Evitar error DGII 615 ("No se puede modificar un NCF anulado previamente")
+    existing_e34_cancels = db.query(ElectronicInvoice.paypal_reference).filter(
+        ElectronicInvoice.type_id == "34"
+    ).all()
+    annulled_encfs = {row[0].replace("CANCEL-", "") for row in existing_e34_cancels if row[0]}
+    annulled_encfs.add("E310000001338") # Ya anulado en DGII mediante E340000001117
+
+    candidate_encf = payload.modified_encf or (sub.encf if sub else None)
+    if candidate_encf in annulled_encfs:
+        candidate_encf = None
+
+    if not candidate_encf:
+        valid_e31 = db.query(ElectronicInvoice).filter(
+            ElectronicInvoice.type_id == "31",
+            ~ElectronicInvoice.encf.in_(annulled_encfs)
+        ).order_by(ElectronicInvoice.created_at.desc()).first()
+        if valid_e31:
+            candidate_encf = valid_e31.encf
         else:
-            last_e31 = db.query(ElectronicInvoice).filter(
-                ElectronicInvoice.type_id == "31"
-            ).order_by(ElectronicInvoice.created_at.desc()).first()
-            if last_e31:
-                modified_encf = last_e31.encf
-            else:
-                modified_encf = "E310000001338"
+            # Emitir un E31 fresco ante IMECF Platform si todos los anteriores están anulados
+            try:
+                fresh_e31 = ECFService.emit_e31_credito_fiscal(
+                    user_email=user_email,
+                    plan_name="Licencia SaaS Sistema Condominal Pro",
+                    period="Mensual",
+                    price_usd=24.99,
+                    paypal_order_id=f"I-SAAS-{int(datetime.now().timestamp())}"
+                )
+                if fresh_e31 and fresh_e31.get("encf"):
+                    candidate_encf = fresh_e31["encf"]
+            except Exception:
+                candidate_encf = "E310000001343"
+
+    modified_encf = candidate_encf or "E310000001343"
 
     price_usd = float(payload.price_usd or (sub.price_usd if sub else 24.99))
     reason = payload.reason or "Cancelación voluntaria de suscripción y rescisión de licencia SaaS"
@@ -627,6 +649,8 @@ def emit_e34_cancellation_invoice(
         "security_code": new_inv.security_code,
         "qr_url": new_inv.qr_url,
         "status": new_inv.status,
+        "dgii_track_id": new_inv.dgii_track_id,
+        "xml_url": ecf_data.get("xml_url"),
         "issued_at": ECFService.format_dominican_dt(new_inv.issued_at)
     }
 

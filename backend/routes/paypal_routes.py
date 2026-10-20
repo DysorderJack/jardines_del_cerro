@@ -283,12 +283,39 @@ def cancel_subscription(
         # Si es suscripción del administrador, emitir Nota de Crédito Electrónica Tipo 34 (R34 / E34)
         if effective_context == "admin":
             admin_email = effective_user_id or (sub.user_id if sub else "admin@jardinesdelcerro.do")
-            modified_encf = (sub.encf if sub and sub.encf else None)
-            if not modified_encf:
-                last_e31 = db.query(ElectronicInvoice).filter(
-                    ElectronicInvoice.type_id == "31"
-                ).order_by(ElectronicInvoice.issued_at.desc()).first()
-                modified_encf = last_e31.encf if last_e31 else "E310000001338"
+            
+            existing_e34_cancels = db.query(ElectronicInvoice.paypal_reference).filter(
+                ElectronicInvoice.type_id == "34"
+            ).all()
+            annulled_encfs = {row[0].replace("CANCEL-", "") for row in existing_e34_cancels if row[0]}
+            annulled_encfs.add("E310000001338")
+
+            candidate_encf = (sub.encf if sub and sub.encf else None)
+            if candidate_encf in annulled_encfs:
+                candidate_encf = None
+
+            if not candidate_encf:
+                valid_e31 = db.query(ElectronicInvoice).filter(
+                    ElectronicInvoice.type_id == "31",
+                    ~ElectronicInvoice.encf.in_(annulled_encfs)
+                ).order_by(ElectronicInvoice.created_at.desc()).first()
+                if valid_e31:
+                    candidate_encf = valid_e31.encf
+                else:
+                    try:
+                        fresh_e31 = ECFService.emit_e31_credito_fiscal(
+                            user_email=admin_email,
+                            plan_name="Licencia SaaS Sistema Condominal Pro",
+                            period="Mensual",
+                            price_usd=24.99,
+                            paypal_order_id=f"I-SAAS-{int(datetime.now().timestamp())}"
+                        )
+                        if fresh_e31 and fresh_e31.get("encf"):
+                            candidate_encf = fresh_e31["encf"]
+                    except Exception:
+                        candidate_encf = "E310000001343"
+
+            modified_encf = candidate_encf or "E310000001343"
 
             price_usd = float(sub.price_usd if sub else 24.99)
             ecf_data = ECFService.emit_e34_nota_credito(

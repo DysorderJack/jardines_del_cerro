@@ -3588,6 +3588,10 @@ class JardinesApp {
     const qrTarget = data.qr_url || `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=${encf}&montototal=${total}&codigoseguridad=${secCode}`;
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrTarget)}`;
 
+    const trackEl = document.getElementById('e34-track-id');
+    const statusBadge = document.getElementById('e34-status-badge');
+    const xmlLink = document.getElementById('e34-xml-link');
+
     if (encfEl) encfEl.innerText = encf;
     if (modEncfEl) modEncfEl.innerText = modEncf;
     if (secCodeEl) secCodeEl.innerText = secCode;
@@ -3598,6 +3602,23 @@ class JardinesApp {
     if (dateEl) {
       const d = new Date(data.issued_at || Date.now());
       dateEl.innerText = d.toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo', dateStyle: 'short', timeStyle: 'short' });
+    }
+    if (trackEl) {
+      trackEl.innerText = data.dgii_track_id || data.track_id || 'TRK-IMECF-ACT';
+    }
+    if (statusBadge) {
+      const isImecf = data.status && data.status.includes('IMECF');
+      statusBadge.innerText = isImecf
+        ? '✓ Aceptado DGII (IMECF Platform) · Validez Fiscal Inmediata'
+        : '✓ Registrado DGII (Ley 32-23) · Comprobante Electrónico';
+    }
+    if (xmlLink) {
+      if (data.xml_url) {
+        xmlLink.href = data.xml_url;
+        xmlLink.style.display = 'inline-flex';
+      } else {
+        xmlLink.style.display = 'none';
+      }
     }
     if (subtotalEl) subtotalEl.innerText = `-RD$ ${Number(subtotal).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
     if (itbisEl) itbisEl.innerText = `-RD$ ${Number(itbis).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;

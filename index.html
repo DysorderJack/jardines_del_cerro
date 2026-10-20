@@ -1933,8 +1933,8 @@
 
       <!-- Card Central con Código QR y Datos de Seguridad -->
       <div style="background: linear-gradient(135deg, #FEF2F2 0%, #FFF1F2 100%); border: 2px solid #FECDD3; border-radius: var(--radius-lg); padding: 18px; text-align: center; margin-bottom: 18px;">
-        <div style="font-size: 11px; font-weight: 800; color: #B91C1C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
-          ✓ Aceptado DGII · Validez Fiscal Inmediata
+        <div id="e34-status-badge" style="font-size: 11px; font-weight: 800; color: #B91C1C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          ✓ Aceptado DGII (IMECF Platform) · Validez Fiscal Inmediata
         </div>
 
         <div style="display: inline-block; padding: 10px; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 12px; border: 1px solid #FECDD3;">
@@ -1976,6 +1976,10 @@
           <span style="color: var(--dust);">Fecha y Hora Oficial:</span>
           <strong id="e34-date">20/10/2026 08:30 AM</strong>
         </div>
+        <div id="e34-track-row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Track ID DGII / IMECF:</span>
+          <strong id="e34-track-id" style="font-family: monospace; font-size: 11px; color: #003087;">TRK-DGII-E34-ACT</strong>
+        </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: var(--dust);">Subtotal Acreditado:</span>
           <strong id="e34-subtotal">-RD$ 1,281.26</strong>
@@ -1998,10 +2002,13 @@
         <a id="e34-dgii-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary" style="flex: 1; text-align: center; text-decoration: none; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #003087; border-color: #003087;">
           🌐 Validar en DGII
         </a>
+        <a id="e34-xml-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-outline" style="padding: 12px 16px; font-size: 13px; display: none; align-items: center; justify-content: center; gap: 6px;">
+          📄 XML IMECF
+        </a>
       </div>
 
       <div style="margin-top: 14px; font-size: 11px; color: var(--dust); text-align: center; line-height: 1.4;">
-        Nota de Crédito Electrónica emitida conforme a la Norma General 06-2023 y Ley 32-23 de la República Dominicana.
+        Nota de Crédito Electrónica emitida a través de IMECF Platform conforme a la Norma General 06-2023 y Ley 32-23 de la República Dominicana.
       </div>
     </div>
   </div>
@@ -2053,8 +2060,8 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/api.js?v=4.6"></script>
-  <script src="js/data.js?v=4.6"></script>
-  <script src="js/app.js?v=4.6"></script>
+  <script src="js/api.js?v=4.7"></script>
+  <script src="js/data.js?v=4.7"></script>
+  <script src="js/app.js?v=4.7"></script>
 </body>
 </html>

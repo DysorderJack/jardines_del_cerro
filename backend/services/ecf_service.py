@@ -481,8 +481,10 @@ class ECFService:
         api_called = False
         api_success = False
         api_error_message = None
+        api_response_data = None
         imecf_id = None
-        estado = "Aceptado por DGII (Ley 32-23)"
+        xml_url = None
+        estado = "Aceptado por DGII (Ley 32-23) [Simulado]"
 
         if ECF_API_KEY and ECF_API_BASE_URL:
             api_called = True
@@ -490,81 +492,84 @@ class ECFService:
             if len(clean_comp) < 9:
                 clean_comp = "131889921"
 
+            # En la DGII, si la factura original fue emitida hace <= 30 días, IndicadorNotaCredito es "0" (permite rebajar ITBIS)
             imecf_payload = {
                 "ECF": {
                     "Encabezado": {
+                        "Version": "1.0",
                         "IdDoc": {
-                            "TipoeCF": 34,
-                            "eNCF": encf,
-                            "FechaVencimientoSecuencia": "31-12-2027",
-                            "IndicadorMontoGravado": 0,
-                            "TipoIngresos": 2,
-                            "TipoPago": 1,
-                            "FechaLimitePago": now.strftime("%d-%m-%Y")
-                        },
-                        "Emisor": {
-                            "RNCEmisor": cls._clean_rnc(ECF_RNC_EMISOR),
-                            "RazonSocialEmisor": ECF_RAZON_SOCIAL_EMISOR,
-                            "NombreComercial": "Torre Jardines del Cerro IV",
-                            "DireccionEmisor": "Avenida Los Cerros, Mao, Valverde",
-                            "FechaEmision": now.strftime("%d-%m-%Y")
+                            "TipoeCF": "34",
+                            "IndicadorNotaCredito": "0",
+                            "IndicadorMontoGravado": "0",
+                            "IndicadorServicioTodoIncluido": "1",
+                            "TipoIngresos": "01",
+                            "TipoPago": "1"
                         },
                         "Comprador": {
                             "RNCComprador": clean_comp,
                             "RazonSocialComprador": razon_comp
                         },
-                        "InformacionReferencia": {
-                            "NCFModificado": target_modified,
-                            "FechaNCFModificado": now.strftime("%d-%m-%Y"),
-                            "CodigoModificacion": 1,
-                            "RazonModificacion": cancel_reason
-                        },
                         "Totales": {
-                            "MontoTotal": total_dop,
-                            "MontoGravadoTotal": subtotal_dop,
-                            "MontoGravadoI1": subtotal_dop,
-                            "ITBIS1": 18,
-                            "TotalITBIS": itbis_dop,
-                            "TotalITBIS1": itbis_dop
+                            "MontoGravadoTotal": f"{subtotal_dop:.2f}",
+                            "MontoGravadoI1": f"{subtotal_dop:.2f}",
+                            "ITBIS1": "18",
+                            "TotalITBIS": f"{itbis_dop:.2f}",
+                            "TotalITBIS1": f"{itbis_dop:.2f}",
+                            "MontoTotal": f"{total_dop:.2f}"
                         }
                     },
                     "DetallesItems": {
-                        "Item": [
-                            {
-                                "NumeroLinea": 1,
-                                "IndicadorFacturacion": 1,
-                                "NombreItem": f"Crédito por Cancelación de Licencia SaaS - e-NCF Modificado: {target_modified}",
-                                "IndicadorBienoServicio": 2,
-                                "CantidadItem": 1,
-                                "PrecioUnitarioItem": subtotal_dop,
-                                "MontoItem": subtotal_dop
-                            }
-                        ]
+                        "Item": {
+                            "NumeroLinea": "1",
+                            "IndicadorFacturacion": "1",
+                            "NombreItem": f"Nota de Crédito por Cancelación SaaS - Ref: {target_modified}"[:75],
+                            "IndicadorBienoServicio": "2",
+                            "CantidadItem": "1",
+                            "UnidadMedida": "43",
+                            "PrecioUnitarioItem": f"{subtotal_dop:.2f}",
+                            "MontoItem": f"{subtotal_dop:.2f}"
+                        }
+                    },
+                    "InformacionReferencia": {
+                        "NCFModificado": target_modified,
+                        "FechaNCFModificado": now.strftime("%d-%m-%Y"),
+                        "CodigoModificacion": "1",
+                        "RazonModificacion": cancel_reason[:150]
                     }
                 }
             }
 
+            headers = {
+                "x-api-key": ECF_API_KEY,
+                "X-API-Key": ECF_API_KEY,
+                "Content-Type": "application/json"
+            }
+
             try:
-                endpoint = f"{ECF_API_BASE_URL}/v1/ecf/emitir"
-                headers = {
-                    "Authorization": f"Bearer {ECF_API_KEY}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                }
-                resp = requests.post(endpoint, json=imecf_payload, headers=headers, timeout=12)
-                if resp.status_code in [200, 201]:
+                url = f"{ECF_API_BASE_URL.rstrip('/')}/api/v1/ecf/send"
+                resp = requests.post(url, json=imecf_payload, headers=headers, timeout=30.0)
+                if resp.status_code in (200, 201, 202):
+                    res_json = resp.json()
                     api_success = True
-                    api_data = resp.json()
-                    imecf_id = api_data.get("id") or api_data.get("trackId")
-                    if api_data.get("eNCF"):
-                        encf = api_data.get("eNCF")
-                    if api_data.get("codigoSeguridad"):
-                        security_code = api_data.get("codigoSeguridad")
-                    if api_data.get("qr"):
-                        qr_url = api_data.get("qr")
-                    estado = "Aceptado por DGII (Ley 32-23)"
+                    api_response_data = res_json
+                    if res_json.get("encf"):
+                        encf = res_json.get("encf")
+                    if res_json.get("codigoSeguridad"):
+                        security_code = res_json.get("codigoSeguridad")
+                    if res_json.get("dgiiUrl"):
+                        qr_url = res_json.get("dgiiUrl")
+                    if res_json.get("trackId"):
+                        track_id = res_json.get("trackId")
+                    if res_json.get("id"):
+                        invoice_id = f"ecf-e34-{res_json.get('id')}"
+                        imecf_id = res_json.get("id")
+                    if res_json.get("xmlUrl"):
+                        xml_url = res_json.get("xmlUrl")
+                    estado = res_json.get("estado", "Aceptado")
+                    if estado == "Aceptado":
+                        estado = "Aceptado por DGII (IMECF Platform)"
                 else:
-                    api_error_message = f"HTTP {resp.status_code}: {resp.text[:200]}"
+                    api_error_message = f"HTTP {resp.status_code}: {resp.text[:300]}"
                     estado = "Aceptado por DGII (Ley 32-23) [Simulado]"
             except Exception as e:
                 api_error_message = str(e)
@@ -601,7 +606,10 @@ class ECFService:
             "issued_at_display": fecha_display,
             "api_called": api_called,
             "api_success": api_success,
-            "api_error": api_error_message
+            "api_dispatched": api_success,
+            "api_response": api_response_data,
+            "api_error": api_error_message,
+            "xml_url": xml_url
         }
 
     @classmethod
