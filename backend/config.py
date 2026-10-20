@@ -72,7 +72,7 @@ FRONTEND_URL = get_clean_env("FRONTEND_URL", "https://jardines-del-cerro.vercel.
 ECF_API_KEY = get_clean_env("ECF_API_KEY", "ecf_live_6dfa18e5b57b39c212518f6ac148e3f7538ab343d93007a23542f2f402d9b5cc")
 ECF_API_BASE_URL = get_clean_env("ECF_API_BASE_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
 ECF_RNC_EMISOR = get_clean_env("ECF_RNC_EMISOR", "132907401")
-ECF_RAZON_SOCIAL_EMISOR = get_clean_env("ECF_RAZON_SOCIAL_EMISOR", "Torre Residencial Jardines del Cerro IV, S.R.L.")
+ECF_RAZON_SOCIAL_EMISOR = get_clean_env("ECF_RAZON_SOCIAL_EMISOR", "UTESA")
 ECF_ENVIRONMENT = get_clean_env("ECF_ENVIRONMENT", "TesteCF")  # 'TesteCF' o 'eCF'
 ECF_DEFAULT_EXCHANGE_RATE = float(get_clean_env("ECF_DEFAULT_EXCHANGE_RATE", "60.50"))
 

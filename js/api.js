@@ -254,30 +254,50 @@ class ApiClient {
   }
 
   async verifyPayPalSubscription(payload) {
-    if (!this.isBackendOnline) return null;
+    if (!this.isBackendOnline) {
+      return { success: false, detail: 'El servidor backend no está disponible para registrar en IMECF Platform.' };
+    }
     try {
       const res = await fetch(`${this.baseUrl}/paypal/verify-subscription`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      return await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          detail: data?.detail || `Error HTTP ${res.status} al verificar la suscripción con PayPal / IMECF`
+        };
+      }
+      return data;
     } catch (e) {
-      return null;
+      console.error('Error en verifyPayPalSubscription:', e);
+      return { success: false, detail: e.message || 'Error de conexión con el backend' };
     }
   }
 
   async verifyPayPalOrder(payload) {
-    if (!this.isBackendOnline) return null;
+    if (!this.isBackendOnline) {
+      return { success: false, detail: 'El servidor backend no está disponible para registrar en IMECF Platform.' };
+    }
     try {
       const res = await fetch(`${this.baseUrl}/paypal/verify-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      return await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          detail: data?.detail || `Error HTTP ${res.status} al verificar la orden con PayPal / IMECF`
+        };
+      }
+      return data;
     } catch (e) {
-      return null;
+      console.error('Error en verifyPayPalOrder:', e);
+      return { success: false, detail: e.message || 'Error de conexión con el backend' };
     }
   }
 

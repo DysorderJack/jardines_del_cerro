@@ -97,6 +97,14 @@ def verify_and_activate_order(payload: PayPalVerifyOrder, db: Session = Depends(
             paypal_order_id=payload.order_id
         )
 
+        # REQUISITO ESTRICTO: El registro en IMECF Platform debe ser exitoso para que el pago sea considerado válido
+        if not ecf_data or not ecf_data.get("api_dispatched"):
+            err_msg = ecf_data.get("api_error") if ecf_data else "Error al contactar IMECF Platform"
+            raise HTTPException(
+                status_code=502,
+                detail=f"Fallo en el registro del comprobante fiscal electrónico en IMECF Platform (Ley 32-23): {err_msg}. El pago no puede ser considerado válido sin comprobante fiscal registrado."
+            )
+
         new_ecf = ElectronicInvoice(
             id=ecf_data["id"],
             encf=ecf_data["encf"],
@@ -123,7 +131,7 @@ def verify_and_activate_order(payload: PayPalVerifyOrder, db: Session = Depends(
         )
         db.add(new_ecf)
 
-    # Guardar suscripción en base de datos
+    # Guardar suscripción en base de datos solo tras confirmación fiscal
     new_sub = Subscription(
         id=f"sub-{int(datetime.now().timestamp())}",
         context=payload.context,
@@ -182,6 +190,14 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
             paypal_order_id=payload.paypal_sub_id
         )
 
+        # REQUISITO ESTRICTO: El registro en IMECF Platform debe ser exitoso para que la suscripción sea válida
+        if not ecf_data or not ecf_data.get("api_dispatched"):
+            err_msg = ecf_data.get("api_error") if ecf_data else "Error al contactar IMECF Platform"
+            raise HTTPException(
+                status_code=502,
+                detail=f"Fallo en el registro del comprobante fiscal electrónico en IMECF Platform (Ley 32-23): {err_msg}. La suscripción no puede ser considerada válida sin comprobante fiscal registrado."
+            )
+
         new_ecf = ElectronicInvoice(
             id=ecf_data["id"],
             encf=ecf_data["encf"],
@@ -208,7 +224,7 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
         )
         db.add(new_ecf)
 
-    # 4. Guardar en base de datos
+    # 4. Guardar en base de datos solo si el comprobante fiscal fue exitoso
     new_sub = Subscription(
         id=f"sub-{int(datetime.now().timestamp())}",
         context=payload.context,

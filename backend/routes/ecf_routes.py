@@ -101,13 +101,18 @@ def get_admin_subscription_invoice(
         Subscription.status == "active"
     ).order_by(Subscription.created_at.desc()).first()
 
-    # Si hay suscripción o generamos la inicial de cortesía/evaluación
-    plan_name = sub.plan_name if sub else "Licencia SaaS Sistema Condominal Pro"
-    period = sub.period if sub else "Mensual"
-    price_usd = sub.price_usd if sub else 24.99
-    order_id = sub.paypal_sub_id if sub else f"PAYPAL-ACT-{int(datetime.now().timestamp())}"
+    if not sub:
+        return {
+            "exists": False,
+            "message": "No hay suscripción activa para este usuario administrador."
+        }
 
-    # Emitir mediante ECFService
+    plan_name = sub.plan_name or "Licencia SaaS Sistema Condominal Pro"
+    period = sub.period or "Mensual"
+    price_usd = sub.price_usd or 24.99
+    order_id = sub.paypal_sub_id or f"PAYPAL-ACT-{int(datetime.now().timestamp())}"
+
+    # Emitir mediante ECFService directamente a IMECF Platform
     ecf_data = ECFService.emit_e31_credito_fiscal(
         user_email=user_id,
         plan_name=plan_name,
@@ -116,7 +121,14 @@ def get_admin_subscription_invoice(
         paypal_order_id=order_id
     )
 
-    # Persistir en DB
+    if not ecf_data or not ecf_data.get("api_dispatched"):
+        err_msg = ecf_data.get("api_error") if ecf_data else "Error de conexión con IMECF Platform"
+        raise HTTPException(
+            status_code=502,
+            detail=f"Fallo en la emisión obligatoria de la factura e-CF E31 en IMECF Platform: {err_msg}"
+        )
+
+    # Persistir en DB solo tras éxito fiscal comprobado
     new_inv = ElectronicInvoice(
         id=ecf_data["id"],
         encf=ecf_data["encf"],

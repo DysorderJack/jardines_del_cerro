@@ -3176,7 +3176,7 @@ class JardinesApp {
         onApprove: async (data, actions) => {
           if (loadingEl) {
             loadingEl.style.display = 'block';
-            loadingEl.innerHTML = '<div style="margin: 0 auto 10px auto; width: 28px; height: 28px; border: 3px solid rgba(0,48,135,0.2); border-top-color: #003087; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>Verificando pago directamente con PayPal...';
+            loadingEl.innerHTML = '<div style="margin: 0 auto 10px auto; width: 28px; height: 28px; border: 3px solid rgba(0,48,135,0.2); border-top-color: #003087; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>Verificando pago y registrando e-CF E31 en plataforma IMECF...';
           }
           try {
             // Capturar la orden oficial autorizada en PayPal
@@ -3184,36 +3184,36 @@ class JardinesApp {
             const orderId = captureDetails.id || data.orderID;
             const payerEmail = captureDetails.payer?.email_address || (this.currentUser?.email) || 'gerencia@jardinesdelcerro.do';
 
-            // Validar en el Backend con Secret
-            let verified = true;
-            let ecfInvoice = null;
-            if (this.api && this.api.isBackendOnline) {
-              const verifyRes = await this.api.verifyPayPalOrder({
-                order_id: orderId,
-                plan_id: this.activeAiPlan.id,
-                plan_name: this.activeAiPlan.name,
-                period: this.activeAiPlan.period,
-                price_usd: this.activeAiPlan.priceUsd,
-                user_id: payerEmail,
-                context: 'admin'
-              });
-              if (!verifyRes || !verifyRes.success) {
-                verified = false;
-                throw new Error(verifyRes?.detail || 'La verificación con los servidores de PayPal fue rechazada.');
-              }
-              ecfInvoice = verifyRes.ecfInvoice;
+            // Validar en el Backend y verificar registro obligatorio en IMECF Platform (Ley 32-23)
+            if (!this.api || !this.api.isBackendOnline) {
+              throw new Error('El backend debe estar en línea para registrar el comprobante fiscal en IMECF Platform.');
             }
 
-            if (verified) {
-              this.activateAdminSubscriptionSuccess(orderId, payerEmail, this.activeAiPlan, ecfInvoice);
+            const verifyRes = await this.api.verifyPayPalOrder({
+              order_id: orderId,
+              plan_id: this.activeAiPlan.id,
+              plan_name: this.activeAiPlan.name,
+              period: this.activeAiPlan.period,
+              price_usd: this.activeAiPlan.priceUsd,
+              user_id: payerEmail,
+              context: 'admin'
+            });
+
+            if (!verifyRes || !verifyRes.success || !verifyRes.ecfInvoice || !verifyRes.ecfInvoice.api_dispatched) {
+              const errMsg = verifyRes?.detail || 'El comprobante fiscal e-CF E31 no pudo ser registrado en IMECF Platform. El pago no es válido.';
+              throw new Error(errMsg);
             }
+
+            if (loadingEl) loadingEl.style.display = 'none';
+            this.activateAdminSubscriptionSuccess(orderId, payerEmail, this.activeAiPlan, verifyRes.ecfInvoice);
           } catch (err) {
-            console.error('Error verificando pago PayPal:', err);
+            console.error('Error verificando pago PayPal / IMECF:', err);
             if (loadingEl) loadingEl.style.display = 'none';
             if (errorEl) {
               errorEl.style.display = 'block';
-              errorEl.innerHTML = `❌ <strong>Error de Validación:</strong> ${err.message || 'No se pudo verificar la transacción con PayPal.'}`;
+              errorEl.innerHTML = `❌ <strong>Error Fiscal Obligatorio (Ley 32-23):</strong> ${err.message}<br><small>El pago NO ha sido activado porque el registro en IMECF Platform no fue exitoso.</small>`;
             }
+            alert(`❌ Registro Fiscal Fallido en IMECF:\n\n${err.message}\n\nEl pago no es considerado válido.`);
           }
         },
         onError: (err) => {
@@ -3251,71 +3251,66 @@ class JardinesApp {
 
     if (loadingEl) {
       loadingEl.style.display = 'block';
-      loadingEl.innerHTML = '<div style="margin: 0 auto 10px auto; width: 28px; height: 28px; border: 3px solid rgba(0,48,135,0.2); border-top-color: #003087; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>Emitiendo Factura Electrónica e-CF E31 en plataforma IMECF y validando ante DGII...';
+      loadingEl.innerHTML = '<div style="margin: 0 auto 10px auto; width: 28px; height: 28px; border: 3px solid rgba(0,48,135,0.2); border-top-color: #003087; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>Emitiendo Factura Electrónica e-CF E31 en plataforma IMECF y validando ante DGII (Ley 32-23)...';
     }
 
-    let ecfInvoice = null;
-    if (this.api && this.api.isBackendOnline) {
-      try {
-        const verifyRes = await this.api.verifyPayPalOrder({
-          order_id: orderId,
-          plan_id: plan.id,
-          plan_name: plan.name,
-          period: plan.period,
-          price_usd: plan.priceUsd,
-          user_id: payerEmail,
-          context: 'admin'
-        });
-        if (verifyRes && verifyRes.ecfInvoice) {
-          ecfInvoice = verifyRes.ecfInvoice;
-        }
-      } catch (e) {
-        console.warn('Error al emitir e-CF E31 en backend:', e);
+    try {
+      if (!this.api || !this.api.isBackendOnline) {
+        throw new Error('El backend de la aplicación debe estar disponible para registrar el comprobante en la plataforma IMECF.');
       }
+
+      const verifyRes = await this.api.verifyPayPalOrder({
+        order_id: orderId,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        period: plan.period,
+        price_usd: plan.priceUsd,
+        user_id: payerEmail,
+        context: 'admin'
+      });
+
+      if (!verifyRes || !verifyRes.success || !verifyRes.ecfInvoice || !verifyRes.ecfInvoice.api_dispatched) {
+        const errorDetail = verifyRes?.detail || 'El comprobante e-CF E31 no pudo ser registrado exitosamente en IMECF Platform.';
+        throw new Error(errorDetail);
+      }
+
+      if (loadingEl) loadingEl.style.display = 'none';
+      this.activateAdminSubscriptionSuccess(orderId, payerEmail, plan, verifyRes.ecfInvoice);
+    } catch (err) {
+      console.error('Error al procesar suscripción y comprobante fiscal:', err);
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (errorEl) {
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `❌ <strong>Error de Validación Fiscal (Ley 32-23):</strong> ${err.message}<br><small>El pago de la suscripción NO fue considerado válido porque no se pudo registrar el comprobante e-CF E31 en IMECF Platform.</small>`;
+      }
+      alert(`❌ Registro Fiscal Fallido en IMECF Platform:\n\n${err.message}\n\nEl pago de la suscripción NO es considerado válido.`);
     }
-
-    if (loadingEl) loadingEl.style.display = 'none';
-    this.activateAdminSubscriptionSuccess(orderId, payerEmail, plan, ecfInvoice);
-  }
-
-  loadPayPalSdkScript(clientId) {
-    return new Promise((resolve, reject) => {
-      const existingScript = document.getElementById('paypal-sdk-script');
-      if (existingScript) {
-        if (existingScript.getAttribute('data-client-id') === clientId && window.paypal) {
-          return resolve();
-        }
-        existingScript.remove();
-        if (window.paypal) delete window.paypal;
-      }
-
-      const script = document.createElement('script');
-      script.id = 'paypal-sdk-script';
-      script.setAttribute('data-client-id', clientId);
-      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&components=buttons&enable-funding=card`;
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('No se pudo cargar el script del SDK de PayPal desde paypal.com.'));
-      document.head.appendChild(script);
-    });
   }
 
   activateAdminSubscriptionSuccess(orderId, payerEmail, plan, ecfInvoice = null) {
+    if (!ecfInvoice || !ecfInvoice.api_dispatched) {
+      console.error('Intento de activar suscripción sin comprobante e-CF registrado en IMECF Platform:', ecfInvoice);
+      alert('❌ Error de Validación: El comprobante fiscal e-CF E31 no fue registrado exitosamente en la plataforma IMECF. El pago no es válido y la suscripción no puede ser activada.');
+      return;
+    }
+
     const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
     const renewalDays = plan.period === 'Anual' ? 365 : 30;
     const renewal = new Date(Date.now() + renewalDays * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
     const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : payerEmail.toLowerCase();
 
-    // Generar o consolidar comprobante fiscal electrónico e-CF Tipo E31 (Ley 32-23)
-    const rate = 60.50;
-    const totalDop = ecfInvoice?.total_dop || 1474.41;
-    const subtotalDop = ecfInvoice?.subtotal_dop || 1249.50;
-    const itbisDop = ecfInvoice?.itbis_dop || 224.91;
-    const encf = ecfInvoice?.encf || 'E310000001270';
-    const securityCode = ecfInvoice?.security_code || 'eImm/F';
-    const rncEmisor = ecfInvoice?.rnc_emisor || '132907401';
-    const razonSocialEmisor = ecfInvoice?.razon_social_emisor || 'UTESA';
-    const qrUrl = ecfInvoice?.qr_url || `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=${rncEmisor}&RncComprador=131889921&encf=${encf}&fechaemision=17-10-2026&montototal=${totalDop.toFixed(2)}&fechafirma=17-10-2026%2010%3A22%3A14&codigoseguridad=${encodeURIComponent(securityCode)}`;
+    // Extraer datos oficiales del comprobante fiscal electrónico e-CF Tipo E31 registrado en IMECF
+    const rate = ecfInvoice.exchange_rate || 60.50;
+    const totalDop = ecfInvoice.total_dop || (plan.priceUsd * rate);
+    const subtotalDop = ecfInvoice.subtotal_dop || (totalDop / 1.18);
+    const itbisDop = ecfInvoice.itbis_dop || (totalDop - subtotalDop);
+    const encf = ecfInvoice.encf;
+    const securityCode = ecfInvoice.security_code;
+    const rncEmisor = ecfInvoice.rnc_emisor || '132907401';
+    const razonSocialEmisor = ecfInvoice.razon_social_emisor || 'UTESA';
+    const qrUrl = ecfInvoice.qr_url;
+    const xmlUrl = ecfInvoice.xml_url || '';
+    const imecfId = ecfInvoice.imecf_id || ecfInvoice.id || '';
 
     const subObj = {
       active: true,
@@ -3331,14 +3326,16 @@ class JardinesApp {
       securityCode: securityCode,
       rncEmisor: rncEmisor,
       razonSocialEmisor: razonSocialEmisor,
-      rncReceptor: '131-88992-1',
-      razonSocialReceptor: 'Condominio Jardines del Cerro IV',
+      rncReceptor: ecfInvoice.rnc_receptor || '131-88992-1',
+      razonSocialReceptor: ecfInvoice.razon_social_receptor || 'Condominio Jardines del Cerro IV',
       qrUrl: qrUrl,
+      xmlUrl: xmlUrl,
+      imecfId: imecfId,
       subtotalDop: subtotalDop,
       itbisDop: itbisDop,
       totalDop: totalDop,
       exchangeRate: rate,
-      ecfStatus: 'Aceptado por DGII (TesteCF)',
+      ecfStatus: ecfInvoice.status || 'Aceptado por DGII (IMECF Platform)',
       statusLabel: `Activa vía PayPal (${payerEmail})`
     };
 

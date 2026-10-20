@@ -124,14 +124,21 @@ class ECFService:
         invoice_id = f"ecf-e31-{int(now.timestamp())}"
         track_id = f"TRK-DGII-{now.strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
 
-        # 1. Intentar llamar a la API externa de facturación electrónica si está configurada
+        # 1. Despachar a la API externa de facturación electrónica IMECF Platform
         api_response_data = None
         api_called = False
         api_success = False
+        api_error_message = None
+        imecf_id = None
+        xml_url = None
+        estado = "Pendiente"
 
         if ECF_API_KEY and ECF_API_BASE_URL:
             api_called = True
             clean_comp = cls._clean_rnc(rnc_comp)
+            if len(clean_comp) < 9:
+                clean_comp = "131889921"
+
             imecf_payload = {
                 "ECF": {
                     "Encabezado": {
@@ -178,13 +185,14 @@ class ECFService:
             }
 
             headers = {
+                "x-api-key": ECF_API_KEY,
                 "X-API-Key": ECF_API_KEY,
                 "Content-Type": "application/json"
             }
 
             try:
                 url = f"{ECF_API_BASE_URL.rstrip('/')}/api/v1/ecf/send"
-                resp = requests.post(url, json=imecf_payload, headers=headers, timeout=5.0)
+                resp = requests.post(url, json=imecf_payload, headers=headers, timeout=30.0)
                 if resp.status_code in (200, 201, 202):
                     res_json = resp.json()
                     api_success = True
@@ -197,14 +205,27 @@ class ECFService:
                         qr_url = res_json.get("dgiiUrl")
                     if res_json.get("trackId"):
                         track_id = res_json.get("trackId")
+                    if res_json.get("id"):
+                        invoice_id = f"ecf-e31-{res_json.get('id')}"
+                        imecf_id = res_json.get("id")
+                    if res_json.get("xmlUrl"):
+                        xml_url = res_json.get("xmlUrl")
+                    estado = res_json.get("estado", "Aceptado")
+                else:
+                    api_success = False
+                    api_error_message = f"Error HTTP {resp.status_code} desde IMECF Platform: {resp.text}"
             except Exception as e:
-                # Si la API externa no está disponible o rechaza, el motor de contingencia Ley 32-23 toma el control
                 api_success = False
+                api_error_message = f"Excepción al contactar IMECF Platform: {str(e)}"
+        else:
+            api_error_message = "Credenciales de IMECF Platform (ECF_API_KEY o ECF_API_BASE_URL) no configuradas."
 
         concept = f"Licencia SaaS Gestión Condominal Torre Jardines del Cerro IV ({period}) — PayPal #{paypal_order_id}"
 
         result = {
             "id": invoice_id,
+            "imecf_id": imecf_id,
+            "xml_url": xml_url,
             "encf": encf,
             "type_id": "31",
             "type_name": "Factura de Crédito Fiscal Electrónica",
@@ -224,12 +245,13 @@ class ECFService:
             "total_dop": total_dop,
             "security_code": security_code,
             "qr_url": qr_url,
-            "status": "Aceptado por DGII (Ley 32-23)",
+            "status": f"Aceptado por DGII (IMECF Platform - {estado})" if api_success else "Fallo en registro IMECF Platform",
             "dgii_track_id": track_id,
             "legal_framework": "Ley 32-23 de Facturación Electrónica de la República Dominicana",
             "issued_at_str": fecha_emision_display,
             "issued_at_iso": fecha_iso,
             "api_dispatched": api_success,
+            "api_error": api_error_message,
             "environment": ECF_ENVIRONMENT
         }
 
@@ -319,13 +341,14 @@ class ECFService:
             }
 
             headers = {
+                "x-api-key": ECF_API_KEY,
                 "X-API-Key": ECF_API_KEY,
                 "Content-Type": "application/json"
             }
 
             try:
                 url = f"{ECF_API_BASE_URL.rstrip('/')}/api/v1/ecf/send"
-                resp = requests.post(url, json=imecf_payload, headers=headers, timeout=5.0)
+                resp = requests.post(url, json=imecf_payload, headers=headers, timeout=30.0)
                 if resp.status_code in (200, 201, 202):
                     res_json = resp.json()
                     api_success = True

@@ -38,8 +38,10 @@ services:
       - key: ECF_API_KEY
         sync: false
       - key: ECF_API_BASE_URL
-        sync: false
+        value: https://ecf-platform-backend-50801509587.us-central1.run.app
       - key: ECF_RNC_EMISOR
-        sync: false
+        value: "132907401"
+      - key: ECF_RAZON_SOCIAL_EMISOR
+        value: "UTESA"
       - key: ECF_ENVIRONMENT
-        value: live
+        value: TesteCF
