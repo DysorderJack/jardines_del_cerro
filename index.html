@@ -1906,6 +1906,107 @@
   </div>
 
   <!-- =========================================================================
+       MODAL: NOTA DE CRÉDITO ELECTRÓNICA DGII (e-CF TIPO 34 / R34) - CANCELACIÓN
+       ========================================================================= -->
+  <div class="modal" id="ecf-e34-cancellation-modal" style="display: none; align-items: center; justify-content: center; z-index: 99999;">
+    <div class="modal-content" style="max-width: 580px; width: 92%; max-height: 90vh; overflow-y: auto; position: relative; border: 2px solid #DC2626; border-radius: var(--radius-xl); box-shadow: 0 25px 50px -12px rgba(220,38,38,0.25);">
+      <button class="modal-close" onclick="window.app.closeE34CancellationModal();" title="Cerrar modal" style="position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.06); border: none; font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer;">✕</button>
+
+      <!-- Encabezado Oficial -->
+      <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 18px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 14px rgba(220,38,38,0.25);">
+          🧾
+        </div>
+        <div>
+          <h3 style="font-family: var(--font-display); font-size: 19px; font-weight: 800; color: #991B1B; margin: 0;">Nota de Crédito Electrónica (R34)</h3>
+          <div style="font-size: 12.5px; color: var(--dust);">Comprobante Fiscal e-CF Tipo E34 · Anulación de Suscripción (Ley 32-23 DGII)</div>
+        </div>
+      </div>
+
+      <!-- Banner de Cancelación Confirmada -->
+      <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px;">
+        <span style="font-size: 20px; line-height: 1;">⚠️</span>
+        <div style="font-size: 12.5px; color: #991B1B; line-height: 1.4;">
+          <strong>Suscripción SaaS Cancelada Exitosamente:</strong> Se ha emitido la Nota de Crédito Electrónica Tipo 34 correspondiente según las normativas de la DGII (Ley 32-23), acreditando el importe facturado y el ITBIS.
+        </div>
+      </div>
+
+      <!-- Card Central con Código QR y Datos de Seguridad -->
+      <div style="background: linear-gradient(135deg, #FEF2F2 0%, #FFF1F2 100%); border: 2px solid #FECDD3; border-radius: var(--radius-lg); padding: 18px; text-align: center; margin-bottom: 18px;">
+        <div style="font-size: 11px; font-weight: 800; color: #B91C1C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          ✓ Aceptado DGII · Validez Fiscal Inmediata
+        </div>
+
+        <div style="display: inline-block; padding: 10px; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 12px; border: 1px solid #FECDD3;">
+          <img id="e34-qr-img" src="" alt="Código QR DGII" style="width: 150px; height: 150px; display: block; margin: 0 auto; object-fit: contain;">
+        </div>
+
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+          <span style="font-size: 12px; color: var(--dust); font-weight: 600;">e-NCF Nota de Crédito:</span>
+          <span id="e34-encf" style="font-family: monospace; font-size: 16px; font-weight: 800; color: #991B1B; background: #FEE2E2; padding: 2px 8px; border-radius: 6px;">E34000000001</span>
+        </div>
+
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+          <span style="font-size: 12px; color: var(--dust); font-weight: 600;">e-NCF Modificado:</span>
+          <span id="e34-modified-encf" style="font-family: monospace; font-size: 14px; font-weight: 700; color: #1E40AF; background: #DBEAFE; padding: 2px 8px; border-radius: 6px;">E310000001338</span>
+          <span style="font-size: 11px; background: #E2E8F0; padding: 2px 6px; border-radius: 4px; color: #475569;">Cód: 01 (Anulación Total)</span>
+        </div>
+
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: var(--dust); font-weight: 600;">Código de Seguridad:</span>
+          <span id="e34-sec-code" style="font-family: monospace; font-size: 15px; font-weight: 800; color: #0F172A; background: #E2E8F0; padding: 2px 8px; border-radius: 6px;">C7b9X2</span>
+        </div>
+      </div>
+
+      <!-- Detalle Fiscal -->
+      <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Emisor:</span>
+          <strong id="e34-emisor">Torre Residencial Jardines del Cerro IV (RNC 132907401)</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Receptor / Administrador:</span>
+          <strong id="e34-receptor">Administración Condominio Jardines del Cerro IV</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Concepto:</span>
+          <strong id="e34-concept">Cancelación de Licencia SaaS y Anulación e-CF E31</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Fecha y Hora Oficial:</span>
+          <strong id="e34-date">20/10/2026 08:30 AM</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Subtotal Acreditado:</span>
+          <strong id="e34-subtotal">-RD$ 1,281.26</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">ITBIS (18%) Acreditado:</span>
+          <strong id="e34-itbis" style="color: #059669;">-RD$ 230.63</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--linen); font-size: 13.5px;">
+          <span style="font-weight: 700; color: var(--ink);">Total Nota de Crédito (DOP):</span>
+          <strong id="e34-total" style="color: #DC2626;">-RD$ 1,511.89</strong>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn-accent" style="flex: 1; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #DC2626; border-color: #DC2626; color: #fff;" onclick="window.app.printE34CancellationInvoice(document.getElementById('e34-encf')?.innerText || '');">
+          🖨️ Ver / Imprimir Nota de Crédito R34
+        </button>
+        <a id="e34-dgii-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary" style="flex: 1; text-align: center; text-decoration: none; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #003087; border-color: #003087;">
+          🌐 Validar en DGII
+        </a>
+      </div>
+
+      <div style="margin-top: 14px; font-size: 11px; color: var(--dust); text-align: center; line-height: 1.4;">
+        Nota de Crédito Electrónica emitida conforme a la Norma General 06-2023 y Ley 32-23 de la República Dominicana.
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
        FLOATING AI ASSISTANT CHAT WIDGET
        ========================================================================= -->
   <button class="ai-chat-btn" id="ai-chat-toggle-btn" onclick="window.app.toggleAIChat();" title="Asistente Virtual">
@@ -1952,8 +2053,8 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/api.js?v=4.5"></script>
-  <script src="js/data.js?v=4.5"></script>
-  <script src="js/app.js?v=4.5"></script>
+  <script src="js/api.js?v=4.6"></script>
+  <script src="js/data.js?v=4.6"></script>
+  <script src="js/app.js?v=4.6"></script>
 </body>
 </html>

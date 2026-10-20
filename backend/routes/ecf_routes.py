@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import ElectronicInvoice, Subscription, User, Payment
-from schemas import TenantEmitE32Request
+from schemas import TenantEmitE32Request, AdminCancelSubscriptionRequest
 from services.ecf_service import ECFService
 
 router = APIRouter(prefix="/api/ecf", tags=["Facturación Electrónica DGII (e-CF Ley 32-23)"])
@@ -532,19 +532,137 @@ def emit_tenant_e32_invoice(
         }
     }
 
+@router.post("/emit-e34")
+def emit_e34_cancellation_invoice(
+    payload: AdminCancelSubscriptionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Emite una Nota de Crédito Electrónica oficial (e-CF Tipo E34 / R34)
+    ante la DGII e IMECF Platform al cancelar el administrador su suscripción al sistema.
+    Anula formalmente la factura de crédito fiscal E31 correspondiente.
+    """
+    user_email = (payload.user_email or "admin@jardinesdelcerro.do").lower()
+
+    # 1. Buscar la última suscripción de admin registrada en DB
+    sub = db.query(Subscription).filter(
+        Subscription.context == "admin"
+    ).order_by(Subscription.created_at.desc()).first()
+
+    # 2. Determinar el e-NCF original que se modifica/anula
+    modified_encf = payload.modified_encf
+    if not modified_encf:
+        if sub and sub.encf:
+            modified_encf = sub.encf
+        else:
+            last_e31 = db.query(ElectronicInvoice).filter(
+                ElectronicInvoice.type_id == "31"
+            ).order_by(ElectronicInvoice.created_at.desc()).first()
+            if last_e31:
+                modified_encf = last_e31.encf
+            else:
+                modified_encf = "E310000001338"
+
+    price_usd = float(payload.price_usd or (sub.price_usd if sub else 24.99))
+    reason = payload.reason or "Cancelación voluntaria de suscripción y rescisión de licencia SaaS"
+
+    # 3. Emitir el comprobante electrónico Tipo E34 (R34)
+    ecf_data = ECFService.emit_e34_nota_credito(
+        user_email=user_email,
+        modified_encf=modified_encf,
+        price_usd=price_usd,
+        reason=reason
+    )
+
+    # 4. Guardar en base de datos
+    new_inv = ElectronicInvoice(
+        id=ecf_data["id"],
+        encf=ecf_data["encf"],
+        type_id="34",
+        type_name="Nota de Crédito Electrónica (R34)",
+        context="admin_subscription_cancellation",
+        user_id=user_email,
+        paypal_reference=f"CANCEL-{modified_encf}",
+        rnc_emisor=ecf_data["rnc_emisor"],
+        razon_social_emisor=ecf_data["razon_social_emisor"],
+        rnc_receptor=ecf_data["rnc_receptor"],
+        razon_social_receptor=ecf_data["razon_social_receptor"],
+        concept=ecf_data["concept"],
+        currency="DOP",
+        exchange_rate=ecf_data["exchange_rate"],
+        amount_usd=ecf_data["amount_usd"],
+        subtotal_dop=ecf_data["subtotal_dop"],
+        itbis_dop=ecf_data["itbis_dop"],
+        total_dop=ecf_data["total_dop"],
+        security_code=ecf_data["security_code"],
+        qr_url=ecf_data["qr_url"],
+        status=ecf_data["status"],
+        dgii_track_id=ecf_data.get("dgii_track_id")
+    )
+    db.add(new_inv)
+
+    # 5. Marcar suscripción como cancelada
+    if sub:
+        sub.status = "cancelled"
+
+    db.commit()
+
+    inv_dict = {
+        "id": new_inv.id,
+        "encf": new_inv.encf,
+        "type_id": new_inv.type_id,
+        "type_name": new_inv.type_name,
+        "modified_encf": modified_encf,
+        "user_id": new_inv.user_id,
+        "rnc_emisor": new_inv.rnc_emisor,
+        "razon_social_emisor": new_inv.razon_social_emisor,
+        "rnc_receptor": new_inv.rnc_receptor,
+        "razon_social_receptor": new_inv.razon_social_receptor,
+        "concept": new_inv.concept,
+        "amount_usd": new_inv.amount_usd,
+        "exchange_rate": new_inv.exchange_rate,
+        "subtotal_dop": new_inv.subtotal_dop,
+        "itbis_dop": new_inv.itbis_dop,
+        "total_dop": new_inv.total_dop,
+        "security_code": new_inv.security_code,
+        "qr_url": new_inv.qr_url,
+        "status": new_inv.status,
+        "issued_at": ECFService.format_dominican_dt(new_inv.issued_at)
+    }
+
+    return {
+        "success": True,
+        "message": f"Nota de Crédito Electrónica {ecf_data['encf']} (R34) emitida exitosamente ante la DGII por cancelación de suscripción.",
+        "encf": new_inv.encf,
+        "type_id": new_inv.type_id,
+        "type_name": new_inv.type_name,
+        "security_code": new_inv.security_code,
+        "qr_url": new_inv.qr_url,
+        "e34": inv_dict,
+        "invoice": inv_dict
+    }
+
 @router.get("/invoice/{encf}/print", response_class=HTMLResponse)
 def print_invoice(encf: str, db: Session = Depends(get_db)):
     """
     Retorna la Representación Impresa (RI) oficial de la DGII en formato HTML lista
     para imprimir o exportar en PDF con código QR y desglose tributario.
-    Soporta e-CF E31 (Crédito Fiscal) y e-CF E32 / R32 (Factura de Consumo de Inquilinos).
+    Soporta:
+      - e-CF E31 (Crédito Fiscal)
+      - e-CF E32 / R32 (Factura de Consumo de Inquilinos)
+      - e-CF E34 / R34 (Nota de Crédito Electrónica por Cancelación)
     """
     inv = db.query(ElectronicInvoice).filter(ElectronicInvoice.encf == encf).first()
     clean_encf = (encf or "").upper().strip()
     is_e32 = clean_encf.startswith("E32") or (inv and str(inv.type_id) == "32")
+    is_e34 = clean_encf.startswith("E34") or (inv and str(inv.type_id) == "34")
 
     if not inv:
-        if is_e32:
+        if is_e34:
+            latest_inv = db.query(ElectronicInvoice).filter(
+                ElectronicInvoice.type_id == "34"
+            ).order_by(ElectronicInvoice.created_at.desc()).first()
+        elif is_e32:
             latest_inv = db.query(ElectronicInvoice).filter(
                 ElectronicInvoice.type_id == "32"
             ).order_by(ElectronicInvoice.created_at.desc()).first()
@@ -559,7 +677,29 @@ def print_invoice(encf: str, db: Session = Depends(get_db)):
         # Fallback a comprobante dinámico si no existe registro previo en DB
         now_dt = ECFService.get_dominican_now()
         date_str = now_dt.strftime("%d/%m/%Y %I:%M %p")
-        if is_e32:
+        if is_e34:
+            data = {
+                "encf": clean_encf or "E340000000001",
+                "type_id": "34",
+                "security_code": "C9xL1q",
+                "qr_url": f"https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf={clean_encf}&fechaemision=20-10-2026&montototal=1511.89&codigoseguridad=C9xL1q",
+                "amount_usd": 24.99,
+                "exchange_rate": 60.50,
+                "subtotal_dop": 1281.26,
+                "itbis_dop": 230.63,
+                "total_dop": 1511.89,
+                "rnc_emisor": "132907401",
+                "razon_social_emisor": "Torre Residencial Jardines del Cerro IV, S.R.L.",
+                "rnc_receptor": "131-88992-1",
+                "razon_social_receptor": "Administración Condominio Jardines del Cerro IV",
+                "concept": "Nota de Crédito por Cancelación de Licencia SaaS - e-NCF Modificado: E310000001338",
+                "modified_encf": "E310000001338",
+                "user_id": "admin@jardinesdelcerro.do",
+                "payment_method": "Crédito a Cuenta / Reversión",
+                "paypal_reference": "CANCEL-E310000001338",
+                "issued_at_str": date_str
+            }
+        elif is_e32:
             data = {
                 "encf": clean_encf or "E320000001361",
                 "type_id": "32",
@@ -605,9 +745,19 @@ def print_invoice(encf: str, db: Session = Depends(get_db)):
             }
         return HTMLResponse(content=ECFService.generate_printable_html(data))
 
+    modified_encf_val = None
+    if is_e34:
+        if inv.paypal_reference and "CANCEL-" in inv.paypal_reference:
+            modified_encf_val = inv.paypal_reference.replace("CANCEL-", "").strip()
+        elif "Modificado: " in (inv.concept or ""):
+            modified_encf_val = inv.concept.split("Modificado: ")[-1].strip()
+        else:
+            modified_encf_val = "E310000001338"
+
     inv_dict = {
         "encf": inv.encf,
         "type_id": inv.type_id,
+        "modified_encf": modified_encf_val,
         "security_code": inv.security_code,
         "qr_url": inv.qr_url,
         "amount_usd": inv.amount_usd,
@@ -629,4 +779,5 @@ def print_invoice(encf: str, db: Session = Depends(get_db)):
 
     html = ECFService.generate_printable_html(inv_dict)
     return HTMLResponse(content=html)
+
 

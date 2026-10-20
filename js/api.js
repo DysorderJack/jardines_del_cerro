@@ -404,6 +404,32 @@ class ApiClient {
     return null;
   }
 
+  // Nota de Crédito Electrónica e-CF Tipo E34 / R34 por Cancelación de Suscripción
+  async emitAdminE34Cancellation(payload = {}) {
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const candidateUrls = [];
+    if (this.baseUrl) candidateUrls.push(this.baseUrl);
+    if (this.remoteApi && !candidateUrls.includes(this.remoteApi)) candidateUrls.push(this.remoteApi);
+    if (isLocal && !candidateUrls.includes('http://127.0.0.1:8000/api')) candidateUrls.push('http://127.0.0.1:8000/api');
+
+    for (const base of candidateUrls) {
+      try {
+        const res = await fetch(`${base}/ecf/emit-e34`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined
+        });
+        if (res.ok) {
+          this.isBackendOnline = true;
+          this.baseUrl = base;
+          return await res.json();
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
   // Inteligencia Artificial (Google Gemini)
   async chatAI(prompt, contextType = 'public', userId = null, unit = null) {
     const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';

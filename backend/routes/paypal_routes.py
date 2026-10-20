@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Subscription, User, ElectronicInvoice
-from schemas import PayPalVerifySubscription, PayPalVerifyOrder
+from schemas import PayPalVerifySubscription, PayPalVerifyOrder, PayPalCancelSubscription
 from services.paypal_service import PayPalService
 from services.ecf_service import ECFService
 
@@ -255,19 +256,83 @@ def verify_and_activate_subscription(payload: PayPalVerifySubscription, db: Sess
     }
 
 @router.post("/cancel-subscription")
-def cancel_subscription(context: str = "resident", user_id: str = None, db: Session = Depends(get_db)):
-    """Cancela la suscripción de IA activa."""
+def cancel_subscription(
+    context: str = Query("resident"),
+    user_id: str = Query(None),
+    payload: Optional[PayPalCancelSubscription] = None,
+    db: Session = Depends(get_db)
+):
+    """Cancela la suscripción y emite Nota de Crédito e-CF R34 para administradores."""
+    effective_context = (payload.context if payload and payload.context else context) or "resident"
+    effective_user_id = (payload.user_id if payload and payload.user_id else user_id)
+
     query = db.query(Subscription).filter(
-        Subscription.context == context,
+        Subscription.context == effective_context,
         Subscription.status == "active"
     )
-    if context == "resident" and user_id:
-        query = query.filter(Subscription.user_id == user_id)
+    if effective_context == "resident" and effective_user_id:
+        query = query.filter(Subscription.user_id == effective_user_id)
 
     sub = query.first()
-    if sub:
-        sub.status = "cancelled"
+    invoice_res = None
+
+    if sub or effective_context == "admin":
+        if sub:
+            sub.status = "cancelled"
+
+        # Si es suscripción del administrador, emitir Nota de Crédito Electrónica Tipo 34 (R34 / E34)
+        if effective_context == "admin":
+            admin_email = effective_user_id or (sub.user_id if sub else "admin@jardinesdelcerro.do")
+            modified_encf = (sub.encf if sub and sub.encf else None)
+            if not modified_encf:
+                last_e31 = db.query(ElectronicInvoice).filter(
+                    ElectronicInvoice.type_id == "31"
+                ).order_by(ElectronicInvoice.issued_at.desc()).first()
+                modified_encf = last_e31.encf if last_e31 else "E310000001338"
+
+            price_usd = float(sub.price_usd if sub else 24.99)
+            ecf_data = ECFService.emit_e34_nota_credito(
+                user_email=admin_email,
+                modified_encf=modified_encf,
+                price_usd=price_usd,
+                reason="Cancelación voluntaria de suscripción y rescisión de licencia SaaS"
+            )
+
+            new_inv = ElectronicInvoice(
+                id=ecf_data["id"],
+                encf=ecf_data["encf"],
+                type_id="34",
+                type_name="Nota de Crédito Electrónica (R34)",
+                context="admin_subscription_cancellation",
+                user_id=admin_email,
+                paypal_reference=f"CANCEL-{modified_encf}",
+                rnc_emisor=ecf_data["rnc_emisor"],
+                razon_social_emisor=ecf_data["razon_social_emisor"],
+                rnc_receptor=ecf_data["rnc_receptor"],
+                razon_social_receptor=ecf_data["razon_social_receptor"],
+                concept=ecf_data["concept"],
+                currency="DOP",
+                exchange_rate=ecf_data["exchange_rate"],
+                amount_usd=ecf_data["amount_usd"],
+                subtotal_dop=ecf_data["subtotal_dop"],
+                itbis_dop=ecf_data["itbis_dop"],
+                total_dop=ecf_data["total_dop"],
+                security_code=ecf_data["security_code"],
+                qr_url=ecf_data["qr_url"],
+                status=ecf_data["status"],
+                dgii_track_id=ecf_data.get("dgii_track_id")
+            )
+            db.add(new_inv)
+            invoice_res = ecf_data
+
         db.commit()
-        return {"success": True, "message": "Suscripción cancelada exitosamente."}
+        return {
+            "success": True,
+            "status": "cancelled",
+            "message": "Suscripción cancelada exitosamente." + (" Se ha emitido la Nota de Crédito e-CF R34." if invoice_res else ""),
+            "e34": invoice_res,
+            "invoice": invoice_res
+        }
 
     raise HTTPException(status_code=404, detail="No se encontró una suscripción activa para cancelar.")
+

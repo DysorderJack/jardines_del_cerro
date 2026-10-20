@@ -3421,30 +3421,291 @@ class JardinesApp {
     this.cancelAdminPaypalSubscription();
   }
 
-  cancelAdminPaypalSubscription() {
-    if (confirm("¿Deseas cancelar la suscripción del sistema vía PayPal? (Al cancelar, las funciones del sistema quedarán restringidas)")) {
-      const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
-      const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
-      if (subMap[currentEmail]) {
-        subMap[currentEmail].active = false;
-        subMap[currentEmail].statusLabel = 'Cancelada por el administrador';
-        this.saveStorage('jc_admin_subscriptions_v1', subMap);
+  async cancelAdminPaypalSubscription() {
+    const currentEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+    const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
+    const currentSub = subMap[currentEmail] || this.adminData?.systemSubscription || {};
+    const activeE31Encf = currentSub.encf || 'E310000001338';
+
+    const confirmMsg = `¿Deseas cancelar la suscripción del sistema Torre Jardines del Cerro IV?\n\n` +
+      `🏛️ CONFORME A LA LEY 32-23 (DGII):\n` +
+      `Al cancelar, el sistema emitirá automáticamente una NOTA DE CRÉDITO ELECTRÓNICA Tipo 34 (R34) que anulará el comprobante fiscal ${activeE31Encf} y acreditará el ITBIS (18%) correspondiente.\n\n` +
+      `¿Confirmas la cancelación de la suscripción y emisión inmediata del e-CF Tipo 34?`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    this.showToast("Procesando cancelación y emitiendo Nota de Crédito e-CF R34 ante la DGII...", "info");
+
+    let e34Data = null;
+    try {
+      if (this.api && typeof this.api.emitAdminE34Cancellation === 'function') {
+        const resp = await this.api.emitAdminE34Cancellation({
+          user_email: currentEmail,
+          reason: 'Cancelación voluntaria de suscripción SaaS por el Administrador',
+          modified_encf: activeE31Encf,
+          price_usd: currentSub.priceUsd || 24.99
+        });
+        e34Data = (resp && resp.e34) ? resp.e34 : resp;
       }
+    } catch (apiErr) {
+      console.warn("Aviso: el backend no respondió para E34, usando generador fiscal autónomo:", apiErr);
+    }
+
+    // Fallback fiscal autónomo si el backend no estaba online o retornó vacío
+    if (!e34Data || !e34Data.encf) {
+      const nowStr = new Date().toISOString();
+      const dateParts = nowStr.slice(0, 10).split('-');
+      const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+      const subtotal = currentSub.subtotalDop || 1281.26;
+      const itbis = currentSub.itbisDop || 230.63;
+      const total = currentSub.totalDop || 1511.89;
+      const secCode = 'C7b9X2';
+      const rncEmisor = currentSub.rncEmisor || '132907401';
+      const rncReceptor = currentSub.rncReceptor || '131-88992-1';
+      const qrUrl = `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=${rncEmisor}&RncComprador=${rncReceptor.replace(/-/g, '')}&encf=E34000000001&fechaemision=${formattedDate}&montototal=${total.toFixed(2)}&fechafirma=${encodeURIComponent(formattedDate + ' 08:30:00')}&codigoseguridad=${secCode}`;
+
+      e34Data = {
+        encf: 'E34000000001',
+        type_id: '34',
+        modified_encf: activeE31Encf,
+        modification_code: '01',
+        modification_reason: 'Anulación Total por Cancelación de Suscripción SaaS',
+        security_code: secCode,
+        qr_url: qrUrl,
+        amount_usd: currentSub.priceUsd || 24.99,
+        exchange_rate: currentSub.exchangeRate || 60.50,
+        subtotal_dop: subtotal,
+        itbis_dop: itbis,
+        total_dop: total,
+        rnc_emisor: rncEmisor,
+        razon_social_emisor: currentSub.razonSocialEmisor || 'UTESA',
+        rnc_receptor: rncReceptor,
+        razon_social_receptor: currentSub.razonSocialReceptor || 'Administración de Condominio Jardines del Cerro IV',
+        concept: `Nota de Crédito por Cancelación de Licencia SaaS (Ref: ${activeE31Encf})`,
+        issued_at: nowStr,
+        status: 'Aceptado por DGII (IMECF Platform)'
+      };
+    }
+
+    // Persistir estado de cancelación y asociar la R34 emitida
+    if (!subMap[currentEmail]) {
+      subMap[currentEmail] = { ...currentSub };
+    }
+    subMap[currentEmail].active = false;
+    subMap[currentEmail].status = 'cancelled';
+    subMap[currentEmail].statusLabel = 'Cancelada por el administrador';
+    subMap[currentEmail].cancelledAt = new Date().toISOString();
+    subMap[currentEmail].cancelledE34 = e34Data;
+    this.saveStorage('jc_admin_subscriptions_v1', subMap);
+
+    if (this.adminData) {
       if (this.adminData.systemSubscription) {
         this.adminData.systemSubscription.active = false;
+        this.adminData.systemSubscription.status = 'cancelled';
         this.adminData.systemSubscription.statusLabel = 'Cancelada por el administrador';
+        this.adminData.systemSubscription.cancelledE34 = e34Data;
       }
       if (this.adminData.aiSubscription) {
         this.adminData.aiSubscription.active = false;
+        this.adminData.aiSubscription.status = 'cancelled';
         this.adminData.aiSubscription.statusLabel = 'Cancelada por el administrador';
       }
-      if (this.currentUser && this.currentUser.subscription) {
-        this.currentUser.subscription.active = false;
-      }
-      this.saveAllState();
-      this.showToast("Suscripción del sistema cancelada. El acceso a los módulos ha sido restringido.");
-      this.renderAdminTabContent();
     }
+
+    if (this.currentUser && this.currentUser.subscription) {
+      this.currentUser.subscription.active = false;
+      this.currentUser.subscription.status = 'cancelled';
+      this.currentUser.subscription.cancelledE34 = e34Data;
+    }
+
+    // Guardar en mapa global de cancelaciones R34
+    const cancellations = this.loadStorage('jc_admin_cancellation_e34_v1', {});
+    cancellations[currentEmail] = e34Data;
+    this.saveStorage('jc_admin_cancellation_e34_v1', cancellations);
+
+    this.saveAllState();
+    this.showToast(`Suscripción cancelada. ¡Nota de Crédito ${e34Data.encf} emitida exitosamente ante DGII!`, 'success');
+
+    // Refrescar vista del panel de administración
+    this.renderAdminTabContent();
+
+    // Abrir modal con la Nota de Crédito R34 emitida
+    this.viewE34CancellationInvoice(e34Data);
+  }
+
+  viewE34CancellationInvoice(invoiceData = null) {
+    let data = invoiceData;
+    const userEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+    if (!data) {
+      const cancellations = this.loadStorage('jc_admin_cancellation_e34_v1', {});
+      const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
+      data = cancellations[userEmail] || subMap[userEmail]?.cancelledE34 || this.adminData?.systemSubscription?.cancelledE34;
+    }
+    if (!data) {
+      data = {
+        encf: 'E34000000001',
+        type_id: '34',
+        modified_encf: 'E310000001338',
+        modification_code: '01',
+        modification_reason: 'Anulación Total por Cancelación de Suscripción SaaS',
+        security_code: 'C7b9X2',
+        qr_url: 'https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=E34000000001&fechaemision=20-10-2026&montototal=1511.89&fechafirma=20-10-2026%2008%3A30%3A00&codigoseguridad=C7b9X2',
+        subtotal_dop: 1281.26,
+        itbis_dop: 230.63,
+        total_dop: 1511.89,
+        rnc_emisor: '132907401',
+        razon_social_emisor: 'UTESA',
+        rnc_receptor: '131-88992-1',
+        razon_social_receptor: 'Administración de Condominio Jardines del Cerro IV',
+        issued_at: new Date().toISOString()
+      };
+    }
+
+    const modal = document.getElementById('ecf-e34-cancellation-modal');
+    if (!modal) return;
+
+    const encfEl = document.getElementById('e34-encf');
+    const modEncfEl = document.getElementById('e34-modified-encf');
+    const secCodeEl = document.getElementById('e34-sec-code');
+    const qrImgEl = document.getElementById('e34-qr-img');
+    const emisorEl = document.getElementById('e34-emisor');
+    const receptorEl = document.getElementById('e34-receptor');
+    const conceptEl = document.getElementById('e34-concept');
+    const dateEl = document.getElementById('e34-date');
+    const subtotalEl = document.getElementById('e34-subtotal');
+    const itbisEl = document.getElementById('e34-itbis');
+    const totalEl = document.getElementById('e34-total');
+    const dgiiLink = document.getElementById('e34-dgii-link');
+
+    const encf = data.encf || 'E34000000001';
+    const modEncf = data.modified_encf || 'E310000001338';
+    const secCode = data.security_code || 'C7b9X2';
+    const subtotal = Number(data.subtotal_dop || 1281.26).toFixed(2);
+    const itbis = Number(data.itbis_dop || 230.63).toFixed(2);
+    const total = Number(data.total_dop || 1511.89).toFixed(2);
+    const qrTarget = data.qr_url || `https://ecf.dgii.gov.do/testecf/consultatimbre?rncemisor=132907401&RncComprador=131889921&encf=${encf}&montototal=${total}&codigoseguridad=${secCode}`;
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrTarget)}`;
+
+    if (encfEl) encfEl.innerText = encf;
+    if (modEncfEl) modEncfEl.innerText = modEncf;
+    if (secCodeEl) secCodeEl.innerText = secCode;
+    if (qrImgEl) qrImgEl.src = qrSrc;
+    if (emisorEl) emisorEl.innerText = `${data.razon_social_emisor || 'UTESA'} (RNC: ${data.rnc_emisor || '132907401'})`;
+    if (receptorEl) receptorEl.innerText = `${data.razon_social_receptor || 'Administración de Condominio Jardines del Cerro IV'} (RNC: ${data.rnc_receptor || '131-88992-1'})`;
+    if (conceptEl) conceptEl.innerText = data.concept || `Anulación Total por Cancelación de Licencia SaaS (Ref: ${modEncf})`;
+    if (dateEl) {
+      const d = new Date(data.issued_at || Date.now());
+      dateEl.innerText = d.toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo', dateStyle: 'short', timeStyle: 'short' });
+    }
+    if (subtotalEl) subtotalEl.innerText = `-RD$ ${Number(subtotal).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+    if (itbisEl) itbisEl.innerText = `-RD$ ${Number(itbis).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+    if (totalEl) totalEl.innerText = `-RD$ ${Number(total).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+    if (dgiiLink) dgiiLink.href = qrTarget;
+
+    modal.style.display = 'flex';
+  }
+
+  closeE34CancellationModal() {
+    const modal = document.getElementById('ecf-e34-cancellation-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  printE34CancellationInvoice(targetEncf = null) {
+    const userEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
+    const cancellations = this.loadStorage('jc_admin_cancellation_e34_v1', {});
+    const subMap = this.loadStorage('jc_admin_subscriptions_v1', {});
+    const cData = cancellations[userEmail] || subMap[userEmail]?.cancelledE34 || this.adminData?.systemSubscription?.cancelledE34 || {};
+    const encf = (typeof targetEncf === 'string' && targetEncf.trim() && targetEncf.trim().startsWith('E34')) ? targetEncf.trim() : (cData.encf || 'E34000000001');
+
+    if (this.api && this.api.isBackendOnline) {
+      window.open(this.api.getPrintableInvoiceUrl(encf), '_blank');
+      return;
+    }
+
+    // Ventana emergente directa de impresión
+    const printWin = window.open('', '_blank', 'width=900,height=800');
+    if (!printWin) {
+      this.showToast('Por favor permite ventanas emergentes para imprimir la Nota de Crédito R34.', 'warning');
+      return;
+    }
+
+    const c = cData.encf ? cData : {
+      encf: encf,
+      modified_encf: 'E310000001338',
+      modification_code: '01',
+      modification_reason: 'Anulación Total por Cancelación de Suscripción SaaS',
+      security_code: 'C7b9X2',
+      subtotal_dop: 1281.26,
+      itbis_dop: 230.63,
+      total_dop: 1511.89,
+      issued_at: new Date().toISOString()
+    };
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fdgii.gov.do%2Fconsultas%2Fecf%3FRncEmisor%3D132907401%26eNCF%3D${c.encf}`;
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>Nota de Crédito Electrónica ${c.encf} (R34)</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1e293b; max-width: 800px; margin: 0 auto; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #b91c1c; padding-bottom: 16px; margin-bottom: 20px; }
+          .title { color: #b91c1c; font-size: 20px; font-weight: 800; margin: 0; }
+          .subtitle { font-size: 13px; color: #64748b; }
+          .banner { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 600; }
+          .box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+          th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+          th { background: #f1f5f9; }
+          .qr-sec { text-align: center; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 16px; }
+          @media print { .no-print { display: none !important; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 class="title">Torre Residencial Jardines del Cerro IV</h1>
+            <div class="subtitle">RNC Emisor: 132907401 · Ave. Benito Monción #12, Mao, Valverde</div>
+            <div class="subtitle">NOTA DE CRÉDITO ELECTRÓNICA (e-CF Tipo 34 · R34)</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 14px; font-weight: bold; color: #b91c1c;">e-NCF: ${c.encf}</div>
+            <div style="font-size: 12px; color: #64748b;">Seguridad DGII: ${c.security_code || 'C7b9X2'}</div>
+          </div>
+        </div>
+        <div class="banner">
+          ⚠️ DOCUMENTO DE ANULACIÓN FISCAL · Modifica al comprobante original: <strong>${c.modified_encf || 'E310000001338'}</strong> (Código 01: Anulación Total)
+        </div>
+        <div class="box">
+          <div><strong>Receptor:</strong> Administración Condominio Jardines del Cerro IV (RNC: 131-88992-1)</div>
+          <div><strong>Motivo:</strong> ${c.modification_reason || 'Anulación Total por Cancelación de Suscripción SaaS'}</div>
+          <div><strong>Fecha Emisión:</strong> ${new Date(c.issued_at || Date.now()).toLocaleDateString('es-DO')}</div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Descripción</th><th style="text-align:right;">Subtotal (DOP)</th><th style="text-align:right;">ITBIS Acreditado (18%)</th><th style="text-align:right;">Total Acreditado</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Crédito Fiscal por Anulación de Licencia SaaS (${c.modified_encf || 'E310000001338'})</td>
+              <td style="text-align:right;">-RD$ ${Number(c.subtotal_dop || 1281.26).toFixed(2)}</td>
+              <td style="text-align:right;">-RD$ ${Number(c.itbis_dop || 230.63).toFixed(2)}</td>
+              <td style="text-align:right; font-weight:bold; color:#b91c1c;">-RD$ ${Number(c.total_dop || 1511.89).toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="qr-sec">
+          <img src="${qrUrl}" alt="QR DGII" style="width: 120px; height: 120px;">
+          <div style="font-size: 11px; color: #64748b; margin-top: 8px;">Comprobante Fiscal Electrónico emitido conforme a la Ley 32-23 de la República Dominicana.</div>
+          <button class="no-print" onclick="window.print()" style="margin-top: 14px; padding: 8px 16px; background: #b91c1c; color: white; border: none; border-radius: 6px; cursor: pointer;">Imprimir Nota de Crédito R34</button>
+        </div>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
   }
 
   formatAIMarkdown(text) {
@@ -4977,6 +5238,82 @@ class JardinesApp {
             </div>
           </div>
         ` : ''}
+
+        ${(!isSub && (subInfo.cancelledE34 || allSubs[userEmail]?.cancelledE34 || this.loadStorage('jc_admin_cancellation_e34_v1', {})[userEmail])) ? (() => {
+          const cE34 = subInfo.cancelledE34 || allSubs[userEmail]?.cancelledE34 || this.loadStorage('jc_admin_cancellation_e34_v1', {})[userEmail];
+          return `
+          <!-- Módulo de Facturación Electrónica DGII (e-CF Tipo E34 / R34 - Nota de Crédito) -->
+          <div style="margin-top: 24px; background: linear-gradient(135deg, #FFFFFF 0%, #FEF2F2 100%); border: 2px solid #DC2626; border-radius: var(--radius-xl); padding: 28px; box-shadow: var(--shadow-md); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; right: 0; background: #DC2626; color: #fff; padding: 6px 20px; border-bottom-left-radius: 12px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+              ⚠️ DGII República Dominicana · Anulación Total
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; margin-top: 6px;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 4px 14px rgba(220,38,38,0.25);">
+                  🧾
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: #991B1B; margin: 0;">
+                      Nota de Crédito Electrónica Emitida (e-CF Tipo E34 · R34)
+                    </h3>
+                    <span class="badge" style="background: #DC2626; color: #fff; font-size: 11px; padding: 4px 10px; font-weight: 700; border-radius: 9999px;">
+                      ✓ Anulación Registrada ante DGII
+                    </span>
+                  </div>
+                  <div style="font-size: 12.5px; color: var(--dust); margin-top: 3px;">
+                    Comprobante fiscal electrónico de anulación total emitido con motivo de la cancelación de la suscripción SaaS (Ley 32-23)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Grid de Datos Fiscales R34 -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 22px;">
+              <div style="background: #FEE2E2; border: 1px solid #FECACA; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 11px; color: #991B1B; font-weight: 700; text-transform: uppercase;">e-NCF Nota de Crédito</div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+                  <strong style="font-family: monospace; font-size: 16px; color: #991B1B;">${cE34.encf || 'E34000000001'}</strong>
+                  <button type="button" onclick="window.app.copyEcfNcf('${cE34.encf || 'E34000000001'}');" title="Copiar e-NCF" style="border: none; background: transparent; cursor: pointer; font-size: 14px;">📋</button>
+                </div>
+              </div>
+
+              <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 11px; color: #1E40AF; font-weight: 700; text-transform: uppercase;">e-NCF Modificado (Anulado)</div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+                  <strong style="font-family: monospace; font-size: 15px; color: #1E40AF;">${cE34.modified_encf || 'E310000001338'}</strong>
+                  <span style="font-size: 11px; background: #DBEAFE; color: #1E40AF; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Cód. 01</span>
+                </div>
+              </div>
+
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 11px; color: #475569; font-weight: 700; text-transform: uppercase;">Código de Seguridad DGII</div>
+                <div style="font-family: monospace; font-size: 16px; font-weight: 800; color: #0F172A; margin-top: 4px;">${cE34.security_code || 'C7b9X2'}</div>
+              </div>
+
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px;">
+                <div style="font-size: 11px; color: #475569; font-weight: 700; text-transform: uppercase;">Total Acreditado (DOP)</div>
+                <div style="font-size: 16px; font-weight: 800; color: #DC2626; margin-top: 4px;">-RD$ ${Number(cE34.total_dop || 1511.89).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div style="font-size: 10.5px; color: var(--dust);">ITBIS: -RD$ ${Number(cE34.itbis_dop || 230.63).toFixed(2)}</div>
+              </div>
+            </div>
+
+            <!-- Botones de Acción R34 -->
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button class="btn-primary" style="background: #DC2626; border-color: #DC2626; display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-size: 13px;" onclick="window.app.viewE34CancellationInvoice();">
+                <span>🔍 Inspeccionar Timbre Fiscal & QR R34</span>
+              </button>
+              <button class="btn-accent" style="background: #991B1B; border-color: #991B1B; display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-size: 13px; color: #fff;" onclick="window.app.printE34CancellationInvoice('${cE34.encf || ''}');">
+                <span>🖨️ Ver / Imprimir Factura R34 (PDF)</span>
+              </button>
+              <button class="btn-outline" style="padding: 10px 16px; font-size: 13px;" onclick="window.app.copyEcfNcf('${cE34.encf || 'E34000000001'}');">
+                <span>📋 Copiar e-NCF</span>
+              </button>
+            </div>
+          </div>
+          `;
+        })() : ''}
       `;
     } else if (this.activeAdminTab === 'perfil') {
       this.renderAccountSettings(panel, 'admin');

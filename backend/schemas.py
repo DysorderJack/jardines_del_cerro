@@ -107,6 +107,12 @@ class PayPalVerifyOrder(BaseModel):
     user_id: Optional[str] = None
     context: str = "admin"
 
+class PayPalCancelSubscription(BaseModel):
+    context: Optional[str] = "admin"
+    user_id: Optional[str] = None
+    subscription_id: Optional[str] = None
+    reason: Optional[str] = None
+
 # AI Chat Request
 class AIChatPrompt(BaseModel):
     prompt: str
@@ -178,5 +184,13 @@ class UserProfileUpdate(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+# e-CF E34 Cancellation Schema
+class AdminCancelSubscriptionRequest(BaseModel):
+    user_email: Optional[str] = None
+    reason: Optional[str] = "Cancelación voluntaria de suscripción y rescisión de licencia SaaS"
+    modified_encf: Optional[str] = None
+    price_usd: Optional[float] = 24.99
+
 
 
