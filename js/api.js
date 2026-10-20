@@ -356,6 +356,54 @@ class ApiClient {
     return `${this.baseUrl || 'http://localhost:8000/api'}/ecf/invoice/${encodeURIComponent(encf)}/print`;
   }
 
+  // Facturación Electrónica e-CF Tipo E32 / R32 para Inquilinos
+  async getTenantPayments(period = 'Octubre 2026') {
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const candidateUrls = [];
+    if (this.baseUrl) candidateUrls.push(this.baseUrl);
+    if (this.remoteApi && !candidateUrls.includes(this.remoteApi)) candidateUrls.push(this.remoteApi);
+    if (isLocal && !candidateUrls.includes('http://127.0.0.1:8000/api')) candidateUrls.push('http://127.0.0.1:8000/api');
+
+    for (const base of candidateUrls) {
+      try {
+        const res = await fetch(`${base}/ecf/tenant-payments?period=${encodeURIComponent(period)}`, {
+          signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+        });
+        if (res.ok) {
+          this.isBackendOnline = true;
+          this.baseUrl = base;
+          return await res.json();
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  async emitTenantE32(payload) {
+    const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const candidateUrls = [];
+    if (this.baseUrl) candidateUrls.push(this.baseUrl);
+    if (this.remoteApi && !candidateUrls.includes(this.remoteApi)) candidateUrls.push(this.remoteApi);
+    if (isLocal && !candidateUrls.includes('http://127.0.0.1:8000/api')) candidateUrls.push('http://127.0.0.1:8000/api');
+
+    for (const base of candidateUrls) {
+      try {
+        const res = await fetch(`${base}/ecf/emit-e32`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined
+        });
+        if (res.ok) {
+          this.isBackendOnline = true;
+          this.baseUrl = base;
+          return await res.json();
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
   // Inteligencia Artificial (Google Gemini)
   async chatAI(prompt, contextType = 'public', userId = null, unit = null) {
     const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';

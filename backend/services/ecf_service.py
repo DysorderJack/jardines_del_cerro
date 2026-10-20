@@ -425,33 +425,95 @@ class ECFService:
         """
         Genera la Representación Impresa (RI) oficial de la DGII en formato HTML A4
         homologada conforme a la Norma General 06-2018 y Ley 32-23.
+        Soporta e-CF Tipo E31 (Crédito Fiscal) y Tipo E32 / R32 (Factura de Consumo para Inquilinos).
         """
         encf = invoice_data.get("encf", "E310000000001")
+        type_id = str(invoice_data.get("type_id", "31")).strip()
+        is_e32 = type_id == "32" or str(encf).upper().startswith("E32")
+
         sec_code = invoice_data.get("security_code", "A1B2C3")
         qr_url = invoice_data.get("qr_url", "https://ecf.dgii.gov.do/consultatimbre")
-        total_dop = invoice_data.get("total_dop", 1511.90)
-        subtotal_dop = invoice_data.get("subtotal_dop", 1281.27)
-        itbis_dop = invoice_data.get("itbis_dop", 230.63)
-        amount_usd = invoice_data.get("amount_usd", 24.99)
-        rate = invoice_data.get("exchange_rate", 60.50)
+        total_dop = float(invoice_data.get("total_dop", 1511.90))
+        subtotal_dop = float(invoice_data.get("subtotal_dop", total_dop if is_e32 else total_dop / 1.18))
+        itbis_dop = float(invoice_data.get("itbis_dop", 0.0 if is_e32 else total_dop - subtotal_dop))
+        amount_usd = float(invoice_data.get("amount_usd", 24.99))
+        rate = float(invoice_data.get("exchange_rate", 60.50))
         rnc_emisor = invoice_data.get("rnc_emisor", "132907401")
-        emisor = invoice_data.get("razon_social_emisor", "UTESA / Torre Residencial Jardines del Cerro IV, S.R.L.")
-        rnc_receptor = invoice_data.get("rnc_receptor", "131-88992-1")
-        receptor = invoice_data.get("razon_social_receptor", "Administración Condominio Jardines del Cerro IV")
-        concept = invoice_data.get("concept", "Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV")
-        user_email = invoice_data.get("user_id", "admin@jardinesdelcerro.do")
-        paypal_ref = invoice_data.get("paypal_reference", "PAYPAL-ORDER-DEFAULT")
+        emisor = invoice_data.get("razon_social_emisor", "Torre Residencial Jardines del Cerro IV, S.R.L.")
+
+        unit_str = invoice_data.get("unit", "")
+        if is_e32:
+            fiscal_title = "Factura de Consumo Electrónica (R32 / E32)"
+            fiscal_subtitle = "e-CF Tipo E32 · Consumidor Final · DGII Ley 32-23"
+            doc_title = f"Factura de Consumo Electrónica e-CF {encf} (R32) — DGII"
+            receptor_box_title = "Inquilino / Residente Receptor"
+            receptor_name = invoice_data.get("resident_name") or invoice_data.get("razon_social_receptor") or "Inquilino Condominal"
+            receptor_id_label = "Cédula / RNC Inquilino"
+            receptor_id_val = invoice_data.get("rnc_receptor") or "000-0000000-0"
+            extra_party_info = f"Unidad Residencial: <strong>Unidad {unit_str}</strong><br>Uso Fiscal: Comprobante Fiscal Oficial por Pago de Cuota de Mantenimiento" if unit_str else "Uso Fiscal: Comprobante Fiscal Oficial por Pago de Cuota de Mantenimiento"
+            item_title = invoice_data.get("concept") or f"Cuota de Mantenimiento Torre Jardines del Cerro IV - Unidad {unit_str}"
+            item_desc = "Cuota de mantenimiento ordinaria correspondiente al condominio, conforme al Reglamento de Régimen de Condominio (Ley 5038). Incluye servicios de conserjería, seguridad 24/7, energía de áreas comunes y mantenimiento preventivo de amenidades."
+            payment_method_label = invoice_data.get("payment_method") or "Transferencia Bancaria / PayPal"
+            totals_rows_html = f"""
+        <div class="total-row">
+          <span>Subtotal Exento (DOP):</span>
+          <span>RD$ {total_dop:,.2f}</span>
+        </div>
+        <div class="total-row">
+          <span>ITBIS Facturado (0% Exento):</span>
+          <span>RD$ 0.00</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>Total Pagado:</span>
+          <span>RD$ {total_dop:,.2f}</span>
+        </div>
+            """
+        else:
+            fiscal_title = "Factura Electrónica con Valor de Crédito Fiscal"
+            fiscal_subtitle = "e-CF Tipo E31 · Vencimiento: 31/12/2027"
+            doc_title = f"Factura Electrónica e-CF {encf} — DGII Ley 32-23"
+            receptor_box_title = "Comprador / Receptor Fiscal"
+            receptor_name = invoice_data.get("razon_social_receptor") or "Administración Condominio Jardines del Cerro IV"
+            receptor_id_label = "RNC / Cédula"
+            receptor_id_val = invoice_data.get("rnc_receptor") or "131-88992-1"
+            user_email = invoice_data.get("user_id", "admin@jardinesdelcerro.do")
+            extra_party_info = f"Email Administrador: {user_email}<br>Uso Fiscal: Deducción de Gasto Operativo y Crédito de ITBIS"
+            item_title = invoice_data.get("concept") or "Licencia SaaS Sistema Condominal Torre Jardines del Cerro IV"
+            item_desc = "Servicio de Software as a Service (SaaS) para la administración condominal integral, gestión de reservas, padrón de propietarios, telemetría y contabilidad automatizada."
+            payment_method_label = "PayPal Subscriptions (En Línea)"
+            totals_rows_html = f"""
+        <div class="total-row">
+          <span>Importe Original USD:</span>
+          <strong>US$ {amount_usd:.2f}</strong>
+        </div>
+        <div class="total-row">
+          <span>Tasa de Cambio Oficial:</span>
+          <span>RD$ {rate:.2f}</span>
+        </div>
+        <div class="total-row">
+          <span>Subtotal Gravado (DOP):</span>
+          <span>RD$ {subtotal_dop:,.2f}</span>
+        </div>
+        <div class="total-row">
+          <span>ITBIS Facturado (18%):</span>
+          <span>RD$ {itbis_dop:,.2f}</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>Total a Pagar:</span>
+          <span>RD$ {total_dop:,.2f}</span>
+        </div>
+            """
+
         raw_date = invoice_data.get("issued_at_str") or invoice_data.get("issued_at")
         date_str = cls.format_dominican_dt(raw_date)
-
-        # URL del generador de QR rápido o fallback
+        paypal_ref = invoice_data.get("paypal_reference", "PAG-VERIFICADO")
         qr_img_src = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={requests.utils.quote(qr_url)}"
 
         html = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Factura Electrónica e-CF {encf} — DGII Ley 32-23</title>
+  <title>{doc_title}</title>
   <style>
     @page {{
       size: A4;
@@ -666,9 +728,9 @@ class ECFService:
         </td>
         <td style="width: 45%; text-align: right;">
           <div class="fiscal-box">
-            <div class="fiscal-title">Factura Electrónica con Valor de Crédito Fiscal</div>
+            <div class="fiscal-title">{fiscal_title}</div>
             <div class="fiscal-encf">{encf}</div>
-            <div style="font-size: 11px; color: #475569;">e-CF Tipo E31 · Vencimiento: 31/12/2027</div>
+            <div style="font-size: 11px; color: #475569;">{fiscal_subtitle}</div>
             <div class="badge-dgii">✓ Ley 32-23 de Facturación Electrónica</div>
           </div>
         </td>
@@ -678,21 +740,20 @@ class ECFService:
     <!-- Parties Grid -->
     <div class="parties-grid">
       <div>
-        <div class="party-title">Comprador / Receptor Fiscal</div>
-        <div class="party-name">{receptor}</div>
+        <div class="party-title">{receptor_box_title}</div>
+        <div class="party-name">{receptor_name}</div>
         <div class="party-info">
-          RNC / Cédula: <strong>{rnc_receptor}</strong><br>
-          Email Administrador: {user_email}<br>
-          Uso Fiscal: Deducción de Gasto Operativo y Crédito de ITBIS
+          {receptor_id_label}: <strong>{receptor_id_val}</strong><br>
+          {extra_party_info}
         </div>
       </div>
       <div>
         <div class="party-title">Detalles de la Transacción</div>
         <div class="party-info">
           Fecha y Hora de Emisión: <strong>{date_str}</strong><br>
-          Método de Pago: <strong>PayPal Subscriptions (En Línea)</strong><br>
-          ID de Transacción PayPal: <code>{paypal_ref}</code><br>
-          Moneda de Facturación: <strong>DOP (Tasa Oficial: RD$ {rate:.2f}/USD)</strong>
+          Método de Pago: <strong>{payment_method_label}</strong><br>
+          Referencia de Pago: <code>{paypal_ref}</code><br>
+          Moneda de Facturación: <strong>DOP (Pesos Dominicanos)</strong>
         </div>
       </div>
     </div>
@@ -710,9 +771,9 @@ class ECFService:
       <tbody>
         <tr>
           <td>
-            <strong>{concept}</strong><br>
+            <strong>{item_title}</strong><br>
             <span style="font-size: 11px; color: #64748b;">
-              Servicio de Software as a Service (SaaS) para la administración condominal integral, gestión de reservas, padrón de propietarios, telemetría y contabilidad automatizada.
+              {item_desc}
             </span>
           </td>
           <td style="text-align: center; font-weight: 700;">1</td>
@@ -739,33 +800,14 @@ class ECFService:
 
       <!-- Totals Box -->
       <div class="totals-box">
-        <div class="total-row">
-          <span>Importe Original USD:</span>
-          <strong>US$ {amount_usd:.2f}</strong>
-        </div>
-        <div class="total-row">
-          <span>Tasa de Cambio Oficial:</span>
-          <span>RD$ {rate:.2f}</span>
-        </div>
-        <div class="total-row">
-          <span>Subtotal Gravado (DOP):</span>
-          <span>RD$ {subtotal_dop:,.2f}</span>
-        </div>
-        <div class="total-row">
-          <span>ITBIS Facturado (18%):</span>
-          <span>RD$ {itbis_dop:,.2f}</span>
-        </div>
-        <div class="total-row grand-total">
-          <span>Total a Pagar:</span>
-          <span>RD$ {total_dop:,.2f}</span>
-        </div>
+        {totals_rows_html}
       </div>
     </div>
 
     <!-- Legal Footer -->
     <div class="legal-footer">
       Documento electrónico emitido conforme a la <strong>Ley 32-23 sobre Facturación Electrónica de la República Dominicana</strong> y resoluciones complementarias de la <strong>Dirección General de Impuestos Internos (DGII)</strong>.
-      Esta Representación Impresa posee pleno valor legal, probatorio y tributario para deducción de costos y gastos (ISR) y crédito fiscal de ITBIS ante la administración tributaria.
+      Esta Representación Impresa posee pleno valor legal, probatorio y tributario conforme a las normativas de la República Dominicana.
     </div>
   </div>
 

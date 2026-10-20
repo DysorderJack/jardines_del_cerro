@@ -61,6 +61,16 @@ class PaymentCreate(BaseModel):
     amount: str = "RD$ 6,500.00"
     method: str = "PayPal Online"
 
+class TenantEmitE32Request(BaseModel):
+    tenant_name: str
+    tenant_cedula: Optional[str] = "034-0000000-0"
+    unit: str
+    period: Optional[str] = "Octubre 2026"
+    amount_dop: Optional[float] = 6500.0
+    concept: Optional[str] = None
+    payment_method: Optional[str] = "Transferencia Bancaria / PayPal"
+
+
 # Maintenance
 class TicketCreate(BaseModel):
     unit: str

@@ -1182,6 +1182,12 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             <span>Reportes Financieros</span>
           </button>
+          <!-- Pestaña Oficial: Pagos de Inquilinos & Facturación Electrónica e-CF E32 / R32 -->
+          <button class="portal-nav-btn" data-admin-tab="pagos_inquilinos" onclick="window.app.setAdminTab('pagos_inquilinos', this);" style="position: relative;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span>Pagos & e-CF Inquilinos</span>
+            <span class="badge" id="admin-unpaid-badge" style="display: none; margin-left: auto; font-size: 9px; padding: 1px 6px; background: #DC2626; color: #fff; font-weight: 700; border-radius: 9999px;">0</span>
+          </button>
           <!-- Pestaña Oficial: Copiloto IA Ejecutivo (Incluido con el Sistema) -->
           <button class="portal-nav-btn" data-admin-tab="ia_admin" onclick="window.app.setAdminTab('ia_admin', this);" style="position: relative;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -1716,6 +1722,190 @@
   </div>
 
   <!-- =========================================================================
+       MODAL: REGISTRAR PAGO DE INQUILINO & EMITIR FACTURA ELECTRÓNICA R32 (E32)
+       ========================================================================= -->
+  <div id="tenant-payment-modal" onclick="if(event.target === this) window.app.closeRegisterTenantPaymentModal();" style="position: fixed; inset: 0; z-index: 275; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; padding: 28px; position: relative; box-shadow: var(--shadow-xl);">
+      <button type="button" onclick="window.app.closeRegisterTenantPaymentModal();" style="position: absolute; top: 20px; right: 20px; font-size: 20px; color: var(--dust); line-height: 1; cursor: pointer; border: none; background: transparent;">✕</button>
+
+      <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px;">
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 14px rgba(5,150,105,0.25);">
+          💳
+        </div>
+        <div>
+          <h3 style="font-family: var(--font-display); font-size: 19px; font-weight: 800; color: var(--ink); margin: 0;">Registrar Pago & Emitir e-CF R32</h3>
+          <div style="font-size: 12px; color: var(--dust);">Factura de Consumo Electrónica para Inquilinos (Ley 32-23 · DGII)</div>
+        </div>
+      </div>
+
+      <form id="tenant-payment-form" onsubmit="window.app.submitTenantPaymentAndEmitE32(event);">
+        <input type="hidden" id="tenant-pay-id">
+        <input type="hidden" id="tenant-pay-unit">
+        
+        <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; color: var(--dust); font-weight: 600;">Unidad Condominal:</span>
+            <strong id="tenant-pay-unit-label" style="font-size: 14px; color: var(--ink);">Unidad 201</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; color: var(--dust); font-weight: 600;">Inquilino / Residente:</span>
+            <strong id="tenant-pay-name-label" style="font-size: 13.5px; color: var(--ink);">Marcos Peña</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: var(--dust); font-weight: 600;">Cédula / RNC:</span>
+            <span id="tenant-pay-cedula-label" style="font-family: monospace; font-size: 12.5px; color: var(--ink); font-weight: 700;">034-0045123-8</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">Período Fiscal</label>
+            <input type="text" id="tenant-pay-period" class="form-input" value="Octubre 2026" required style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--linen); border-radius: var(--radius-sm);">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">Método de Pago</label>
+            <select id="tenant-pay-method" class="form-input" style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--linen); border-radius: var(--radius-sm);">
+              <option value="Transferencia Banreservas">Transferencia Banreservas</option>
+              <option value="Transferencia Banco BHD">Transferencia Banco BHD</option>
+              <option value="Transferencia Banco Popular">Transferencia Banco Popular</option>
+              <option value="PayPal / Tarjeta Online">PayPal / Tarjeta Online</option>
+              <option value="Efectivo en Administración">Efectivo en Administración</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">Cuota Mensual (DOP)</label>
+            <input type="number" step="0.01" id="tenant-pay-amount" class="form-input" value="6500" required oninput="window.app.recalcTenantPayTotal();" style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--linen); border-radius: var(--radius-sm);">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">Recargo Mora (3%) (DOP)</label>
+            <input type="number" step="0.01" id="tenant-pay-penalty" class="form-input" value="195" oninput="window.app.recalcTenantPayTotal();" style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--linen); border-radius: var(--radius-sm);">
+          </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border: 1.5px solid #93C5FD; border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 11px; font-weight: 800; color: #1D4ED8; text-transform: uppercase;">Total a Facturar y Cobrar</div>
+            <div style="font-size: 11.5px; color: #4B5563;">Exento de ITBIS (Ley 5038 Régimen de Condominios)</div>
+          </div>
+          <div id="tenant-pay-total-display" style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: #1E3A8A;">
+            RD$ 6,695.00
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 4px;">Referencia Bancaria / Comprobante (Opcional)</label>
+          <input type="text" id="tenant-pay-reference" class="form-input" placeholder="Ej: BAN-REF-992019 / Recibo Depósito" style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid var(--linen); border-radius: var(--radius-sm);">
+        </div>
+
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-sm); padding: 12px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px;">
+          <input type="checkbox" id="tenant-pay-emit-ecf" checked style="margin-top: 3px; accent-color: #059669; width: 16px; height: 16px;">
+          <label for="tenant-pay-emit-ecf" style="font-size: 12px; color: #065F46; line-height: 1.45; cursor: pointer;">
+            <strong>Emitir inmediatamente Comprobante Fiscal Electrónico e-CF Tipo E32 (R32)</strong> ante la DGII e IMECF Platform con código QR oficial y código de seguridad.
+          </label>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" class="btn-outline" onclick="window.app.closeRegisterTenantPaymentModal();" style="padding: 10px 18px; font-size: 13px;">
+            Cancelar
+          </button>
+          <button type="submit" id="tenant-pay-submit-btn" class="btn-primary" style="padding: 10px 20px; font-size: 13px; background: #059669; border-color: #059669; display: inline-flex; align-items: center; gap: 8px;">
+            <span>⚡ Confirmar Pago & Emitir e-CF R32</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: CONSULTA Y REPRESENTACIÓN IMPRESA DE FACTURA e-CF E32 / R32
+       ========================================================================= -->
+  <div id="tenant-ecf-view-modal" onclick="if(event.target === this) window.app.closeTenantECFViewModal();" style="position: fixed; inset: 0; z-index: 285; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 30px; position: relative; box-shadow: var(--shadow-xl);">
+      <button type="button" onclick="window.app.closeTenantECFViewModal();" style="position: absolute; top: 20px; right: 20px; font-size: 20px; color: var(--dust); line-height: 1; cursor: pointer; border: none; background: transparent;">✕</button>
+
+      <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: #003087; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 14px rgba(0,48,135,0.25);">
+          🏛️
+        </div>
+        <div>
+          <h3 style="font-family: var(--font-display); font-size: 19px; font-weight: 800; color: #003087; margin: 0;">Factura de Consumo Electrónica (R32)</h3>
+          <div style="font-size: 12.5px; color: var(--dust);">Comprobante Fiscal e-CF Tipo E32 · Ley 32-23 (DGII)</div>
+        </div>
+      </div>
+
+      <!-- Card Central con Código QR y Datos de Seguridad -->
+      <div style="background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%); border: 2px solid #BFDBFE; border-radius: var(--radius-lg); padding: 20px; text-align: center; margin-bottom: 18px;">
+        <div style="font-size: 11px; font-weight: 800; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          ✓ Aceptado DGII · Validez Fiscal Inmediata
+        </div>
+
+        <div style="display: inline-block; padding: 10px; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 12px; border: 1px solid #E2E8F0;">
+          <img id="tenant-ecf-qr-img" src="" alt="Código QR DGII" style="width: 160px; height: 160px; display: block; margin: 0 auto; object-fit: contain;">
+        </div>
+
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <span style="font-size: 12px; color: var(--dust); font-weight: 600;">e-NCF:</span>
+          <span id="tenant-ecf-encf" style="font-family: monospace; font-size: 16px; font-weight: 800; color: #003087; background: #DBEAFE; padding: 2px 8px; border-radius: 6px;">E320000001361</span>
+        </div>
+
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: var(--dust); font-weight: 600;">Código de Seguridad:</span>
+          <span id="tenant-ecf-sec-code" style="font-family: monospace; font-size: 15px; font-weight: 800; color: #0F172A; background: #E2E8F0; padding: 2px 8px; border-radius: 6px;">K9aL2x</span>
+        </div>
+      </div>
+
+      <!-- Detalle Fiscal del Inquilino y Emisor -->
+      <div style="background: var(--surface); border: 1px solid var(--linen); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Emisor:</span>
+          <strong id="tenant-ecf-emisor">Torre Residencial Jardines del Cerro IV (RNC 132907401)</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Inquilino / Receptor:</span>
+          <strong id="tenant-ecf-receptor">Dra. Laura Batista (Unidad 101)</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Cédula / Documento:</span>
+          <strong id="tenant-ecf-cedula">034-0029182-3</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Concepto:</span>
+          <strong id="tenant-ecf-concept">Cuota de Mantenimiento Octubre 2026 - Unidad 101</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">Fecha y Hora Oficial:</span>
+          <strong id="tenant-ecf-date">02/10/2026 09:30 AM</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: var(--dust);">ITBIS (0% Exento Ley 5038):</span>
+          <strong style="color: #059669;">RD$ 0.00</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--linen); font-size: 13.5px;">
+          <span style="font-weight: 700; color: var(--ink);">Total Facturado (DOP):</span>
+          <strong id="tenant-ecf-total" style="color: #003087;">RD$ 6,500.00</strong>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn-accent" style="flex: 1; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onclick="window.app.printTenantECFInvoice(document.getElementById('tenant-ecf-encf')?.innerText || '');">
+          🖨️ Ver / Imprimir Factura A4
+        </button>
+        <a id="tenant-ecf-dgii-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-primary" style="flex: 1; text-align: center; text-decoration: none; padding: 12px 16px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #003087; border-color: #003087;">
+          🌐 Validar en DGII
+        </a>
+      </div>
+
+      <div style="margin-top: 14px; font-size: 11px; color: var(--dust); text-align: center; line-height: 1.4;">
+        Factura Electrónica de Consumo emitida conforme a la Norma General 06-2023 y Ley 32-23 de la República Dominicana.
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
        FLOATING AI ASSISTANT CHAT WIDGET
        ========================================================================= -->
   <button class="ai-chat-btn" id="ai-chat-toggle-btn" onclick="window.app.toggleAIChat();" title="Asistente Virtual">
@@ -1762,8 +1952,8 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/api.js?v=4.4"></script>
-  <script src="js/data.js?v=4.4"></script>
-  <script src="js/app.js?v=4.4"></script>
+  <script src="js/api.js?v=4.5"></script>
+  <script src="js/data.js?v=4.5"></script>
+  <script src="js/app.js?v=4.5"></script>
 </body>
 </html>

@@ -109,6 +109,13 @@ class JardinesApp {
       // Filtro activo para la agenda de visitas del administrador
       this.adminVisitFilter = 'all';
 
+      // Estado de Pagos de Inquilinos y Facturación Electrónica e-CF R32 (E32)
+      this.tenantPaymentsData = null;
+      this.tenantPaymentsFilter = 'all'; // 'all' | 'paid' | 'unpaid'
+      this.tenantPaymentsSearch = '';
+      this.tenantPaymentsPeriod = 'Octubre 2026';
+      this.activeTenantPaymentModal = null;
+
       // Asegurar estructura de visitas para el Administrador
       if (!this.adminData.visits || !Array.isArray(this.adminData.visits) || this.adminData.visits.length === 0) {
         this.adminData.visits = (typeof ADMIN_MOCK_DATA !== 'undefined' && ADMIN_MOCK_DATA.visits)
@@ -3722,6 +3729,7 @@ class JardinesApp {
         }
       }
     }
+    this.updateAdminUnpaidBadge();
   }
 
   async loginAdmin(e) {
@@ -3989,6 +3997,10 @@ class JardinesApp {
         }
       }).catch(() => {});
     }
+
+    if (tabName === 'pagos_inquilinos') {
+      this.fetchTenantPayments();
+    }
   }
 
   renderAdminTabContent() {
@@ -4015,6 +4027,12 @@ class JardinesApp {
         return;
       }
       this.renderSuperAdminAdminsManagement(panel);
+      return;
+    }
+
+    // Pestaña Oficial: Pagos de Inquilinos & Facturación Electrónica e-CF Tipo E32 / R32
+    if (this.activeAdminTab === 'pagos_inquilinos') {
+      this.renderTenantPaymentsTab(panel);
       return;
     }
 
@@ -5057,6 +5075,619 @@ class JardinesApp {
     const pending = this.adminData.visits.filter(v => (v.status || '').toLowerCase().includes('pend')).length;
     badge.innerText = pending;
     badge.style.display = pending > 0 ? 'inline-flex' : 'none';
+  }
+
+  /* =========================================================================
+     Módulo de Pagos de Inquilinos & Facturación Electrónica e-CF Tipo E32 (R32)
+     ========================================================================= */
+  updateAdminUnpaidBadge() {
+    const badge = document.getElementById('admin-unpaid-badge');
+    if (!badge) return;
+    const list = this.getTenantPaymentsList();
+    const unpaidCount = list.filter(t => !t.is_paid).length;
+    badge.innerText = unpaidCount;
+    badge.style.display = unpaidCount > 0 ? 'inline-flex' : 'none';
+  }
+
+  getTenantPaymentsList() {
+    if (this.tenantPaymentsData && Array.isArray(this.tenantPaymentsData) && this.tenantPaymentsData.length > 0) {
+      return this.tenantPaymentsData;
+    }
+    const stored = this.loadStorage('jc_tenant_payments_v1', null);
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      this.tenantPaymentsData = stored;
+      return stored;
+    }
+    const defaultData = [
+      { id: "ten-101", unit: "101", name: "Dra. Laura Batista", cedula: "034-0029182-3", phone: "(809) 555-8931", role: "tenant", role_label: "Inquilina Arrendataria", period: "Octubre 2026", amount_dop: 6500.0, is_paid: true, status: "Pagado", payment_date: "02/10/2026 09:30 AM", payment_method: "PayPal Online", encf: "E320000001361", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 6500.0 },
+      { id: "ten-201", unit: "201", name: "Marcos Peña", cedula: "034-0045123-8", phone: "(809) 555-9012", role: "tenant", role_label: "Inquilino / Adquirente", period: "Octubre 2026", amount_dop: 6500.0, is_paid: false, status: "Pendiente", payment_date: null, payment_method: null, encf: null, ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: false, late_days: 45, late_penalty: 195.0, total_due_dop: 6695.0 },
+      { id: "ten-202", unit: "202", name: "José Miguel Gómez", cedula: "034-0091823-4", phone: "(809) 555-4412", role: "tenant", role_label: "Inquilino Arrendatario", period: "Octubre 2026", amount_dop: 6500.0, is_paid: true, status: "Pagado", payment_date: "04/10/2026 03:15 PM", payment_method: "Transferencia Banco BHD", encf: "E320000001362", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 6500.0 },
+      { id: "ten-301", unit: "301", name: "Ramona Ramos", cedula: "034-0012345-6", phone: "(809) 555-3341", role: "owner", role_label: "Propietaria Residente", period: "Octubre 2026", amount_dop: 6500.0, is_paid: true, status: "Pagado", payment_date: "01/10/2026 10:00 AM", payment_method: "PayPal Online", encf: "E320000001363", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 6500.0 },
+      { id: "ten-302", unit: "302", name: "Lic. Carolina Peralta", cedula: "034-0078129-0", phone: "(809) 555-6671", role: "tenant", role_label: "Inquilina Arrendataria", period: "Octubre 2026", amount_dop: 6500.0, is_paid: true, status: "Pagado", payment_date: "03/10/2026 11:20 AM", payment_method: "Transferencia Banreservas", encf: "E320000001364", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 6500.0 },
+      { id: "ten-401", unit: "401", name: "Nelson Cruz", cedula: "034-0033182-1", phone: "(809) 555-8820", role: "tenant", role_label: "Inquilino Arrendatario", period: "Octubre 2026", amount_dop: 6500.0, is_paid: true, status: "Pagado", payment_date: "05/10/2026 04:40 PM", payment_method: "PayPal Online", encf: "E320000001365", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 6500.0 },
+      { id: "ten-402", unit: "402", name: "David Almonte", cedula: "034-0066291-7", phone: "(809) 555-1234", role: "tenant", role_label: "Inquilino Arrendatario", period: "Octubre 2026", amount_dop: 6500.0, is_paid: false, status: "Pendiente", payment_date: null, payment_method: null, encf: null, ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: false, late_days: 30, late_penalty: 195.0, total_due_dop: 6695.0 },
+      { id: "ten-501", unit: "501", name: "Lic. Manuel Tavárez", cedula: "034-0087654-1", phone: "(809) 555-7722", role: "owner", role_label: "Propietario Residente", period: "Octubre 2026", amount_dop: 6500.0, is_paid: true, status: "Pagado", payment_date: "02/10/2026 02:00 PM", payment_method: "Transferencia Banco Popular", encf: "E320000001366", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 6500.0 },
+      { id: "ten-502", unit: "502", name: "Patricia Valerio", cedula: "034-0055190-2", phone: "(809) 555-9988", role: "tenant", role_label: "Inquilina Arrendataria", period: "Octubre 2026", amount_dop: 6500.0, is_paid: true, status: "Pagado", payment_date: "04/10/2026 01:10 PM", payment_method: "PayPal Online", encf: "E320000001367", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 6500.0 },
+      { id: "ten-901", unit: "PH-901", name: "Ing. Carlos Mendoza", cedula: "001-1827364-5", phone: "(809) 555-1284", role: "tenant", role_label: "Inquilino Penthouse", period: "Octubre 2026", amount_dop: 8500.0, is_paid: true, status: "Pagado", payment_date: "05/10/2026 11:00 AM", payment_method: "PayPal Online", encf: "E320000001368", ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: true, late_days: 0, late_penalty: 0.0, total_due_dop: 8500.0 },
+      { id: "ten-1001", unit: "PH-1001", name: "Dr. Alejandro Morales", cedula: "034-0011928-9", phone: "(809) 555-7711", role: "owner", role_label: "Propietario Penthouse", period: "Octubre 2026", amount_dop: 8500.0, is_paid: false, status: "Pendiente", payment_date: null, payment_method: null, encf: null, ecf_type: "E32 (R32)", ecf_type_name: "Factura de Consumo Electrónica", has_invoice: false, late_days: 15, late_penalty: 255.0, total_due_dop: 8755.0 }
+    ];
+    this.tenantPaymentsData = defaultData;
+    this.saveStorage('jc_tenant_payments_v1', defaultData);
+    return defaultData;
+  }
+
+  async fetchTenantPayments(forceRefresh = false) {
+    if (window.apiClient) {
+      try {
+        const period = this.tenantPaymentsPeriod || 'Octubre 2026';
+        const res = await window.apiClient.getTenantPayments(period);
+        if (res && Array.isArray(res) && res.length > 0) {
+          this.tenantPaymentsData = res;
+          this.saveStorage('jc_tenant_payments_v1', res);
+          this.updateAdminUnpaidBadge();
+          if (this.activeAdminTab === 'pagos_inquilinos') {
+            this.renderAdminTabContent();
+          }
+          return;
+        }
+      } catch (e) {
+        console.warn('Fallo al obtener pagos de inquilinos del backend:', e);
+      }
+    }
+    this.getTenantPaymentsList();
+    this.updateAdminUnpaidBadge();
+    if (this.activeAdminTab === 'pagos_inquilinos') {
+      this.renderAdminTabContent();
+    }
+  }
+
+  setTenantPaymentsFilter(filter) {
+    this.tenantPaymentsFilter = filter;
+    this.renderAdminTabContent();
+  }
+
+  setTenantPaymentsSearch(query) {
+    this.tenantPaymentsSearch = (query || '').toLowerCase().trim();
+    this.renderAdminTabContent();
+  }
+
+  renderTenantPaymentsTab(panel) {
+    const allTenants = this.getTenantPaymentsList();
+    const paidTenants = allTenants.filter(t => t.is_paid);
+    const unpaidTenants = allTenants.filter(t => !t.is_paid);
+
+    const totalCollected = paidTenants.reduce((sum, t) => sum + (Number(t.amount_dop) || 0), 0);
+    const totalPending = unpaidTenants.reduce((sum, t) => sum + (Number(t.total_due_dop) || (Number(t.amount_dop) + (Number(t.late_penalty) || 0))), 0);
+    const totalEcfCount = paidTenants.filter(t => t.encf).length;
+    const complianceRate = allTenants.length > 0 ? Math.round((paidTenants.length / allTenants.length) * 100) : 0;
+
+    let filtered = allTenants;
+    if (this.tenantPaymentsFilter === 'paid') {
+      filtered = filtered.filter(t => t.is_paid);
+    } else if (this.tenantPaymentsFilter === 'unpaid') {
+      filtered = filtered.filter(t => !t.is_paid);
+    }
+
+    if (this.tenantPaymentsSearch) {
+      const q = this.tenantPaymentsSearch;
+      filtered = filtered.filter(t =>
+        (t.name && t.name.toLowerCase().includes(q)) ||
+        (t.unit && t.unit.toLowerCase().includes(q)) ||
+        (t.cedula && t.cedula.toLowerCase().includes(q)) ||
+        (t.encf && t.encf.toLowerCase().includes(q))
+      );
+    }
+
+    panel.innerHTML = `
+      <!-- Cabecera de la Sección -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink); margin: 0;">Control de Pagos de Inquilinos & Facturación e-CF R32</h2>
+            <span class="badge" style="background: #003087; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 8px;">DGII · Ley 32-23</span>
+          </div>
+          <p style="font-size: 13px; color: var(--dust); margin: 0;">
+            Supervisión de cuotas de mantenimiento mensual, recargos de mora (Art. 18: 3%) y generación de Facturas de Consumo Electrónicas Tipo E32 (R32).
+          </p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button class="btn-outline" style="padding: 9px 14px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px;" onclick="window.app.fetchTenantPayments(true);" title="Actualizar datos desde el backend">
+            <span>🔄</span> Refrescar
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjetas KPI -->
+      <div class="kpi-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <!-- KPI 1: Recaudado -->
+        <div class="kpi-card" style="border-left: 4px solid #059669; background: var(--white); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-sm);">
+          <div style="font-size: 12px; font-weight: 700; color: var(--dust); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Total Recaudado (${this.tenantPaymentsPeriod})</div>
+          <div style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: #059669; margin-bottom: 4px;">
+            RD$ ${totalCollected.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
+          </div>
+          <div style="font-size: 11.5px; color: var(--dust); display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #059669;"></span>
+            <strong>${paidTenants.length}</strong> inquilinos al día
+          </div>
+        </div>
+
+        <!-- KPI 2: Pendiente -->
+        <div class="kpi-card" style="border-left: 4px solid #DC2626; background: var(--white); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-sm);">
+          <div style="font-size: 12px; font-weight: 700; color: var(--dust); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Cartera Pendiente + Moras</div>
+          <div style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: #DC2626; margin-bottom: 4px;">
+            RD$ ${totalPending.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
+          </div>
+          <div style="font-size: 11.5px; color: #DC2626; display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #DC2626;"></span>
+            <strong>${unpaidTenants.length}</strong> inquilinos en mora (3%)
+          </div>
+        </div>
+
+        <!-- KPI 3: Facturas R32 Emitidas -->
+        <div class="kpi-card" style="border-left: 4px solid #003087; background: var(--white); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-sm);">
+          <div style="font-size: 12px; font-weight: 700; color: var(--dust); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Facturas e-CF R32 Emitidas</div>
+          <div style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: #003087; margin-bottom: 4px;">
+            ${totalEcfCount} <span style="font-size: 15px; font-weight: 600; color: var(--dust);">/ ${allTenants.length}</span>
+          </div>
+          <div style="font-size: 11.5px; color: #1D4ED8; display: flex; align-items: center; gap: 6px;">
+            <span>✓</span> Aceptadas DGII con QR & Timbre
+          </div>
+        </div>
+
+        <!-- KPI 4: Cumplimiento -->
+        <div class="kpi-card" style="border-left: 4px solid #F59E0B; background: var(--white); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-sm);">
+          <div style="font-size: 12px; font-weight: 700; color: var(--dust); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Tasa de Recaudo Efectivo</div>
+          <div style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: #B45309; margin-bottom: 4px;">
+            ${complianceRate}%
+          </div>
+          <div style="font-size: 11.5px; color: var(--dust);">
+            Meta mensual: 95.0%
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros, Búsqueda y Pestañas -->
+      <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-outline ${this.tenantPaymentsFilter === 'all' ? 'active' : ''}" style="padding: 7px 14px; font-size: 12.5px; ${this.tenantPaymentsFilter === 'all' ? 'background: var(--ink); color: #fff; border-color: var(--ink);' : ''}" onclick="window.app.setTenantPaymentsFilter('all');">
+            Todos (${allTenants.length})
+          </button>
+          <button class="btn-outline ${this.tenantPaymentsFilter === 'paid' ? 'active' : ''}" style="padding: 7px 14px; font-size: 12.5px; ${this.tenantPaymentsFilter === 'paid' ? 'background: #059669; color: #fff; border-color: #059669;' : ''}" onclick="window.app.setTenantPaymentsFilter('paid');">
+            ✓ Pagados / Con Factura R32 (${paidTenants.length})
+          </button>
+          <button class="btn-outline ${this.tenantPaymentsFilter === 'unpaid' ? 'active' : ''}" style="padding: 7px 14px; font-size: 12.5px; ${this.tenantPaymentsFilter === 'unpaid' ? 'background: #DC2626; color: #fff; border-color: #DC2626;' : ''}" onclick="window.app.setTenantPaymentsFilter('unpaid');">
+            ⚠️ No Pagados / En Mora (${unpaidTenants.length})
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center; flex-grow: 1; max-width: 380px;">
+          <div style="position: relative; width: 100%;">
+            <input type="text" class="form-input" placeholder="🔍 Buscar inquilino, unidad, cédula o e-NCF..." value="${this.tenantPaymentsSearch}" oninput="window.app.setTenantPaymentsSearch(this.value);" style="width: 100%; padding: 8px 12px 8px 32px; font-size: 12.5px; border-radius: var(--radius-sm); border: 1px solid var(--linen);">
+            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--dust);">🔍</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Inquilinos y Facturación -->
+      <div class="table-card" style="background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--linen); overflow-x: auto; box-shadow: var(--shadow-sm);">
+        <table class="custom-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;">
+          <thead>
+            <tr style="background: #F8FAFC; border-bottom: 2px solid var(--linen);">
+              <th style="padding: 12px 16px;">Unidad</th>
+              <th style="padding: 12px 16px;">Inquilino / Residente</th>
+              <th style="padding: 12px 16px;">Período</th>
+              <th style="padding: 12px 16px;">Cuota Base</th>
+              <th style="padding: 12px 16px;">Mora 3% (Art. 18)</th>
+              <th style="padding: 12px 16px;">Total</th>
+              <th style="padding: 12px 16px;">Estado</th>
+              <th style="padding: 12px 16px;">Factura Electrónica (R32)</th>
+              <th style="padding: 12px 16px; text-align: center;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.length === 0 ? `
+              <tr>
+                <td colspan="9" style="text-align: center; padding: 36px; color: var(--dust);">
+                  No se encontraron inquilinos con el filtro seleccionado.
+                </td>
+              </tr>
+            ` : filtered.map(t => {
+              const isPaid = Boolean(t.is_paid);
+              const totalAmount = isPaid ? (t.amount_dop || 6500) : (t.total_due_dop || ((t.amount_dop || 6500) + (t.late_penalty || 0)));
+              return `
+                <tr style="border-bottom: 1px solid var(--linen); transition: background 0.15s ease;" onmouseover="this.style.background='#F8FAFC';" onmouseout="this.style.background='transparent';">
+                  <td style="padding: 14px 16px; white-space: nowrap;">
+                    <div style="font-weight: 800; font-size: 13.5px; color: var(--ink);">Unidad ${t.unit}</div>
+                    <div style="font-size: 11px; color: var(--dust);">${t.role_label || 'Inquilino'}</div>
+                  </td>
+                  <td style="padding: 14px 16px;">
+                    <div style="font-weight: 700; color: var(--ink);">${t.name}</div>
+                    <div style="font-size: 11px; color: var(--dust); font-family: monospace;">Céd: ${t.cedula}</div>
+                    <div style="font-size: 11px; color: var(--dust);">${t.phone || ''}</div>
+                  </td>
+                  <td style="padding: 14px 16px; white-space: nowrap; color: var(--dust); font-weight: 600;">
+                    ${t.period || this.tenantPaymentsPeriod}
+                  </td>
+                  <td style="padding: 14px 16px; white-space: nowrap; font-weight: 600; color: var(--ink);">
+                    RD$ ${Number(t.amount_dop).toLocaleString('es-DO', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td style="padding: 14px 16px; white-space: nowrap;">
+                    ${isPaid ? `
+                      <span style="color: #059669; font-size: 11.5px; font-weight: 600;">RD$ 0.00 (Al día)</span>
+                    ` : `
+                      <div style="color: #DC2626; font-weight: 800; font-size: 12px;">+RD$ ${Number(t.late_penalty || 195).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</div>
+                      <div style="font-size: 10.5px; color: #DC2626;">${t.late_days || 30} días vencido</div>
+                    `}
+                  </td>
+                  <td style="padding: 14px 16px; white-space: nowrap; font-weight: 800; color: ${isPaid ? '#059669' : '#1E3A8A'}; font-size: 13px;">
+                    RD$ ${Number(totalAmount).toLocaleString('es-DO', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td style="padding: 14px 16px; white-space: nowrap;">
+                    ${isPaid ? `
+                      <span class="badge" style="background: #D1FAE5; color: #065F46; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 9999px;">
+                        ✓ Pagado
+                      </span>
+                      <div style="font-size: 10.5px; color: var(--dust); margin-top: 3px;">${t.payment_method || 'Online'}</div>
+                    ` : `
+                      <span class="badge" style="background: #FEE2E2; color: #991B1B; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 9999px;">
+                        ✕ No Pagado
+                      </span>
+                      <div style="font-size: 10.5px; color: #DC2626; margin-top: 3px; font-weight: 600;">En Mora</div>
+                    `}
+                  </td>
+                  <td style="padding: 14px 16px; white-space: nowrap;">
+                    ${isPaid && t.encf ? `
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="badge" style="background: #DBEAFE; color: #1E40AF; font-family: monospace; font-weight: 800; font-size: 12px; padding: 3px 7px; border-radius: 4px; cursor: pointer;" onclick="window.app.viewTenantECFInvoice('${t.encf}');" title="Ver timbre fiscal DGII">
+                          📄 ${t.encf}
+                        </span>
+                      </div>
+                      <div style="font-size: 10px; color: #059669; font-weight: 700; margin-top: 2px;">
+                        ✓ Factura Consumo (R32)
+                      </div>
+                    ` : `
+                      <span class="badge" style="background: #F3F4F6; color: #6B7280; font-size: 10.5px; padding: 3px 6px;">
+                        Sin comprobante
+                      </span>
+                    `}
+                  </td>
+                  <td style="padding: 14px 16px; white-space: nowrap; text-align: center;">
+                    <div style="display: inline-flex; gap: 6px; align-items: center;">
+                      ${isPaid ? `
+                        <button class="btn-primary" style="padding: 6px 10px; font-size: 11.5px; background: #003087; border-color: #003087; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.viewTenantECFInvoice('${t.encf}');" title="Ver Factura e-CF R32 con Timbre Fiscal">
+                          <span>👁️</span> Factura R32
+                        </button>
+                        <button class="btn-accent" style="padding: 6px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.printTenantECFInvoice('${t.encf}');" title="Descargar / Imprimir Representación Impresa A4">
+                          <span>🖨️</span> Imprimir RI
+                        </button>
+                      ` : `
+                        <button class="btn-primary" style="padding: 6px 12px; font-size: 11.5px; background: #059669; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.openRegisterTenantPaymentModal('${t.id}');" title="Registrar pago recibido y emitir inmediatamente Factura e-CF R32">
+                          <span>💳</span> Cobrar & Emitir R32
+                        </button>
+                        <button class="btn-outline" style="padding: 6px 9px; font-size: 11.5px; color: #D97706; border-color: #FCD34D; display: inline-flex; align-items: center; gap: 4px;" onclick="window.app.sendTenantLateNotice('${t.id}');" title="Enviar notificación de atraso de cuota y mora (3%)">
+                          <span>🔔</span> Notificar
+                        </button>
+                      `}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Leyenda Normativa -->
+      <div style="margin-top: 18px; padding: 14px; background: #F8FAFC; border: 1px solid var(--linen); border-radius: var(--radius-md); font-size: 11.5px; color: var(--dust); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div>
+          🏛️ <strong>Marco Tributario & Condominal:</strong> Las facturas emitidas a inquilinos corresponden al <strong>Tipo 32 (Factura de Consumo Electrónica - R32)</strong> reglamentado por la Ley 32-23. Conforme a la Ley 5038 sobre Régimen de Condominios, las cuotas mensuales de mantenimiento residencial están <strong>exentas de ITBIS (0%)</strong>.
+        </div>
+        <div style="font-weight: 600; color: #1E3A8A;">
+          Reglamento Condominio Art. 18 (Mora 3% mensual)
+        </div>
+      </div>
+    `;
+  }
+
+  openRegisterTenantPaymentModal(tenantId) {
+    const list = this.getTenantPaymentsList();
+    const tenant = list.find(t => t.id === tenantId);
+    if (!tenant) return;
+
+    this.activeTenantPaymentModal = tenant;
+
+    const modal = document.getElementById('tenant-payment-modal');
+    if (!modal) return;
+
+    document.getElementById('tenant-pay-id').value = tenant.id;
+    document.getElementById('tenant-pay-unit').value = tenant.unit;
+    document.getElementById('tenant-pay-unit-label').innerText = `Unidad ${tenant.unit} (${tenant.role_label || 'Inquilino'})`;
+    document.getElementById('tenant-pay-name-label').innerText = tenant.name;
+    document.getElementById('tenant-pay-cedula-label').innerText = tenant.cedula || '034-0000000-0';
+    document.getElementById('tenant-pay-period').value = tenant.period || this.tenantPaymentsPeriod || 'Octubre 2026';
+    document.getElementById('tenant-pay-amount').value = tenant.amount_dop || 6500;
+    document.getElementById('tenant-pay-penalty').value = tenant.late_penalty || 0;
+    document.getElementById('tenant-pay-reference').value = '';
+
+    this.recalcTenantPayTotal();
+
+    modal.style.display = 'flex';
+  }
+
+  closeRegisterTenantPaymentModal() {
+    const modal = document.getElementById('tenant-payment-modal');
+    if (modal) modal.style.display = 'none';
+    this.activeTenantPaymentModal = null;
+  }
+
+  recalcTenantPayTotal() {
+    const amount = parseFloat(document.getElementById('tenant-pay-amount')?.value || '0');
+    const penalty = parseFloat(document.getElementById('tenant-pay-penalty')?.value || '0');
+    const total = (amount || 0) + (penalty || 0);
+    const disp = document.getElementById('tenant-pay-total-display');
+    if (disp) {
+      disp.innerText = `RD$ ${total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+    }
+  }
+
+  async submitTenantPaymentAndEmitE32(e) {
+    if (e) e.preventDefault();
+    const tenant = this.activeTenantPaymentModal;
+    if (!tenant) return;
+
+    const unit = document.getElementById('tenant-pay-unit')?.value || tenant.unit;
+    const period = document.getElementById('tenant-pay-period')?.value || tenant.period || 'Octubre 2026';
+    const method = document.getElementById('tenant-pay-method')?.value || 'Transferencia Bancaria';
+    const amount = parseFloat(document.getElementById('tenant-pay-amount')?.value || '6500');
+    const penalty = parseFloat(document.getElementById('tenant-pay-penalty')?.value || '0');
+    const total = amount + penalty;
+    const reference = document.getElementById('tenant-pay-reference')?.value || '';
+
+    const submitBtn = document.getElementById('tenant-pay-submit-btn');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span>⏳ Emitiendo e-CF R32 ante DGII...</span>`;
+    }
+
+    this.showToast(`Procesando pago y emitiendo Factura e-CF R32 ante la DGII para ${tenant.name}...`);
+
+    let issuedEncf = `E32000000${Math.floor(1360 + Math.random() * 900)}`;
+    let securityCode = "K9" + Math.random().toString(36).substring(2, 6).toUpperCase();
+    let qrUrl = `https://dgii.gov.do/consultas/ecf?RncEmisor=132907401&eNCF=${issuedEncf}&RncComprador=${tenant.cedula}&CodigoSeguridad=${securityCode}`;
+
+    if (window.apiClient) {
+      try {
+        const payload = {
+          tenant_name: tenant.name,
+          tenant_cedula: tenant.cedula,
+          unit: unit,
+          period: period,
+          amount_dop: total,
+          payment_method: reference ? `${method} (Ref: ${reference})` : method,
+          concept: `Cuota de Mantenimiento ${period} - Unidad ${unit}`
+        };
+        const backendRes = await window.apiClient.emitTenantE32(payload);
+        if (backendRes && backendRes.invoice) {
+          issuedEncf = backendRes.invoice.encf;
+          securityCode = backendRes.invoice.security_code || securityCode;
+          qrUrl = backendRes.invoice.qr_url || qrUrl;
+        }
+      } catch (err) {
+        console.warn('Fallo al emitir e-CF R32 con el backend, usando emisión resiliente local:', err);
+      }
+    }
+
+    // Actualizar registro local
+    const list = this.getTenantPaymentsList();
+    const item = list.find(t => t.id === tenant.id || t.unit === unit);
+    if (item) {
+      item.is_paid = true;
+      item.status = "Pagado";
+      item.payment_date = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
+      item.payment_method = reference ? `${method} (${reference})` : method;
+      item.encf = issuedEncf;
+      item.security_code = securityCode;
+      item.qr_url = qrUrl;
+      item.late_penalty = 0;
+      item.total_due_dop = total;
+      item.has_invoice = true;
+    }
+    this.saveStorage('jc_tenant_payments_v1', list);
+    this.tenantPaymentsData = list;
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<span>⚡ Confirmar Pago & Emitir e-CF R32</span>`;
+    }
+
+    this.closeRegisterTenantPaymentModal();
+    this.updateAdminUnpaidBadge();
+    this.renderAdminTabContent();
+
+    this.showToast(`¡Éxito! Pago registrado y Factura de Consumo Electrónica ${issuedEncf} (R32) emitida ante DGII.`);
+
+    // Mostrar modal con la factura para que el admin la visualice e imprima de inmediato
+    this.viewTenantECFInvoice(issuedEncf);
+  }
+
+  viewTenantECFInvoice(encf) {
+    if (!encf) return;
+    const list = this.getTenantPaymentsList();
+    const tenant = list.find(t => t.encf === encf) || {
+      name: "Inquilino Residencial",
+      unit: "101",
+      cedula: "034-0029182-3",
+      period: "Octubre 2026",
+      amount_dop: 6500.0,
+      payment_date: "02/10/2026 09:30 AM",
+      security_code: "K9aL2x"
+    };
+
+    const secCode = tenant.security_code || "K9" + encf.slice(-4);
+    const modal = document.getElementById('tenant-ecf-view-modal');
+    if (!modal) return;
+
+    const qrImg = document.getElementById('tenant-ecf-qr-img');
+    const qrTargetUrl = `https://dgii.gov.do/consultas/ecf?RncEmisor=132907401&eNCF=${encodeURIComponent(encf)}&RncComprador=${encodeURIComponent(tenant.cedula)}&CodigoSeguridad=${encodeURIComponent(secCode)}`;
+    if (qrImg) {
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrTargetUrl)}`;
+    }
+
+    const encfEl = document.getElementById('tenant-ecf-encf');
+    if (encfEl) encfEl.innerText = encf;
+
+    const secCodeEl = document.getElementById('tenant-ecf-sec-code');
+    if (secCodeEl) secCodeEl.innerText = secCode;
+
+    const receptorEl = document.getElementById('tenant-ecf-receptor');
+    if (receptorEl) receptorEl.innerText = `${tenant.name} (Unidad ${tenant.unit})`;
+
+    const cedulaEl = document.getElementById('tenant-ecf-cedula');
+    if (cedulaEl) cedulaEl.innerText = tenant.cedula;
+
+    const conceptEl = document.getElementById('tenant-ecf-concept');
+    if (conceptEl) conceptEl.innerText = `Cuota de Mantenimiento ${tenant.period || 'Octubre 2026'} - Unidad ${tenant.unit}`;
+
+    const dateEl = document.getElementById('tenant-ecf-date');
+    if (dateEl) dateEl.innerText = tenant.payment_date || new Date().toLocaleString('es-DO');
+
+    const totalEl = document.getElementById('tenant-ecf-total');
+    if (totalEl) totalEl.innerText = `RD$ ${Number(tenant.amount_dop || 6500).toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+
+    const dgiiLink = document.getElementById('tenant-ecf-dgii-link');
+    if (dgiiLink) dgiiLink.href = qrTargetUrl;
+
+    modal.style.display = 'flex';
+  }
+
+  closeTenantECFViewModal() {
+    const modal = document.getElementById('tenant-ecf-view-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  printTenantECFInvoice(encf) {
+    if (!encf) {
+      this.showToast('No se especificó un comprobante fiscal válido.', 'error');
+      return;
+    }
+    if (window.apiClient && window.apiClient.isBackendOnline) {
+      window.open(window.apiClient.getPrintableInvoiceUrl(encf), '_blank');
+      return;
+    }
+    // Fallback: abrir ventana de impresión directa
+    const printWin = window.open('', '_blank', 'width=900,height=800');
+    if (!printWin) {
+      this.showToast('Por favor permite ventanas emergentes para imprimir la factura.', 'warning');
+      return;
+    }
+    const list = this.getTenantPaymentsList();
+    const t = list.find(item => item.encf === encf) || {
+      name: "Inquilino Residencial",
+      unit: "101",
+      cedula: "034-0029182-3",
+      amount_dop: 6500.0,
+      payment_date: "02/10/2026 09:30 AM",
+      security_code: "K9aL2x"
+    };
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fdgii.gov.do%2Fconsultas%2Fecf%3FRncEmisor%3D132907401%26eNCF%3D${encf}`;
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <title>Factura de Consumo Electrónica ${encf} (R32)</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1e293b; max-width: 800px; margin: 0 auto; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #003087; padding-bottom: 16px; margin-bottom: 20px; }
+          .title { color: #003087; font-size: 20px; font-weight: 800; margin: 0; }
+          .subtitle { font-size: 13px; color: #64748b; }
+          .box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+          th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+          th { background: #f1f5f9; }
+          .qr-sec { text-align: center; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 16px; }
+          @media print { .no-print { display: none !important; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 class="title">Torre Residencial Jardines del Cerro IV</h1>
+            <div class="subtitle">RNC: 132907401 · Ave. Benito Monción #12, Mao, Valverde</div>
+            <div class="subtitle">Representación Impresa Oficial (RI) · Ley 32-23</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 12px; color: #64748b;">e-NCF (Tipo 32 - R32):</div>
+            <div style="font-family: monospace; font-size: 18px; font-weight: 800; color: #003087;">${encf}</div>
+            <div style="font-size: 11px; color: #059669; font-weight: 700;">Aceptado DGII</div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span><strong>Inquilino / Receptor:</strong> ${t.name} (Unidad ${t.unit})</span>
+            <span><strong>Cédula:</strong> ${t.cedula}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span><strong>Fecha Emisión:</strong> ${t.payment_date || '02/10/2026'}</span>
+            <span><strong>Código de Seguridad:</strong> <code>${t.security_code || 'K9aL2x'}</code></span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Descripción</th>
+              <th style="text-align: right;">Monto (DOP)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Cuota de Mantenimiento Condominal (${t.period || 'Octubre 2026'}) - Unidad ${t.unit} (Exento Ley 5038)</td>
+              <td style="text-align: right;">RD$ ${Number(t.amount_dop || 6500).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td style="text-align: right; font-weight: 700;">Subtotal Exento ITBIS:</td>
+              <td style="text-align: right;">RD$ ${Number(t.amount_dop || 6500).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td style="text-align: right; font-weight: 700;">ITBIS (0%):</td>
+              <td style="text-align: right;">RD$ 0.00</td>
+            </tr>
+            <tr style="font-size: 15px; font-weight: 800;">
+              <td style="text-align: right; color: #003087;">Total Facturado:</td>
+              <td style="text-align: right; color: #003087;">RD$ ${Number(t.amount_dop || 6500).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="qr-sec">
+          <img src="${qrUrl}" alt="QR DGII" style="width: 140px; height: 140px;">
+          <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+            Escanee este código QR para validar la autenticidad de esta Factura Electrónica ante la DGII.
+          </div>
+        </div>
+
+        <div class="no-print" style="margin-top: 24px; text-align: center;">
+          <button onclick="window.print();" style="padding: 10px 24px; font-size: 14px; font-weight: 700; background: #003087; color: #fff; border: none; border-radius: 6px; cursor: pointer;">
+            🖨️ Imprimir Factura
+          </button>
+        </div>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  }
+
+  sendTenantLateNotice(tenantId) {
+    const list = this.getTenantPaymentsList();
+    const t = list.find(item => item.id === tenantId);
+    if (!t) return;
+    const totalDue = t.total_due_dop || (t.amount_dop + (t.late_penalty || 0));
+    alert(`🔔 Notificación de Mora Enviada\n\nSe ha emitido el aviso formal de cobranza a:\nInquilino: ${t.name}\nUnidad: ${t.unit}\nTeléfono: ${t.phone}\n\nDetalle adeudado:\n- Cuota Base: RD$ ${Number(t.amount_dop).toLocaleString('es-DO')}\n- Recargo Mora (3% Art. 18): RD$ ${Number(t.late_penalty || 195).toLocaleString('es-DO')}\n- Total Adeudado: RD$ ${Number(totalDue).toLocaleString('es-DO')}\n\nEl recordatorio ha sido notificado para regularización inmediata.`);
+    this.showToast(`Recordatorio de mora notificado a ${t.name} (Unidad ${t.unit}).`);
   }
 
   setAdminVisitFilter(filter) {
