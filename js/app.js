@@ -5462,17 +5462,6 @@ class JardinesApp {
       issued_at_str: subInfo.issuedAtStr || this.getDominicanFormattedDateTime()
     };
 
-    if (this.api && this.api.isBackendOnline) {
-      window.open(this.api.getPrintableInvoiceUrl(data.encf), '_blank');
-      return;
-    }
-
-    const printWin = window.open('', '_blank', 'width=900,height=800');
-    if (!printWin) {
-      this.showToast('Por favor permite ventanas emergentes para imprimir la factura.', 'warning');
-      return;
-    }
-
     const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.qr_url)}`;
 
     printWin.document.write(`
