@@ -3240,6 +3240,28 @@ class JardinesApp {
     }
   }
 
+  loadPayPalSdkScript(clientId) {
+    return new Promise((resolve, reject) => {
+      const existingScript = document.getElementById('paypal-sdk-script');
+      if (existingScript) {
+        if (existingScript.getAttribute('data-client-id') === clientId && window.paypal) {
+          return resolve();
+        }
+        existingScript.remove();
+        if (window.paypal) delete window.paypal;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'paypal-sdk-script';
+      script.setAttribute('data-client-id', clientId);
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&components=buttons&enable-funding=card`;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('No se pudo cargar el script del SDK de PayPal desde paypal.com. Verifica conexión a internet o credenciales.'));
+      document.head.appendChild(script);
+    });
+  }
+
   async processDirectAdminSubscription() {
     const plan = this.activeAiPlan || { id: 'admin-plan-monthly', name: 'Licencia SaaS Sistema Condominal Pro (Mensual)', priceUsd: 24.99, period: 'Mensual' };
     const payerEmail = (this.currentUser && this.currentUser.email) ? this.currentUser.email.toLowerCase() : 'gerencia@jardinesdelcerro.do';
