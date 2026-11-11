@@ -7,8 +7,21 @@
 class ApiClient {
   constructor() {
     this.remoteApi = 'https://jardines-del-cerro.onrender.com/api';
+    this.cloudRunApi = ''; // Si tienes una URL de Cloud Run dedicada, puedes colocarla aquí como fallback
+
     const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
-    this.baseUrl = isLocal ? 'http://127.0.0.1:8000/api' : this.remoteApi;
+    const isSameHost = window.location.origin && (window.location.hostname.endsWith('run.app') || window.location.hostname.endsWith('onrender.com'));
+
+    if (isLocal) {
+      this.baseUrl = 'http://127.0.0.1:8000/api';
+    } else if (isSameHost) {
+      // Si la web se abre directamente desde el contenedor en Cloud Run o Render
+      this.baseUrl = `${window.location.origin}/api`;
+    } else {
+      // Si se abre desde Vercel u otro dominio externo
+      this.baseUrl = this.remoteApi;
+    }
+
     this.isBackendOnline = false;
     this.checkConnection();
 
@@ -24,6 +37,7 @@ class ApiClient {
 
   async checkConnection() {
     const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+    const isSameHost = window.location.origin && (window.location.hostname.endsWith('run.app') || window.location.hostname.endsWith('onrender.com'));
 
     // 1. Si estamos en entorno local, probar primero si el backend local (127.0.0.1:8000) está activo
     if (isLocal) {
@@ -38,17 +52,34 @@ class ApiClient {
       } catch (e) {}
     }
 
-    // 2. Conectar con Render en la nube (producción o fallback)
-    try {
-      const remoteHealth = this.remoteApi.replace('/api', '') + '/health';
-      const resRemote = await fetch(remoteHealth, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
-      if (resRemote.ok) {
-        this.baseUrl = this.remoteApi;
-        this.isBackendOnline = true;
-        console.log(`✓ Conectado al backend en la nube en Render: ${this.baseUrl}`);
-        return true;
-      }
-    } catch (e2) {}
+    // 2. Si se abre directamente desde el contenedor unificado en Google Cloud Run o Render
+    if (isSameHost) {
+      try {
+        const sameHealth = `${window.location.origin}/health`;
+        const resSame = await fetch(sameHealth, { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined });
+        if (resSame.ok) {
+          this.baseUrl = `${window.location.origin}/api`;
+          this.isBackendOnline = true;
+          console.log(`✓ Conectado al backend en el mismo host (Cloud Run): ${this.baseUrl}`);
+          return true;
+        }
+      } catch (eHost) {}
+    }
+
+    // 3. Conectar con Backend remoto (Render o Cloud Run si se accede desde Vercel)
+    const remoteEndpoints = [this.remoteApi, this.cloudRunApi].filter(Boolean);
+    for (const remote of remoteEndpoints) {
+      try {
+        const remoteHealth = remote.replace('/api', '') + '/health';
+        const resRemote = await fetch(remoteHealth, { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
+        if (resRemote.ok) {
+          this.baseUrl = remote;
+          this.isBackendOnline = true;
+          console.log(`✓ Conectado al backend en la nube: ${this.baseUrl}`);
+          return true;
+        }
+      } catch (e2) {}
+    }
 
     this.isBackendOnline = false;
     console.log('ℹ Backend FastAPI en espera. Reintentando en segundo plano...');

@@ -1,4 +1,12 @@
+# ===================================================================
+# Dockerfile Standalone para Backend API en Google Cloud Run / Render
+# Torre Residencial Jardines del Cerro IV
+# ===================================================================
+
 FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -6,11 +14,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar código fuente
+# Copiar código fuente del backend
 COPY . .
 
-# Puerto expuesto
-EXPOSE 8000
+# Puerto configurable (Cloud Run inyecta $PORT dinámicamente)
+ENV PORT=8080
+ENV HOST=0.0.0.0
+EXPOSE 8080
 
-# Comando de arranque
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Arrancar Uvicorn leyendo el puerto inyectado por el entorno
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]

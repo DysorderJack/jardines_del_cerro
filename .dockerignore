@@ -1,0 +1,16 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+env/
+venv/
+*.db-journal
+*.log
+scratch/
+docs/
+figma_bundle/
+

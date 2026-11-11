@@ -1,0 +1,55 @@
+# ===================================================================
+# Pipeline Oficial de CI/CD para Google Cloud Build
+# Proyecto: Torre Residencial Jardines del Cerro IV
+# ===================================================================
+
+steps:
+  # -----------------------------------------------------------------
+  # Paso 1: Construir la imagen de contenedor con Docker
+  # -----------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-docker-image'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/jardines-del-cerro:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/jardines-del-cerro:latest'
+      - '.'
+
+  # -----------------------------------------------------------------
+  # Paso 2: Subir la imagen al registro de contenedores de Google
+  # -----------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-docker-image'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/jardines-del-cerro:$COMMIT_SHA'
+
+  # -----------------------------------------------------------------
+  # Paso 3: Desplegar automáticamente en Google Cloud Run (HTTPS)
+  # -----------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-to-cloud-run'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'jardines-del-cerro-app'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/jardines-del-cerro:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+
+images:
+  - 'gcr.io/$PROJECT_ID/jardines-del-cerro:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/jardines-del-cerro:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
