@@ -70,6 +70,13 @@ class JardinesApp {
     this.activeOwnerTab = 'overview';
     this.activeAdminTab = 'inventario';
 
+    // Estado del Centro de Consultas y Reportes (REP-01 a REP-30)
+    this.selectedReportCode = 'REP-01';
+    this.selectedReportCategory = 'Todos';
+    this.reportSearchFilter = '';
+    this.reportDateDesde = '';
+    this.reportDateHasta = '';
+
     // Estado del Simulador Hipotecario
     this.mortgageState = {
       price: 145000,
@@ -4810,72 +4817,7 @@ class JardinesApp {
         </div>
       `;
     } else if (this.activeAdminTab === 'reportes') {
-      panel.innerHTML = `
-        <div style="margin-bottom: 24px;">
-          <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--ink);">Reportes Financieros de Condominio</h2>
-          <p style="font-size: 13px; color: var(--dust);">Tasa de recaudo mensual y balance del fondo de reserva</p>
-        </div>
-
-        <div class="table-card">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Mes / Período</th>
-                <th>Monto Recaudado</th>
-                <th>Monto Pendiente</th>
-                <th>Tasa de Cobranza</th>
-                <th>Fondo de Reserva Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.reports.map(rep => `
-                <tr>
-                  <td><strong>${rep.month}</strong></td>
-                  <td><strong style="color: #059669;">${rep.collected}</strong></td>
-                  <td style="color: #DC2626;">${rep.pending}</td>
-                  <td><span class="badge badge-success">${rep.collectionRate}</span></td>
-                  <td><strong>${rep.reserveFund}</strong></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Repositorio Oficial de Modelos Legales del Condominio (Ley 5038) -->
-        <div style="margin-top: 36px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-          <div>
-            <h3 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--ink);">Modelos y Documentación Legal del Condominio (Ley 5038)</h3>
-            <p style="font-size: 12.5px; color: var(--dust);">Expedientes y contratos oficiales para descarga, gestión condominal y asambleas notariales</p>
-          </div>
-          <span class="badge badge-accent" style="font-size: 11px;">Suite Ejecutiva · Descarga Oficial</span>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
-          ${((typeof OWNER_MOCK_DATA !== 'undefined' && OWNER_MOCK_DATA.documentos) ? OWNER_MOCK_DATA.documentos : []).map(doc => {
-            const fileName = (doc.file || '').split('/').pop();
-            return `
-            <div style="background: var(--white); border: 1px solid var(--linen); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow-sm);">
-              <div>
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                  <span class="badge badge-neutral" style="font-size: 10px;">${doc.category || 'Legal'}</span>
-                  <span style="font-size: 11px; color: var(--dust);">${doc.size}</span>
-                </div>
-                <h4 style="font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.35; margin-bottom: 6px;">${doc.name}</h4>
-                <p style="font-size: 11.5px; color: #4B5563; line-height: 1.45; margin-bottom: 14px;">${doc.desc || ''}</p>
-              </div>
-              <div style="display: flex; gap: 8px; margin-top: auto;">
-                <a href="${doc.file}" download="${fileName}" class="btn-primary" style="flex: 1; padding: 7px 12px; font-size: 11.5px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px;" onclick="window.app.showToast('Descargando ${doc.name.substring(0, 30)}... (PDF Oficial)');">
-                  <span>📥 Descargar PDF</span>
-                </a>
-                <button type="button" class="btn-outline" style="padding: 7px 12px; font-size: 11.5px; border-radius: 6px;" onclick="window.app.previewOfficialDocument('${doc.id || doc.file}');" title="Previsualizar en visor interactivo">
-                  <span>👁️ Ver</span>
-                </button>
-              </div>
-            </div>
-            `;
-          }).join('')}
-        </div>
-      `;
+      this.renderReportsCenter(panel);
     } else if (this.activeAdminTab === 'ia_admin') {
       const isSub = this.isAdminSubscribed();
       const adminChat = this.getAdminAIChat();
@@ -9281,6 +9223,475 @@ class JardinesApp {
     const text = encodeURIComponent(customText || 'Hola, me comunico desde la página web de Jardines del Cerro IV.');
     window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
   }
+  /**
+   * =========================================================================
+   * CENTRO DE CONSULTAS Y REPORTES (REP-01 a REP-30) - UTESA INF-424
+   * Renderizado integral interactivo compatible con Cloud Run
+   * =========================================================================
+   */
+  renderReportsCenter(panel) {
+    if (!panel) panel = document.getElementById('admin-content-panel');
+    if (!panel) return;
+
+    const allReports = window.REPORTS_CATALOG_DATA || [];
+    const activeCategory = this.selectedReportCategory || 'Todos';
+    const activeCode = this.selectedReportCode || 'REP-01';
+
+    // Obtener reporte activo
+    let currentReport = allReports.find(r => r.code === activeCode) || allReports[0] || {
+      code: 'REP-01',
+      category: 'Comercial & Ventas',
+      title: 'Disponibilidad y Catálogo de Unidades Residenciales',
+      goal: 'Monitorear el estado comercial en tiempo real de los 20 apartamentos y penthouses de la torre.',
+      kpi1: { label: 'Total Unidades', val: '20 Unidades' },
+      kpi2: { label: 'Valor Inventario', val: 'US$ 3,450,000' },
+      kpi3: { label: 'Disponibles', val: '7 Unidades (35%)' },
+      headers: ['Unidad', 'Nivel', 'Tipología', 'Metraje', 'Hab / Baños', 'Precio USD', 'Alícuota %', 'Estado'],
+      rows: [],
+      rules: 'Unidades bloqueadas en base de datos para impedir duplicidad.',
+      icon: '🏢'
+    };
+
+    // Filtrar reportes para la barra de selección y cuadrícula
+    const visibleReports = activeCategory === 'Todos'
+      ? allReports
+      : allReports.filter(r => r.category === activeCategory);
+
+    // Filtrar filas de la tabla si hay texto de búsqueda
+    const searchTerm = (this.reportSearchFilter || '').trim().toLowerCase();
+    const displayRows = (currentReport.rows || []).filter(row => {
+      if (!searchTerm) return true;
+      return row.some(cell => String(cell).toLowerCase().includes(searchTerm));
+    });
+
+    const categories = window.REPORT_CATEGORIES || [
+      "Todos",
+      "Comercial & Ventas",
+      "Fiscales DGII",
+      "Cobranzas & Cuotas",
+      "Padrón & Residentes",
+      "Finanzas & Egresos",
+      "Mantenimiento & Activos",
+      "Gobernanza & Asambleas"
+    ];
+
+    panel.innerHTML = `
+      <div class="reports-module-wrap">
+        <!-- Encabezado Superior -->
+        <div class="reports-top-header">
+          <div class="reports-title-area">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+              <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 11px; font-weight: 700;">● CATÁLOGO MAESTRO OFICIAL • CONSULTAS Y REPORTES</span>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 11px; font-weight: 700;">● EN TIEMPO REAL</span>
+            </div>
+            <h2>
+              <span style="color: #F59E0B;">📊</span> Centro de Consultas y Reportes
+            </h2>
+            <p>Módulo integral centralizado de consultas y reportes operativos, fiscales DGII, ventas inmobiliarias, cobranzas, padrón de propietarios, mantenimiento y finanzas.</p>
+          </div>
+          <div class="reports-top-actions">
+            <button type="button" class="btn-report-action btn-report-csv" onclick="window.app.exportReportCSV();" title="Descargar datos en formato CSV para Microsoft Excel">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Exportar CSV (Excel)</span>
+            </button>
+            <button type="button" class="btn-report-action btn-report-pdf" onclick="window.app.printCurrentReport();" title="Imprimir o guardar reporte oficial en formato PDF">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <span>Imprimir / Guardar PDF</span>
+            </button>
+            <a href="docs/Catalogo_Reportes_y_Consultas_Jardines_del_Cerro_IV.pdf" download="Catalogo_Reportes_y_Consultas_Jardines_del_Cerro_IV.pdf" class="btn-report-action" style="background: #1E3A8A; color: #93C5FD; border: 1px solid #3B82F6;" onclick="window.app.showToast('Descargando Catálogo Maestro Oficial de 30 Reportes (PDF 34 Páginas)...');" title="Descargar catálogo formal académico en PDF con los 30 reportes completos">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="18"/><line x1="15" y1="15" x2="12" y2="18"/></svg>
+              <span>Catálogo PDF Maestro (34 Págs)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Barra de Categorías / Filtros Píldoras -->
+        <div class="reports-pills-row">
+          ${categories.map(cat => {
+            const isActive = cat === activeCategory;
+            return `
+              <button type="button" class="report-pill-btn ${isActive ? 'active' : ''}" onclick="window.app.filterReportsCategory('${cat}');">
+                <span>${cat}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Barra de Controles y Ejecución de Consulta -->
+        <div class="reports-control-bar">
+          <div class="reports-control-item" style="flex: 2; min-width: 280px;">
+            <label for="admin-report-select">Seleccione el Reporte o Consulta a Generar:</label>
+            <select id="admin-report-select" onchange="window.app.onSelectReport(this.value);" style="width: 100%;">
+              ${visibleReports.map(rep => `
+                <option value="${rep.code}" ${rep.code === activeCode ? 'selected' : ''}>
+                  ${rep.code}: ${rep.title}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+          <div class="reports-control-item" style="flex: 1; min-width: 140px;">
+            <label for="admin-report-desde">Fecha Desde:</label>
+            <input type="date" id="admin-report-desde" value="${this.reportDateDesde || ''}" onchange="window.app.onReportFilterChange();" />
+          </div>
+          <div class="reports-control-item" style="flex: 1; min-width: 140px;">
+            <label for="admin-report-hasta">Fecha Hasta:</label>
+            <input type="date" id="admin-report-hasta" value="${this.reportDateHasta || ''}" onchange="window.app.onReportFilterChange();" />
+          </div>
+          <div class="reports-control-item" style="flex: 1.5; min-width: 200px;">
+            <label for="admin-report-search">Buscar en Resultados:</label>
+            <input type="text" id="admin-report-search" placeholder="Filtrar por texto..." value="${this.reportSearchFilter || ''}" oninput="window.app.onFilterReportSearch(this.value);" />
+          </div>
+          <div class="reports-control-item" style="margin-top: auto;">
+            <button type="button" class="btn-execute-query" onclick="window.app.runReportQuery();">
+              <span>⚡ Ejecutar Consulta</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tarjetas de Métricas KPI -->
+        <div class="reports-kpi-row">
+          <div class="report-kpi-card">
+            <div class="report-kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: #60A5FA;">
+              📋
+            </div>
+            <div class="report-kpi-info">
+              <span class="report-kpi-label">${currentReport.kpi1 ? currentReport.kpi1.label : 'TOTAL REGISTROS'}</span>
+              <span class="report-kpi-val">${currentReport.kpi1 ? currentReport.kpi1.val : displayRows.length + ' Filas'}</span>
+            </div>
+          </div>
+          <div class="report-kpi-card">
+            <div class="report-kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: #34D399;">
+              💵
+            </div>
+            <div class="report-kpi-info">
+              <span class="report-kpi-label">${currentReport.kpi2 ? currentReport.kpi2.label : 'MONTO / VALOR'}</span>
+              <span class="report-kpi-val" style="color: #34D399;">${currentReport.kpi2 ? currentReport.kpi2.val : 'N/A'}</span>
+            </div>
+          </div>
+          <div class="report-kpi-card">
+            <div class="report-kpi-icon" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24;">
+              📈
+            </div>
+            <div class="report-kpi-info">
+              <span class="report-kpi-label">${currentReport.kpi3 ? currentReport.kpi3.label : 'MÉTRICA / PROMEDIO'}</span>
+              <span class="report-kpi-val" style="color: #FBBF24;">${currentReport.kpi3 ? currentReport.kpi3.val : '100%'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de Datos del Reporte Seleccionado -->
+        <div class="reports-table-card" id="report-results-table-card">
+          <div class="reports-table-header">
+            <div class="reports-table-title">
+              <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; font-weight: 700; font-size: 11px;">
+                ${currentReport.code} • ${currentReport.category.toUpperCase()}
+              </span>
+              <h3>${currentReport.title}</h3>
+              <p>${currentReport.goal}</p>
+            </div>
+            <span style="font-size: 11px; color: #9CA3AF; margin-top: 4px;">
+              Emisión oficial • Jardines del Cerro ERP (UTESA INF-424)
+            </span>
+          </div>
+
+          <div class="reports-table-scroll">
+            <table class="reports-dark-table">
+              <thead>
+                <tr>
+                  ${(currentReport.headers || []).map(h => `<th>${h}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${displayRows.length === 0 ? `
+                  <tr>
+                    <td colspan="${(currentReport.headers || []).length || 5}" style="text-align: center; padding: 32px; color: #9CA3AF;">
+                      No se encontraron registros que coincidan con los filtros aplicados.
+                    </td>
+                  </tr>
+                ` : displayRows.map(row => `
+                  <tr>
+                    ${row.map(cell => `<td>${cell}</td>`).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          ${currentReport.rules ? `
+            <div class="reports-rule-box">
+              <span style="color: #F59E0B; font-weight: 700;">⚖️ Normativa & Reglas:</span>
+              <span>${currentReport.rules}</span>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Catálogo Maestro de las 30 Consultas y Reportes (Tarjetas Inferiores) -->
+        <div class="reports-catalog-section">
+          <div class="reports-catalog-title-area">
+            <h3><span>📁</span> Catálogo Maestro de Consultas y Reportes del Sistema</h3>
+            <p>Haz clic en cualquiera de las 30 tarjetas para cargar y ejecutar inmediatamente su consulta y reporte en pantalla.</p>
+          </div>
+
+          <div class="reports-grid">
+            ${visibleReports.map(rep => {
+              const isSelected = rep.code === activeCode;
+              return `
+                <div class="report-grid-card ${isSelected ? 'active-card' : ''}" onclick="window.app.selectAndRunReport('${rep.code}');">
+                  <div class="report-grid-top">
+                    <span class="report-badge-code">${rep.code}</span>
+                    <span style="font-size: 18px;">${rep.icon || '📄'}</span>
+                  </div>
+                  <h4>${rep.title}</h4>
+                  <p>${rep.goal && rep.goal.length > 105 ? rep.goal.substring(0, 102) + '...' : (rep.goal || '')}</p>
+                  <div class="report-card-action">
+                    <span>▶ Ejecutar consulta</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Documentación Legal Adicional (Ley 5038) -->
+        <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.08);">
+          <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 style="font-family: var(--font-display); font-size: 18px; font-weight: 800; color: #FFFFFF;">Expedientes y Modelos Legales del Condominio (Ley 5038)</h3>
+              <p style="font-size: 12px; color: #9CA3AF; margin: 0;">Contratos oficiales, actas constitutivas y reglamentos condominales para descarga inmediata.</p>
+            </div>
+            <span class="badge" style="background: rgba(16,185,129,0.15); color: #10B981; font-size: 11px;">Suite Ejecutiva · Descarga Oficial</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+            ${((typeof OWNER_MOCK_DATA !== 'undefined' && OWNER_MOCK_DATA.documentos) ? OWNER_MOCK_DATA.documentos : []).map(doc => {
+              const fileName = (doc.file || '').split('/').pop();
+              return `
+                <div style="background: #1B1C22; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                      <span class="badge" style="background: rgba(255,255,255,0.1); color: #D1D5DB; font-size: 10px;">${doc.category || 'Legal'}</span>
+                      <span style="font-size: 11px; color: #9CA3AF;">${doc.size}</span>
+                    </div>
+                    <h4 style="font-size: 13px; font-weight: 700; color: #FFFFFF; line-height: 1.35; margin-bottom: 4px;">${doc.name}</h4>
+                    <p style="font-size: 11.5px; color: #9CA3AF; line-height: 1.4; margin-bottom: 12px;">${doc.desc || ''}</p>
+                  </div>
+                  <div style="display: flex; gap: 8px; margin-top: auto;">
+                    <a href="${doc.file}" download="${fileName}" class="btn-report-action btn-report-csv" style="flex: 1; padding: 6px 10px; font-size: 11.5px; justify-content: center; text-decoration: none;" onclick="window.app.showToast('Descargando ${doc.name.substring(0, 25)}... (PDF Oficial)');">
+                      <span>📥 Descargar PDF</span>
+                    </a>
+                    <button type="button" class="btn-report-action" style="background: #374151; color: #F3F4F6; padding: 6px 10px; font-size: 11.5px;" onclick="window.app.previewOfficialDocument('${doc.id || doc.file}');" title="Previsualizar en visor interactivo">
+                      <span>👁️ Ver</span>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  filterReportsCategory(category) {
+    this.selectedReportCategory = category;
+    const allReports = window.REPORTS_CATALOG_DATA || [];
+    if (category !== 'Todos') {
+      const existsInCat = allReports.some(r => r.code === this.selectedReportCode && r.category === category);
+      if (!existsInCat) {
+        const firstInCat = allReports.find(r => r.category === category);
+        if (firstInCat) this.selectedReportCode = firstInCat.code;
+      }
+    }
+    this.renderReportsCenter();
+    this.showToast(`Filtrando reportes por: ${category}`);
+  }
+
+  onSelectReport(code) {
+    this.selectedReportCode = code;
+    this.renderReportsCenter();
+  }
+
+  onFilterReportSearch(query) {
+    this.reportSearchFilter = query;
+    this.renderReportsCenter();
+    const input = document.getElementById('admin-report-search');
+    if (input) {
+      input.focus();
+      input.selectionStart = input.selectionEnd = input.value.length;
+    }
+  }
+
+  onReportFilterChange() {
+    const dDesde = document.getElementById('admin-report-desde');
+    const dHasta = document.getElementById('admin-report-hasta');
+    if (dDesde) this.reportDateDesde = dDesde.value;
+    if (dHasta) this.reportDateHasta = dHasta.value;
+    this.showToast('Rango de fechas de reporte actualizado');
+  }
+
+  runReportQuery() {
+    this.showToast(`⚡ Consulta ${this.selectedReportCode} ejecutada con éxito (Datos actualizados)`);
+    this.renderReportsCenter();
+    const tableElem = document.getElementById('report-results-table-card');
+    if (tableElem) {
+      tableElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  selectAndRunReport(code) {
+    this.selectedReportCode = code;
+    this.renderReportsCenter();
+    this.showToast(`⚡ Reporte ${code} cargado y ejecutado`);
+    const tableElem = document.getElementById('report-results-table-card');
+    if (tableElem) {
+      tableElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  exportReportCSV() {
+    const allReports = window.REPORTS_CATALOG_DATA || [];
+    const rep = allReports.find(r => r.code === this.selectedReportCode) || allReports[0];
+    if (!rep) {
+      this.showToast('No hay datos disponibles para exportar');
+      return;
+    }
+
+    const cleanCell = (str) => {
+      if (str === null || str === undefined) return '""';
+      const plain = String(str).replace(/<[^>]*>?/gm, '').trim();
+      return `"${plain.replace(/"/g, '""')}"`;
+    };
+
+    let csvContent = "\uFEFF"; // UTF-8 BOM
+    csvContent += rep.headers.map(cleanCell).join(',') + "\r\n";
+
+    (rep.rows || []).forEach(row => {
+      csvContent += row.map(cleanCell).join(',') + "\r\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = rep.title.replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 40);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${rep.code}_${safeTitle}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    this.showToast(`✓ Reporte ${rep.code} exportado a CSV (Excel) exitosamente`);
+  }
+
+  printCurrentReport() {
+    const allReports = window.REPORTS_CATALOG_DATA || [];
+    const rep = allReports.find(r => r.code === this.selectedReportCode) || allReports[0];
+    if (!rep) {
+      window.print();
+      return;
+    }
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      this.showToast('Por favor permita las ventanas emergentes para imprimir');
+      window.print();
+      return;
+    }
+
+    const cleanCell = (str) => String(str).replace(/<[^>]*>?/gm, '').trim();
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>${rep.code} - ${rep.title}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; padding: 28px; margin: 0; }
+          .header { border-bottom: 2px solid #1B3B36; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .header h1 { font-size: 20px; margin: 0 0 4px 0; color: #1B3B36; font-family: serif; }
+          .header p { font-size: 12.5px; color: #4B5563; margin: 0; }
+          .meta { font-size: 11px; text-align: right; color: #6B726F; line-height: 1.5; }
+          .kpis { display: flex; gap: 16px; margin-bottom: 24px; }
+          .kpi { border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px 16px; flex: 1; background: #F9FAFB; }
+          .kpi-lbl { font-size: 10px; text-transform: uppercase; color: #6B726F; font-weight: 700; margin-bottom: 3px; }
+          .kpi-val { font-size: 17px; font-weight: 800; color: #111827; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 24px; }
+          th { background: #F3F4F6; color: #374151; font-weight: 700; text-align: left; padding: 8px 10px; border-bottom: 2px solid #D1D5DB; }
+          td { padding: 8px 10px; border-bottom: 1px solid #E5E7EB; }
+          tr:nth-child(even) td { background: #FAFAFA; }
+          .rules-box { font-size: 11px; color: #4B5563; padding: 12px; background: #FFFBEB; border-left: 4px solid #F59E0B; margin-bottom: 24px; border-radius: 4px; }
+          .footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #E5E7EB; font-size: 10.5px; color: #6B726F; display: flex; justify-content: space-between; align-items: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>Torre Residencial Jardines del Cerro IV</h1>
+            <p><strong>${rep.code}: ${rep.title}</strong> · Módulo: ${rep.module || rep.category}</p>
+          </div>
+          <div class="meta">
+            <div>Mao, Valverde, Rep. Dominicana · RNC 4-30-12345-6</div>
+            <div>Fecha: ${new Date().toLocaleDateString('es-DO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+            <div>Emisión Oficial ERP Condominial · UTESA INF-424</div>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-lbl">${rep.kpi1 ? rep.kpi1.label : 'TOTAL REGISTROS'}</div>
+            <div class="kpi-val">${rep.kpi1 ? rep.kpi1.val : rep.rows.length}</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lbl">${rep.kpi2 ? rep.kpi2.label : 'VALOR / MONTO'}</div>
+            <div class="kpi-val">${rep.kpi2 ? rep.kpi2.val : 'N/A'}</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lbl">${rep.kpi3 ? rep.kpi3.label : 'EFICIENCIA / TASA'}</div>
+            <div class="kpi-val">${rep.kpi3 ? rep.kpi3.val : '100%'}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              ${(rep.headers || []).map(h => `<th>${h}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${(rep.rows || []).map(row => `
+              <tr>
+                ${row.map(cell => `<td>${cleanCell(cell)}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        ${rep.rules ? `
+          <div class="rules-box">
+            <strong>Normativa & Marco Regulatorio:</strong> ${rep.rules}
+          </div>
+        ` : ''}
+
+        <div class="footer">
+          <span>Sistema ERP Jardines del Cerro · UTESA INF-424 · Diseño de Sistemas</span>
+          <span>Firma Autorizada Auditor / Administrador: ___________________________</span>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+    this.showToast(`🖨️ Abriendo diálogo de impresión para ${rep.code}`);
+  }
+
 }
 
 // Inicialización automática al cargar el DOM
