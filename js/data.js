@@ -404,6 +404,36 @@ const OWNER_MOCK_DATA = {
       type: "PDF",
       category: "Poderes & Votación",
       desc: "Formulario oficial para delegar representación con derecho a voz y voto en asambleas ordinarias y extraordinarias (Ley 5038)."
+    },
+    {
+      id: "DOC-07",
+      name: "Manual de Usuario Oficial del Sistema",
+      file: "docs/Manual_de_Usuario_Jardines_del_Cerro_IV.pdf",
+      date: "Nov 2026",
+      size: "3.5 MB",
+      type: "PDF",
+      category: "Ingeniería & Software",
+      desc: "Manual procedimental exhaustivo paso a paso para Prospectos, Residentes (Propietarios/Inquilinos) y Administrador General con capturas oficiales."
+    },
+    {
+      id: "DOC-08",
+      name: "Manual Técnico de Instalación y Despliegue en Servidores",
+      file: "docs/Manual_de_Instalacion_y_Despliegue_Jardines_del_Cerro_IV.pdf",
+      date: "Nov 2026",
+      size: "450 KB",
+      type: "PDF",
+      category: "Infraestructura & Cloud",
+      desc: "Especificación de arquitectura SaaS Web, guía de despliegue serverless en Google Cloud Run con Docker y puesta en marcha en Servidor Local / On-Premise."
+    },
+    {
+      id: "DOC-09",
+      name: "Catálogo Maestro de 30 Consultas y Reportes del Sistema",
+      file: "docs/Catalogo_Reportes_y_Consultas_Jardines_del_Cerro_IV.pdf",
+      date: "Nov 2026",
+      size: "1.5 MB",
+      type: "PDF",
+      category: "Reportes & DGII",
+      desc: "Compendio académico de las 30 consultas y reportes operativos (REP-01 a REP-30), esquemas SQL, parámetros, KPIs y tablas formateadas (UTESA INF-424)."
     }
   ],
   tickets: [
